@@ -1,0 +1,242 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.14.0
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}
+
+      - name: Lint
+        run: golangci-lint run -c ./golangci.yml ./...
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '>=25.2.1'
+
+      - name: Build admin dashboard UI
+        run: npm --prefix=./ui ci && npm --prefix=./ui run build
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      # structtag is disabled because tools/router/unmarshal_request_data_test.go
+      # tests on purpose an unexported field with a json tag (upstream marks it //nolint:all)
+      - name: Build and vet
+        run: go build ./... && go vet -structtag=false ./...
+
+      - name: Build the ruxbase binary
+        run: go build -o ruxbase ./examples/base && ./ruxbase --help
+
+      - name: No SQLite only SQL
+        run: ./scripts/check-sql-patterns.sh
+
+      # the SQLite importer (cmd/ruxbase-import) is the only package allowed to depend on SQLite
+      - name: No SQLite dependency outside the importer
+        run: |
+          if go list -deps -test $(go list ./... | grep -v '/cmd/ruxbase-import') | grep -E 'modernc.org/sqlite|mattn/go-sqlite3'; then
+            echo "only cmd/ruxbase-import can depend on a SQLite driver"
+            exit 1
+          fi
+
+  # the embedded Postgres of the dev mode ("ruxbase serve --dev" without a DATABASE_URL)
+  dev:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      - name: Test the embedded Postgres
+        env:
+          RUXBASE_TEST_EMBEDDED: '1'
+        run: go test -count=1 -v -run "TestDevPostgres|TestShouldUseDevPostgres|TestResetDevPostgres" .
+
+  # the release archives of the two binaries (the main one without SQLite)
+  release-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      - name: GoReleaser snapshot
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e GOTOOLCHAIN=auto -e GOFLAGS=-buildvcs=false \
+            goreleaser/goreleaser:v2.12.7@sha256:a2a47c0dda85f8d40eaaa5b9765bf76c69addb6060666f8a51441410d9b008e9 \
+            release --snapshot --clean --skip=before,sbom,sign
+          sudo chown -R "$(id -u):$(id -g)" .builds
+
+      - name: Check the binaries
+        run: |
+          go version -m .builds/build_import_linux_amd64_v1/ruxbase-import | grep -q modernc.org/sqlite
+          if go version -m .builds/build_noncgo_linux_amd64_v1/ruxbase | grep modernc.org/sqlite; then
+            echo "the ruxbase binary must not link SQLite"
+            exit 1
+          fi
+          ls .builds/*.zip
+
+  # the official PocketBase JS SDK against a ruxbase server (tests/sdk/js)
+  sdk:
+    runs-on: ubuntu-latest
+    env:
+      # throwaway credentials of the CI container only
+      PGPASSWORD: ci-superuser
+      APP_PASSWORD: ci-ruxbase-app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '>=25.2.1'
+
+      - name: Start Postgres 18
+        run: |
+          docker run -d --name ruxbase_ci -p 5432:5432 \
+            -e POSTGRES_PASSWORD="$PGPASSWORD" \
+            pgvector/pgvector:0.8.7-pg18-trixie \
+            postgres -c wal_level=logical
+          for i in $(seq 1 90); do
+            docker exec ruxbase_ci pg_isready -h 127.0.0.1 -U postgres -q && break
+            sleep 1
+          done
+          docker cp scripts/ci-db-setup.sql ruxbase_ci:/tmp/ci-db-setup.sql
+          docker exec ruxbase_ci psql -U postgres -v ON_ERROR_STOP=1 \
+            -v app_password="$APP_PASSWORD" -f /tmp/ci-db-setup.sql
+
+      - name: Test the JS SDK
+        env:
+          DATABASE_URL: postgres://ruxbase_app:${{ env.APP_PASSWORD }}@localhost:5432/ruxbase?sslmode=disable
+        run: ./scripts/sdk-test.sh
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['17', '18']
+    env:
+      # throwaway credentials of the CI container only
+      PGPASSWORD: ci-superuser
+      APP_PASSWORD: ci-ruxbase-app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+
+      # GitHub Actions services can't pass -c flags to postgres, so the
+      # container is started manually with the same settings as docker-compose.dev.yml
+      - name: Start Postgres ${{ matrix.postgres }}
+        run: |
+          docker run -d --name ruxbase_ci -p 5432:5432 \
+            -e POSTGRES_PASSWORD="$PGPASSWORD" \
+            pgvector/pgvector:0.8.7-pg${{ matrix.postgres }}-trixie \
+            postgres -c wal_level=logical -c max_replication_slots=10 \
+            -c max_wal_senders=10 -c max_slot_wal_keep_size=1GB
+          # check over TCP: the temporary server started by the image entrypoint
+          # during the first initialization listens only on the unix socket
+          for i in $(seq 1 90); do
+            docker exec ruxbase_ci pg_isready -h 127.0.0.1 -U postgres -q && break
+            sleep 1
+          done
+          docker exec ruxbase_ci pg_isready -h 127.0.0.1 -U postgres
+
+      # pg_dump/pg_restore for the backups (same or newer major version than the server)
+      - name: Install the Postgres client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          # use the version 18 binaries explicitly because the /usr/bin wrappers pick the
+          # version of the runner preinstalled local cluster that listens on the same port
+          echo "RUXBASE_PG_DUMP=/usr/lib/postgresql/18/bin/pg_dump" >> "$GITHUB_ENV"
+          echo "RUXBASE_PG_RESTORE=/usr/lib/postgresql/18/bin/pg_restore" >> "$GITHUB_ENV"
+          /usr/lib/postgresql/18/bin/pg_dump --version
+          /usr/lib/postgresql/18/bin/pg_restore --version
+
+      - name: Prepare the test databases
+        run: |
+          docker cp scripts/ci-db-setup.sql ruxbase_ci:/tmp/ci-db-setup.sql
+          docker exec ruxbase_ci psql -U postgres -v ON_ERROR_STOP=1 \
+            -v app_password="$APP_PASSWORD" -f /tmp/ci-db-setup.sql
+          docker exec ruxbase_ci psql -U postgres -d ruxbase_test -Atc \
+            "select version(), current_setting('wal_level'), (select string_agg(extname, ',') from pg_extension)"
+
+      # The whole suite against RUXBASE_TEST_URL with the non-superuser role
+      # ruxbase_app and the parity check with the PocketBase v0.40.6 tests.
+      - name: Test
+        env:
+          RUXBASE_TEST_URL: postgres://ruxbase_app:${{ env.APP_PASSWORD }}@localhost:5432/ruxbase_test?sslmode=disable
+        run: ./scripts/ci-test.sh
+
+      # the list and view rules enforced by the RLS policies (RUXBASE_RLS_STRICT)
+      - name: Test the RLS strict mode
+        env:
+          RUXBASE_TEST_URL: postgres://ruxbase_app:${{ env.APP_PASSWORD }}@localhost:5432/ruxbase_test?sslmode=disable
+          RUXBASE_RLS_STRICT: 'true'
+        run: go test -count=1 -p 4 -timeout 20m ./apis/... ./tests/...
+
+      - name: Upload the test output
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-output-pg${{ matrix.postgres }}
+          path: test-output.jsonl
+          if-no-files-found: ignore
+
+      - name: Leftover test databases
+        if: always()
+        run: |
+          docker exec ruxbase_ci psql -U postgres -Atc "select datname from pg_database where starts_with(datname, 'ruxbase_t_') or starts_with(datname, 'ruxbase_fx_')"
+
+      - name: The main binary doesn't link SQLite
+        run: |
+          if go list -deps ./examples/base | grep -E 'modernc.org/sqlite|mattn/go-sqlite3'; then
+            echo "the ruxbase binary must not depend on a SQLite driver"
+            exit 1
+          fi

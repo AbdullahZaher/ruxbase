@@ -1,0 +1,209 @@
+package core
+
+import (
+	"errors"
+	"time"
+
+	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+// Supported record token types
+const (
+	TokenTypeAuth          = "auth"
+	TokenTypeFile          = "file"
+	TokenTypeVerification  = "verification"
+	TokenTypePasswordReset = "passwordReset"
+	TokenTypeEmailChange   = "emailChange"
+
+	// ruxbase: the token of the direct SQL clients (see [Record.NewRLSToken])
+	TokenTypeRLS = "rls"
+)
+
+// ruxbase: the default and max durations of the RLS tokens (see [Record.NewRLSToken]).
+const (
+	DefaultRLSTokenDuration = 15 * time.Minute
+	MaxRLSTokenDuration     = 24 * time.Hour
+)
+
+// List with commonly used record token claims
+const (
+	TokenClaimId           = "id"
+	TokenClaimType         = "type"
+	TokenClaimCollectionId = "collectionId"
+	TokenClaimEmail        = "email"
+	TokenClaimNewEmail     = "newEmail"
+	TokenClaimRefreshable  = "refreshable"
+)
+
+// Common token related errors
+var (
+	ErrNotAuthRecord     = errors.New("not an auth collection record")
+	ErrMissingSigningKey = errors.New("missing or invalid signing key")
+)
+
+// NewStaticAuthToken generates and returns a new static record authentication token.
+//
+// Static auth tokens are similar to the regular auth tokens, but are
+// non-refreshable and support custom duration.
+//
+// Zero or negative duration will fallback to the duration from the auth collection settings.
+func (m *Record) NewStaticAuthToken(duration time.Duration) (string, error) {
+	return m.newAuthToken(duration, false)
+}
+
+// NewAuthToken generates and returns a new record authentication token.
+func (m *Record) NewAuthToken() (string, error) {
+	return m.newAuthToken(0, true)
+}
+
+func (m *Record) newAuthToken(duration time.Duration, refreshable bool) (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().AuthToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	claims := jwt.MapClaims{
+		TokenClaimType:         TokenTypeAuth,
+		TokenClaimId:           m.Id,
+		TokenClaimCollectionId: m.Collection().Id,
+		TokenClaimRefreshable:  refreshable,
+	}
+
+	if duration <= 0 {
+		duration = m.Collection().AuthToken.DurationTime()
+	}
+
+	return security.NewJWT(claims, key, duration)
+}
+
+// NewVerificationToken generates and returns a new record verification token.
+func (m *Record) NewVerificationToken() (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().VerificationToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypeVerification,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+			TokenClaimEmail:        m.Email(),
+		},
+		key,
+		m.Collection().VerificationToken.DurationTime(),
+	)
+}
+
+// NewPasswordResetToken generates and returns a new auth record password reset request token.
+func (m *Record) NewPasswordResetToken() (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().PasswordResetToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypePasswordReset,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+			TokenClaimEmail:        m.Email(),
+		},
+		key,
+		m.Collection().PasswordResetToken.DurationTime(),
+	)
+}
+
+// NewEmailChangeToken generates and returns a new auth record change email request token.
+func (m *Record) NewEmailChangeToken(newEmail string) (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().EmailChangeToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypeEmailChange,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+			TokenClaimEmail:        m.Email(),
+			TokenClaimNewEmail:     newEmail,
+		},
+		key,
+		m.Collection().EmailChangeToken.DurationTime(),
+	)
+}
+
+// NewRLSToken generates and returns a new token of the auth record for the direct SQL
+// clients (ruxbase_rls.set_claims, see docs/RLS.md).
+//
+// It is signed with the same key as the auth token (so it is invalidated by the same
+// changes, eg. a password change) but it is not accepted by the API, so a token that
+// leaks from a database session (eg. pg_stat_activity) can't be used as an auth token.
+//
+// Zero or negative duration fallbacks to [DefaultRLSTokenDuration] and the
+// duration is limited to [MaxRLSTokenDuration].
+func (m *Record) NewRLSToken(duration time.Duration) (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().AuthToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	if duration <= 0 {
+		duration = DefaultRLSTokenDuration
+	}
+	duration = min(duration, MaxRLSTokenDuration)
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypeRLS,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+		},
+		key,
+		duration,
+	)
+}
+
+// NewFileToken generates and returns a new record private file access token.
+func (m *Record) NewFileToken() (string, error) {
+	if !m.Collection().IsAuth() {
+		return "", ErrNotAuthRecord
+	}
+
+	key := (m.TokenKey() + m.Collection().FileToken.Secret)
+	if key == "" {
+		return "", ErrMissingSigningKey
+	}
+
+	return security.NewJWT(
+		jwt.MapClaims{
+			TokenClaimType:         TokenTypeFile,
+			TokenClaimId:           m.Id,
+			TokenClaimCollectionId: m.Collection().Id,
+		},
+		key,
+		m.Collection().FileToken.DurationTime(),
+	)
+}
