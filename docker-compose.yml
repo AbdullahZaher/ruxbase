@@ -1,0 +1,49 @@
+name: ruxbase
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    container_name: ruxbase_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ruxbasepassword}
+      POSTGRES_DB: ruxbase
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_slot_wal_keep_size=1GB
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ruxbase_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-admin} -d ruxbase" ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    image: ruxbase:local
+    container_name: ruxbase_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-ruxbasepassword}@postgres:5432/ruxbase?sslmode=disable
+    ports:
+      - "8090:8090"
+    volumes:
+      - ruxbase_data:/app/ruxbase_data
+
+volumes:
+  ruxbase_pgdata:
+  ruxbase_data:

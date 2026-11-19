@@ -151,7 +151,7 @@ func newDefaultSettings() *Settings {
 		settings: settings{
 			Meta: MetaConfig{
 				AccentColor:   "#1055c9",
-				AppName:       "Acme",
+				AppName:       "Ruxbase",
 				AppURL:        "http://localhost:8090",
 				HideControls:  false,
 				SenderName:    "Support",
