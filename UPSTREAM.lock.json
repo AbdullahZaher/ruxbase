@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "project": "Ruxbase",
+  "upstream": {
+    "repository": "https://github.com/pocketbase/pocketbase",
+    "reference_version": "v0.40.6",
+    "reference_commit": "9d281ccaba65f2686eb7b0b614ccda72d1116a1b",
+    "ancestry_verified": false,
+    "last_integrated_commit": null,
+    "integration_mode": "reviewed-selective-port",
+    "sole_upstream": true
+  },
+  "policy": {
+    "automatic_merge": false,
+    "third_party_fork_sync": false,
+    "compatibility_tests_required": true,
+    "postgresql_integration_tests_required": true,
+    "maintainer_review_required": true,
+    "history_rewrite_requires_owner_approval": true
+  }
+}

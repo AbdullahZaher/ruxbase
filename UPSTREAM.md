@@ -5,9 +5,32 @@ ruxbase is a fork of [PocketBase](https://github.com/pocketbase/pocketbase)
 lists what ruxbase changes in the PocketBase code and how to bring the changes
 of a new PocketBase version.
 
-The `main` branch keeps the PocketBase history: it starts at the PocketBase
-`v0.40.6` tag and the ruxbase commits are on top of it, so a new PocketBase
-version can be merged with `git merge`.
+## Upstream policy
+
+The official PocketBase repository, https://github.com/pocketbase/pocketbase,
+is the sole upstream for inherited application code. Ruxbase is independently
+maintained: PostgreSQL integration, migrations, RLS, clustering and all
+Ruxbase-specific features are owned and developed within this repository.
+No third-party fork is a synchronization source or required runtime dependency.
+Ordinary third-party libraries remain subject to their own dependency and
+license policies.
+
+The reference baseline is PocketBase v0.40.6, commit
+`9d281ccaba65f2686eb7b0b614ccda72d1116a1b`. See
+[`UPSTREAM.lock.json`](UPSTREAM.lock.json).
+
+The current repository was initialized with snapshot commits. Shared Git
+ancestry with PocketBase has not been established on main. Do not assume
+that a normal merge will work, and do not use unrelated-history merges as a
+shortcut. Before adopting the merge procedure below, reconstruct and verify
+the inherited baseline on a separate candidate branch, preserve the current
+tree and history, and obtain maintainer approval for any main-branch history
+change. Until then, selectively port changes with explicit source commit
+references and reviewed diffs.
+
+No automatic upstream merge or deployment is permitted. Every integration
+must preserve PostgreSQL semantics, pass the compatibility tests and receive
+maintainer review.
 
 ```bash
 git remote add upstream https://github.com/pocketbase/pocketbase.git
@@ -109,7 +132,10 @@ The main changes by area:
    migrations, new field types, new filter functions and new in-memory state
    (caches, `app.Store()`, timers).
 
-2. **Merge the tag** in a branch:
+2. **Merge the tag** in an isolated branch only after shared ancestry has been verified:
+
+   Verify the reference baseline with `git merge-base --is-ancestor upstream/v0.40.6 HEAD`.
+   If the check fails, stop the merge procedure and use reviewed selective ports instead.
 
    ```bash
    git fetch upstream refs/tags/vX.Y.Z:refs/tags/upstream/vX.Y.Z
