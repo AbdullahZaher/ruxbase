@@ -1,0 +1,105 @@
+version: 2
+
+project_name: ruxbase
+
+dist: .builds
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: build_noncgo
+    main: ./examples/base
+    binary: ruxbase
+    ldflags:
+      - -s -w -X github.com/AbdullahZaher/ruxbase.Version={{ .Version }} -X github.com/AbdullahZaher/ruxbase/apis.MCPVersion={{ .Version }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - s390x
+      - ppc64le
+    goarm:
+      - 7
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: s390x
+      - goos: windows
+        goarch: ppc64le
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: s390x
+      - goos: darwin
+        goarch: ppc64le
+
+  # the PocketBase importer (the only binary that links a SQLite driver)
+  - id: build_import
+    main: ./cmd/ruxbase-import
+    binary: ruxbase-import
+    ldflags:
+      - -s -w
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+release:
+  name_template: "ruxbase {{ .Tag }}"
+  draft: false
+
+archives:
+  - id: archive_noncgo
+    ids: [build_noncgo]
+    formats: [zip]
+    files:
+      - LICENSE.md
+      - CHANGELOG.md
+
+  - id: archive_import
+    ids: [build_import]
+    name_template: "ruxbase-import_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [zip]
+    files:
+      - LICENSE.md
+
+checksum:
+  name_template: "checksums.txt"
+
+# an SPDX SBOM of each archive (requires syft)
+sboms:
+  - artifacts: archive
+
+# a Sigstore bundle of the checksums file (requires cosign and the GitHub OIDC token), verify with cosign v3+:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/AbdullahZaher/ruxbase/\.github/workflows/release\.yaml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^examples:"
+      - "^ui:"

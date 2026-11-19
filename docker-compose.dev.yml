@@ -1,0 +1,43 @@
+# The development Postgres of ruxbase: PostgreSQL 18 + pgvector, with
+# wal_level=logical for the realtime replication source.
+# The credentials are in .env (not committed, see .env.example):
+# POSTGRES_USER and POSTGRES_PASSWORD.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Exposed only on the host loopback (127.0.0.1:5433) to not clash with another
+# Postgres on 5432 and to not be reachable from the network.
+name: ruxbase-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    container_name: ruxbase_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ruxbase
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_slot_wal_keep_size=1GB
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # PG18 images keep PGDATA under /var/lib/postgresql/18/docker.
+      - ruxbase_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d ruxbase" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  ruxbase_pgdata:
