@@ -1,0 +1,49 @@
+name: Import verified PocketBase reference
+on:
+  push:
+    branches:
+      - foundation/import-pocketbase-reference
+    paths:
+      - .github/workflows/import-pocketbase-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-reference:
+    if: github.repository == 'AbdullahZaher/ruxbase' && github.ref == 'refs/heads/foundation/import-pocketbase-reference'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch and validate the official reference without executing upstream code
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init reference
+          cd reference
+          git remote add upstream https://github.com/pocketbase/pocketbase.git
+          git fetch --no-tags upstream refs/tags/v0.40.6:refs/tags/upstream/v0.40.6
+          expected=9d281ccaba65f2686eb7b0b614ccda72d1116a1b
+          test "$(git rev-parse 'upstream/v0.40.6^{commit}')" = "$expected"
+          git show -s --format='%H %T' "$expected"
+      - name: Import only the verified reference branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd reference
+          expected=9d281ccaba65f2686eb7b0b614ccda72d1116a1b
+          test "$(git rev-parse 'upstream/v0.40.6^{commit}')" = "$expected"
+          git remote add origin https://github.com/AbdullahZaher/ruxbase.git
+          gh auth setup-git
+          target=refs/heads/upstream/pocketbase-v0.40.6
+          existing=$(git ls-remote origin "$target")
+          if [[ -n "$existing" ]]; then
+            test "$(printf '%s\n' "$existing" | cut -f1)" = "$expected"
+          else
+            git push origin "$expected:$target"
+          fi
+          test "$(git ls-remote origin "$target" | cut -f1)" = "$expected"
+          echo "Imported the pinned reference only; main and all application code remain untouched."
