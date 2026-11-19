@@ -338,8 +338,16 @@ func TestReplicationLeaderFailover(t *testing.T) {
 		)
 	}
 
-	if !follower.app.Cluster().IsReplicationLeader() {
-		t.Fatal("Expected the follower to become the replication leader")
+	// The follower attempts leadership on a periodic retry interval. All
+	// burst events can already have been delivered before that retry fires.
+	// Keep the loss/duplicate assertions above and independently wait for
+	// the actual leadership transition within a bounded deadline.
+	deadline := time.Now().Add(10 * time.Second)
+	for !follower.app.Cluster().IsReplicationLeader() {
+		if time.Now().After(deadline) {
+			t.Fatal("Expected the follower to become the replication leader within 10s")
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 }
 
