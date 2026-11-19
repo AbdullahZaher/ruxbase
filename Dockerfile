@@ -11,7 +11,7 @@
 #
 # The base images are pinned by digest (updated by Dependabot).
 
-FROM golang:1.27-trixie@sha256:7b072c590a326b9d2a43b165ae247f6e8eafff32e1ad154ab97139e89f053be9 AS build
+FROM golang:1.27-trixie@sha256:f18c3d73a184fb0582828510722e723b63a93f7188d11dd223d9be6f6880e65d AS build
 
 WORKDIR /src
 
@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
     -o /out/ruxbase ./examples/base \
     && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/ruxbase-import ./cmd/ruxbase-import
 
-FROM debian:trixie-slim@sha256:89c1ea91e897f0fe0a3731595330bc45b8bdef4047464a07116f891a94054b31
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates postgresql-common \
