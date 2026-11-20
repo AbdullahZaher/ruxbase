@@ -36,6 +36,14 @@ func (app *BaseApp) bootstrapPrepared() (err error) {
 		}
 	}()
 
+	var manifest preparedManifest
+	if app.config.PreparedManifestJSON != "" {
+		manifest, err = parsePreparedManifest(app.config.PreparedManifestJSON, app.config.PreparedRuntimeRole)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Prepared metadata always uses the guarded connector, not an arbitrary
 	// application DBConnect override. Keep the legacy connector unchanged.
 	logsURL := app.config.LogsDatabaseURL
@@ -76,6 +84,12 @@ func (app *BaseApp) bootstrapPrepared() (err error) {
 		if err != nil || report.SessionRole != app.config.PreparedRuntimeRole ||
 			report.CurrentRole != app.config.PreparedRuntimeRole || len(report.Findings()) != 0 {
 			return errors.New("prepared bootstrap runtime authority rejected")
+		}
+	}
+
+	if app.config.PreparedManifestJSON != "" {
+		if err := checkPreparedManifest(ctx, main, aux, manifest); err != nil {
+			return err
 		}
 	}
 
