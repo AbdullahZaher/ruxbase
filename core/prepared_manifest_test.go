@@ -22,7 +22,7 @@ func TestParsePreparedManifest(t *testing.T) {
 }
 
 func TestPreparedManifestCannotFallBackToLegacy(t *testing.T) {
-	app := NewBaseApp(BaseAppConfig{PreparedManifestJSON: "{}"})
+	app := NewBaseApp(BaseAppConfig{DatabaseURL: "unused-test-config", PreparedManifestJSON: "{}"})
 	if err := app.Bootstrap(); err == nil || app.IsBootstrapped() {
 		t.Fatal("manifest without explicit identity fell through to legacy bootstrap")
 	}
