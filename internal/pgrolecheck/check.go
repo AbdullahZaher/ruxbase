@@ -65,8 +65,22 @@ func Inspect(ctx context.Context, db *sql.DB) (Report, error) {
 		return Report{}, errors.New("unable to begin read-only role inspection")
 	}
 	defer func() { _ = tx.Rollback() }()
+	var report Report
+	err = tx.QueryRowContext(ctx, authorityQuery).Scan(
+		&report.SessionRole, &report.CurrentRole, &report.PrivilegedMember,
+		&report.DatabaseOwner, &report.DatabaseCreate, &report.SchemaOwner,
+		&report.SchemaCreate, &report.RelationOwner, &report.RoutineOwner,
+	)
+	if err != nil {
+		return Report{}, errors.New("unable to inspect PostgreSQL role authority")
+	}
+	if err := tx.Commit(); err != nil {
+		return Report{}, errors.New("unable to finish read-only role inspection")
+	}
+	return report, nil
+}
 
-	const query = `
+const authorityQuery = `
 SELECT session_user, current_user,
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_roles r
@@ -101,17 +115,3 @@ SELECT session_user, current_user,
 FROM pg_catalog.pg_database d
 WHERE d.datname = pg_catalog.current_database()
 `
-	var report Report
-	err = tx.QueryRowContext(ctx, query).Scan(
-		&report.SessionRole, &report.CurrentRole, &report.PrivilegedMember,
-		&report.DatabaseOwner, &report.DatabaseCreate, &report.SchemaOwner,
-		&report.SchemaCreate, &report.RelationOwner, &report.RoutineOwner,
-	)
-	if err != nil {
-		return Report{}, errors.New("unable to inspect PostgreSQL role authority")
-	}
-	if err := tx.Commit(); err != nil {
-		return Report{}, errors.New("unable to finish read-only role inspection")
-	}
-	return report, nil
-}

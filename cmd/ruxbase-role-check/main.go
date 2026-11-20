@@ -47,6 +47,11 @@ func run() error {
 	findings := report.Findings()
 	var drift *pgrolecheck.GrantDrift
 	var scopeErr error
+	var manifestDrift *pgrolecheck.ManifestDrift
+	manifestPath := os.Getenv("RUXBASE_ROLE_CHECK_MANIFEST_FILE")
+	if manifestPath != "" && os.Getenv("RUXBASE_ROLE_CHECK_GRANTS_FILE") != "" {
+		return errors.New("select either a scoped grant contract or a manifest")
+	}
 	if path := os.Getenv("RUXBASE_ROLE_CHECK_GRANTS_FILE"); path != "" {
 		if contract.Runtime == "" {
 			return errors.New("scoped grants require an explicit runtime identity contract")
@@ -66,12 +71,29 @@ func run() error {
 		drift = &result
 		scopeErr = err
 	}
+	if manifestPath != "" {
+		if contract.Runtime == "" {
+			return errors.New("grant manifest requires an explicit runtime identity contract")
+		}
+		raw, err := os.ReadFile(manifestPath)
+		if err != nil {
+			return errors.New("unable to read grant manifest")
+		}
+		var manifest pgrolecheck.GrantManifest
+		if err := json.Unmarshal(raw, &manifest); err != nil || manifest.Role != contract.Runtime {
+			return errors.New("invalid grant manifest or identity mismatch")
+		}
+		result, err := manifest.Check(ctx, db)
+		manifestDrift = &result
+		scopeErr = err
+	}
 	output := struct {
-		Authority  pgrolecheck.Report      `json:"authority"`
-		Findings   []string                `json:"findings"`
-		GrantDrift *pgrolecheck.GrantDrift `json:"grantDrift,omitempty"`
-		ScreenOK   bool                    `json:"screenOK"`
-	}{report, findings, drift, len(findings) == 0 && scopeErr == nil}
+		Authority     pgrolecheck.Report         `json:"authority"`
+		Findings      []string                   `json:"findings"`
+		GrantDrift    *pgrolecheck.GrantDrift    `json:"grantDrift,omitempty"`
+		ManifestDrift *pgrolecheck.ManifestDrift `json:"manifestDrift,omitempty"`
+		ScreenOK      bool                       `json:"screenOK"`
+	}{report, findings, drift, manifestDrift, len(findings) == 0 && scopeErr == nil}
 	if err := json.NewEncoder(os.Stdout).Encode(output); err != nil {
 		return err
 	}

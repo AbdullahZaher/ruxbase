@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -150,6 +151,119 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	if err == nil || !reflect.DeepEqual(drift.Missing, []pgrolecheck.Grant{{Kind: "relation", Object: "items", Privilege: "INSERT"}}) ||
 		!reflect.DeepEqual(drift.Unexpected, []pgrolecheck.Grant{{Kind: "relation", Object: "items", Privilege: "SELECT"}}) {
 		t.Fatalf("expected exact grant drift, got %+v (%v)", drift, err)
+	}
+
+	// Extended contracts enumerate effective column privileges, including
+	// privileges inherited from a table grant, and exact routine signatures.
+	for _, query := range []string{
+		"CREATE TABLE ruxbase_grant_contract.details (id integer, note text)",
+		"GRANT SELECT (note) ON ruxbase_grant_contract.details TO " + identifier,
+		"CREATE FUNCTION ruxbase_grant_contract.fixture_value(integer) RETURNS integer LANGUAGE sql AS 'SELECT $1'",
+	} {
+		if _, err := owner.ExecContext(ctx, query); err != nil {
+			t.Fatal("unable to prepare extended grant fixture")
+		}
+	}
+	grants.Extended = true
+	grants.Grants = []pgrolecheck.Grant{
+		{Kind: "schema", Object: "ruxbase_grant_contract", Privilege: "USAGE"},
+		{Kind: "relation", Object: "items", Privilege: "SELECT"},
+		{Kind: "sequence", Object: "item_seq", Privilege: "USAGE"},
+		{Kind: "column", Object: "items.id", Privilege: "SELECT"},
+		{Kind: "column", Object: "details.note", Privilege: "SELECT"},
+		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
+	}
+	if drift, err := grants.Check(ctx, runtime); err != nil {
+		t.Fatalf("extended grants rejected: %+v (%v)", drift, err)
+	}
+	grants.Grants = grants.Grants[:len(grants.Grants)-1]
+	drift, err = grants.Check(ctx, runtime)
+	if err == nil || !reflect.DeepEqual(drift.Unexpected, []pgrolecheck.Grant{
+		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
+	}) || len(drift.Missing) != 0 {
+		t.Fatalf("unexpected routine authority was not detected: %+v (%v)", drift, err)
+	}
+
+	// A manifest cannot omit other schemas, even if the scoped grant
+	// contract itself is valid. The fixture always has public.
+	manifest := pgrolecheck.GrantManifest{Role: role, Schemas: []pgrolecheck.GrantContract{grants}}
+	manifestDrift, err := manifest.Check(ctx, runtime)
+	if err == nil || !slices.Contains(manifestDrift.UnexpectedSchemas, "public") {
+		t.Fatalf("omitted schema was not detected: %+v (%v)", manifestDrift, err)
+	}
+
+	// The guarded pool admits each distinct physical connection and its
+	// reused sessions. Only the disposable database is involved.
+	guarded, err := pgrolecheck.OpenGuardedPool(u.String(), role, "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer guarded.Close()
+	guarded.SetMaxOpenConns(3)
+	guarded.SetMaxIdleConns(3)
+	pids := map[int]bool{}
+	connections := make([]*sql.Conn, 0, 3)
+	defer func() {
+		for _, conn := range connections {
+			_ = conn.Close()
+		}
+	}()
+	for range 3 {
+		conn, err := guarded.Conn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connections = append(connections, conn)
+		var pid int
+		var actualRole, schema string
+		if err := conn.QueryRowContext(ctx, "SELECT pg_backend_pid(), current_user, current_setting('search_path')").Scan(&pid, &actualRole, &schema); err != nil {
+			t.Fatal(err)
+		}
+		if pids[pid] || actualRole != role || schema != "public" {
+			t.Fatal("unexpected guarded connection identity or schema")
+		}
+		pids[pid] = true
+	}
+	for _, conn := range connections {
+		if err := conn.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	connections = nil
+
+	// Repeated checkout of the existing pool must continue to admit the role.
+	if err := guarded.PingContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Changing the authority of this disposable login invalidates the
+	// existing idle sessions as well as newly established connections.
+	if _, err := owner.ExecContext(ctx, "GRANT CREATE ON SCHEMA ruxbase_grant_contract TO "+identifier); err != nil {
+		t.Fatal("unable to update disposable fixture grants")
+	}
+	if err := guarded.PingContext(ctx); err == nil {
+		t.Fatal("guarded pool accepted excess authority after grant change")
+	}
+	if _, err := owner.ExecContext(ctx, "REVOKE CREATE ON SCHEMA ruxbase_grant_contract FROM "+identifier); err != nil {
+		t.Fatal("unable to restore disposable fixture grants")
+	}
+	if err := guarded.PingContext(ctx); err != nil {
+		t.Fatal("guarded pool did not recover after authority correction")
+	}
+	// Reject the disposable database owner even when explicitly named.
+	var ownerRole string
+	if err := owner.QueryRowContext(ctx, "SELECT current_user").Scan(&ownerRole); err != nil {
+		t.Fatal(err)
+	}
+	ownerPool, err := pgrolecheck.OpenGuardedPool(fixture.URL, ownerRole, "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ownerPool.Close()
+	if err := ownerPool.PingContext(ctx); err == nil {
+		t.Fatal("privileged owner admitted by guarded connector")
+	}
+	if _, err := pgrolecheck.OpenGuardedPool(u.String(), ownerRole, "public"); err == nil {
+		t.Fatal("mismatched connection configuration admitted")
 	}
 
 	contract.Runtime = fixture.Name + "_different"

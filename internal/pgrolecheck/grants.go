@@ -9,7 +9,7 @@ import (
 
 // Grant describes an effective privilege in a single reviewed application
 // schema. Grant options are separate privileges with the WITH GRANT OPTION
-// suffix. This contract covers schema, relation and sequence ACLs only.
+// suffix. Extended contracts also include effective column and routine ACLs.
 type Grant struct {
 	Kind      string `json:"kind"`
 	Object    string `json:"object"`
@@ -19,9 +19,10 @@ type Grant struct {
 // GrantContract declares the exact effective grants for one runtime identity
 // in a named application schema. No wildcard or implicit grant is accepted.
 type GrantContract struct {
-	Role   string  `json:"role"`
-	Schema string  `json:"schema"`
-	Grants []Grant `json:"grants"`
+	Role     string  `json:"role"`
+	Schema   string  `json:"schema"`
+	Grants   []Grant `json:"grants"`
+	Extended bool    `json:"extended,omitempty"`
 }
 
 // GrantDrift separates missing grants from extra authority.
@@ -68,8 +69,9 @@ func CompareGrants(expected, actual []Grant) GrantDrift {
 
 // Check inspects grants on the actual session identity in a read-only catalog
 // transaction. It reports drift and fails on unexpected or missing grants.
-// It does not certify column ACLs, routines, other schemas, ownership, RLS,
-// role switching, future privileges or the serving pool.
+// Extended mode includes effective column grants and routine execution.
+// Neither mode certifies other schemas, ownership, RLS, role switching,
+// future privileges or the serving pool.
 func (c GrantContract) Check(ctx context.Context, db *sql.DB) (GrantDrift, error) {
 	if c.Role == "" || c.Schema == "" || c.Grants == nil || db == nil {
 		return GrantDrift{}, errors.New("incomplete scoped grant contract")
@@ -79,10 +81,23 @@ func (c GrantContract) Check(ctx context.Context, db *sql.DB) (GrantDrift, error
 		return GrantDrift{}, errors.New("unable to begin scoped grant inspection")
 	}
 	defer func() { _ = tx.Rollback() }()
+	drift, err := c.checkTx(ctx, tx)
+	if err != nil {
+		return drift, err
+	}
+	if err := tx.Commit(); err != nil {
+		return GrantDrift{}, errors.New("unable to finish scoped grant inspection")
+	}
+	if len(drift.Missing) != 0 || len(drift.Unexpected) != 0 {
+		return drift, errors.New("scoped runtime grant drift detected")
+	}
+	return drift, nil
+}
 
+func (c GrantContract) checkTx(ctx context.Context, tx *sql.Tx) (GrantDrift, error) {
 	var session, current string
 	var exists bool
-	err = tx.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 SELECT session_user, current_user,
        EXISTS (SELECT 1 FROM pg_catalog.pg_namespace
                WHERE nspname = $1 AND nspname <> 'information_schema'
@@ -118,10 +133,28 @@ WITH target AS (
     CROSS JOIN (VALUES (''), (' WITH GRANT OPTION')) o(suffix)
     WHERE c.relkind = 'S'
       AND pg_catalog.has_sequence_privilege(current_user, c.oid, p.name || o.suffix)
+    UNION ALL
+    SELECT 'column', pg_catalog.quote_ident(c.relname) || '.' || pg_catalog.quote_ident(a.attname),
+           p.name || o.suffix
+    FROM pg_catalog.pg_class c JOIN target n ON n.oid = c.relnamespace
+    JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid
+    CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) p(name)
+    CROSS JOIN (VALUES (''), (' WITH GRANT OPTION')) o(suffix)
+    WHERE $2::boolean AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+      AND a.attnum > 0 AND NOT a.attisdropped
+      AND pg_catalog.has_column_privilege(current_user, c.oid, a.attnum, p.name || o.suffix)
+    UNION ALL
+    SELECT 'routine', pg_catalog.quote_ident(f.proname) || '(' ||
+           pg_catalog.pg_get_function_identity_arguments(f.oid) || ')',
+           'EXECUTE' || o.suffix
+    FROM pg_catalog.pg_proc f JOIN target n ON n.oid = f.pronamespace
+    CROSS JOIN (VALUES (''), (' WITH GRANT OPTION')) o(suffix)
+    WHERE $2::boolean
+      AND pg_catalog.has_function_privilege(current_user, f.oid, 'EXECUTE' || o.suffix)
 )
 SELECT kind, object, privilege FROM privileges ORDER BY kind, object, privilege
 `
-	rows, err := tx.QueryContext(ctx, query, c.Schema)
+	rows, err := tx.QueryContext(ctx, query, c.Schema, c.Extended)
 	if err != nil {
 		return GrantDrift{}, errors.New("unable to inspect scoped grants")
 	}
@@ -138,12 +171,5 @@ SELECT kind, object, privilege FROM privileges ORDER BY kind, object, privilege
 	if err := rows.Err(); err != nil {
 		return GrantDrift{}, errors.New("incomplete scoped grant inspection")
 	}
-	if err := tx.Commit(); err != nil {
-		return GrantDrift{}, errors.New("unable to finish scoped grant inspection")
-	}
-	drift := CompareGrants(c.Grants, actual)
-	if len(drift.Missing) != 0 || len(drift.Unexpected) != 0 {
-		return drift, errors.New("scoped runtime grant drift detected")
-	}
-	return drift, nil
+	return CompareGrants(c.Grants, actual), nil
 }

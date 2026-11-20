@@ -36,24 +36,41 @@ func (app *BaseApp) bootstrapPrepared() (err error) {
 		}
 	}()
 
-	// Bind metadata queries to the normal explicit schema. No operator DSN
-	// is accepted by this profile; the existing pools must pass admission.
-	dsn, err := dsnWithRuntimeParam(app.config.DatabaseURL, "search_path", "public")
+	// Prepared metadata always uses the guarded connector, not an arbitrary
+	// application DBConnect override. Keep the legacy connector unchanged.
+	logsURL := app.config.LogsDatabaseURL
+	if logsURL == "" {
+		logsURL = app.config.DatabaseURL
+	}
+	mainDB, err := pgrolecheck.OpenGuardedPool(app.config.DatabaseURL, app.config.PreparedRuntimeRole, "public")
 	if err != nil {
-		return errors.New("invalid prepared runtime database configuration")
+		return err
 	}
-	app.config.DatabaseURL = dsn
-	if err := app.initDataDB(); err != nil {
-		return errors.New("unable to initialize prepared runtime pool")
+	mainBuilder := dbx.NewFromDB(mainDB, "pgx")
+	app.dataDB = mainBuilder
+	app.concurrentDB = mainBuilder
+	app.nonconcurrentDB = mainBuilder
+	mainDB.SetMaxOpenConns(app.config.DataMaxOpenConns)
+	mainDB.SetMaxIdleConns(app.config.DataMaxIdleConns)
+	mainDB.SetConnMaxIdleTime(3 * time.Minute)
+	mainDB.SetConnMaxLifetime(app.config.ConnMaxLifetime)
+
+	auxDB, err := pgrolecheck.OpenGuardedPool(logsURL, app.config.PreparedRuntimeRole, AuxSchema)
+	if err != nil {
+		return err
 	}
-	if err := app.initAuxDB(); err != nil {
-		return errors.New("unable to initialize prepared auxiliary pool")
-	}
+	auxBuilder := dbx.NewFromDB(auxDB, "pgx")
+	app.auxConcurrentDB = auxBuilder
+	app.auxNonconcurrentDB = auxBuilder
+	auxDB.SetMaxOpenConns(app.config.AuxMaxOpenConns)
+	auxDB.SetMaxIdleConns(app.config.AuxMaxIdleConns)
+	auxDB.SetConnMaxIdleTime(3 * time.Minute)
+	auxDB.SetConnMaxLifetime(app.config.ConnMaxLifetime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	main := app.dataDB.(*dbx.DB).DB()
-	aux := app.auxConcurrentDB.(*dbx.DB).DB()
+	main := mainDB
+	aux := auxDB
 	for _, db := range []*sql.DB{main, aux} {
 		report, err := pgrolecheck.Inspect(ctx, db)
 		if err != nil || report.SessionRole != app.config.PreparedRuntimeRole ||
