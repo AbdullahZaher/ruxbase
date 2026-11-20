@@ -152,6 +152,37 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 		t.Fatalf("expected exact grant drift, got %+v (%v)", drift, err)
 	}
 
+	// Extended contracts enumerate effective column privileges, including
+	// privileges inherited from a table grant, and exact routine signatures.
+	for _, query := range []string{
+		"CREATE TABLE ruxbase_grant_contract.details (id integer, note text)",
+		"GRANT SELECT (note) ON ruxbase_grant_contract.details TO " + identifier,
+		"CREATE FUNCTION ruxbase_grant_contract.fixture_value(integer) RETURNS integer LANGUAGE sql AS 'SELECT $1'",
+	} {
+		if _, err := owner.ExecContext(ctx, query); err != nil {
+			t.Fatal("unable to prepare extended grant fixture")
+		}
+	}
+	grants.Extended = true
+	grants.Grants = []pgrolecheck.Grant{
+		{Kind: "schema", Object: "ruxbase_grant_contract", Privilege: "USAGE"},
+		{Kind: "relation", Object: "items", Privilege: "SELECT"},
+		{Kind: "sequence", Object: "item_seq", Privilege: "USAGE"},
+		{Kind: "column", Object: "items.id", Privilege: "SELECT"},
+		{Kind: "column", Object: "details.note", Privilege: "SELECT"},
+		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
+	}
+	if drift, err := grants.Check(ctx, runtime); err != nil {
+		t.Fatalf("extended grants rejected: %+v (%v)", drift, err)
+	}
+	grants.Grants = grants.Grants[:len(grants.Grants)-1]
+	drift, err = grants.Check(ctx, runtime)
+	if err == nil || !reflect.DeepEqual(drift.Unexpected, []pgrolecheck.Grant{
+		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
+	}) || len(drift.Missing) != 0 {
+		t.Fatalf("unexpected routine authority was not detected: %+v (%v)", drift, err)
+	}
+
 	// The guarded pool admits each distinct physical connection and its
 	// reused sessions. Only the disposable database is involved.
 	guarded, err := pgrolecheck.OpenGuardedPool(u.String(), role, "public")
