@@ -1,0 +1,69 @@
+name: docs-build-candidate
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '25.2.1'
+      - name: Validate committed registry lockfile
+        working-directory: website
+        run: node scripts/inspect-lock.mjs
+      - name: Install from resolved lockfile
+        working-directory: website
+        run: npm ci --no-audit --no-fund
+      - name: Check production dependency advisories (high or critical)
+        working-directory: website
+        run: npm audit --omit=dev --audit-level=high
+      - name: Test and build
+        working-directory: website
+        run: |
+          npm run test:foundation
+          npm run test:ai
+          npm run build
+          node scripts/check-build.mjs
+          node scripts/check-ai.mjs
+          python3 tests/test-recover-docs-snapshot.py
+          python3 scripts/rehearse-docs-recovery.py
+      - name: Evaluate 30 documentation retrieval queries
+        working-directory: website
+        run: npm run test:retrieval
+      - name: Independent OpenAPI schema validation
+        run: bash website/scripts/validate-openapi.sh
+      - name: Stage verified test-only accessibility scanner
+        run: bash website/scripts/stage-axe.sh "$RUNNER_TEMP/docs-axe.min.js"
+      - name: Exercise built site in Chromium
+        working-directory: website
+        env:
+          CHROME_BIN: google-chrome
+          DOCS_BROWSER_NO_SANDBOX: '1'
+          DOCS_AXE_FILE: ${{ runner.temp }}/docs-axe.min.js
+        run: node scripts/browser-smoke.mjs
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: docs-browser-evidence
+          path: website/browser-evidence
+          if-no-files-found: warn
+      - name: Verify sealed artifact before upload
+        working-directory: website
+        run: node scripts/release-artifact.mjs verify "$GITHUB_SHA"
+      - name: Retain development site artifact (not deployed)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: docs-development-candidate
+          path: website/dist
+          retention-days: 30
+          if-no-files-found: error

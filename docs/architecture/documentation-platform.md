@@ -1,0 +1,143 @@
+# Ruxbase documentation platform — implementation plan v1.1
+
+Status: approved for implementation by the project owner; publication gates open.
+Baseline: 0de513e09c35763f2e1814f4b99e8f42d955753c (tree 57dba8a3da1d5041877763af7157ef9992a06cd2).
+Integration: `chore/documentation-platform` → `main` via reviewed PR, per [branch strategy](../BRANCH-STRATEGY.md). No production release authorization is implied.
+
+## Decisions
+
+- Astro Starlight, static HTML, Pagefind, npm with a committed lockfile, GitHub Pages from GitHub Actions.
+- Existing repository Markdown remains authoritative. Use an explicit public-source manifest; do not duplicate existing guides or publish engineering reports. Preserve existing source paths. New public narrative lives in docs/public. The website build stages selected content and assets into ignored directories.
+- English first, links and slugs stable; no custom domain purchase assumed. Initial site/base: https://abdullahzaher.github.io and /ruxbase/. A future verified custom domain removes the base. Validate both modes before enabling domain migration.
+- Preserve the three existing brand PNGs in place and the R geometry and uppercase wordmark. Neutral light/dark design, blue interactive accent subject to contrast tests. No redesign, no raster embedded in a file represented as vector. Export inspected genuine vector artwork and optimized raster derivatives only after visual equivalence review. A temporary original PNG is acceptable for the development preview, not the final asset gate.
+- No GitHub Releases returned at baseline. Until an approved Ruxbase release exists, root is explicitly development documentation. Do not infer release approval from the inherited changelog. Later promote a verified release snapshot to root, publish main at next/, retain selected release snapshots under versions/, and associate every output with exact source commit. Development/archival indexing policy is explicit; do not block crawler access to pages that need noindex.
+- Markdown exports, llms.txt and bounded per-topic/full bundles are generated from the published source set only. Prefer one generator, no manual copies. llms.txt is optional ecosystem guidance, not a search ranking guarantee. No training crawler policy is assumed beyond owner decision; project Pages cannot govern origin-root robots.txt.
+- OpenAPI 3.1 covers verified platform REST contracts, not hypothetical user-specific collection fields. Scalar is a viewer; provide static HTML reference content as well. SSE, MCP and dynamic schemas need separate explanations. Derive CLI/config references from verified definitions; no invented endpoints or capabilities.
+- PocketBase remains sole ongoing upstream; no new runtime dependencies or changes to application behavior for docs.
+- No hosted chatbot, vector search service, separate docs repo, public development PR previews or new documentation MCP service in this scope.
+
+## Batch 00 — brand and design foundation
+
+B00.1 inventory originals and record dimensions, Git blob IDs and intended roles.
+B00.2 define shared neutral palette and theme tokens, provenance and usage rules.
+B00.3 create true vector equivalents and minimal favicon variants; keep original PNGs unchanged.
+B00.4 validate small-size 16/24/32 px, light/dark backgrounds, contrast, geometry, asset size and use in docs header. Require maintainer visual review; no invented sign-off.
+
+## Batch 01 — content and site foundation
+
+B01.1 scaffold Starlight and establish source staging; keep generated files out of Git.
+B01.2 pin compatible runtime/package versions; generate lockfile using registry and verify npm ci on a clean checkout. Review dependencies and audit findings.
+B01.3 inventory and migrate public docs through manifest: DEV, COMPATIBILITY, CLUSTER, RLS, REALTIME, SEARCH, VECTOR, MCP, OPERATIONS, MIGRATING, selected README and upstream policy sections. Rewrite internal links including relative GitHub source paths with a Markdown-aware transform; preserve anchors, verify all links. Do not publish unreviewed text. No manual duplicate copy.
+B01.4 build tested Quickstart, navigation, Pagefind, mobile/header/footer and source links. Make documentation CI required. Test base path, no-JS document content, search and accessibility.
+B01.5 configure Pages Actions source, restricted deployment environment, pinned Actions, and publish development preview with clear version status. Smoke test exact artifact and only then link README/repository website.
+
+## Batch 02 — search and AI
+
+B02.1 semantic HTML, unique titles/descriptions, canonical IDs, sitemap, social preview and accessible navigation. Verify crawler policy with owner; register site in search console when authorized.
+B02.2 generate per-page Markdown, llms.txt, bounded full/topic context, version.json and verified feature manifest; exclude internal sources and any unreleased claims from release outputs.
+B02.3 inventory REST routes, create validated scoped OpenAPI contract and readable HTML/Scalar reference; disclose coverage and unsupported contracts. Document SDK compatibility, SSE, MCP and errors from evidence.
+B02.4 AGENTS.md and Using Ruxbase with AI; validate machine links, content parity, version and retrieval benchmark (30 evidence-based questions, target 90% correct, no critical errors). External model scores are advisory, not guaranteed.
+
+## Batch 03 — release integration and quality
+
+B03.1 design immutable release snapshot assembly: stage approved tag and current next together; atomic Pages artifact, one authorizing deploy job, concurrency protection, rollback to retained trusted artifact. No automatic tag creation.
+B03.2 derive CLI/config references and test examples in disposable development environment; verify documented API coverage against route inventory.
+B03.3 implement docs CI and contributor rules: internal links, schema drift, metadata, content parity, accessibility, performance, secret checks, source allowlist, version isolation. Reuse existing pinned Actions policy; no PR deployment credentials.
+B03.4 post-deploy smoke (HTML without JS, Markdown, search, sitemap, canonical URLs, OpenAPI, status), rollback rehearsal and evidence report.
+
+## Acceptance
+
+Zero broken internal links, missing required metadata, critical accessibility findings or unapproved published features; exact source/release match; 100% HTML/Markdown parity for published docs, 100% of declared public REST scope covered (inventory denominator and exclusions explicit); tested examples and CI green on candidate. Performance targets Lighthouse >=95 for representative pages in controlled tests, field LCP <=2.5s, CLS <=0.1, INP <=200ms when field data exists. Search indexing and model selection are external outcomes, not release guarantees.
+
+## Checkpoint
+
+Initial changes: source inventory, brand manifest, original-asset validation and staging, Starlight candidate scaffold, development homepage and dependency-free foundation tests.
+Not complete: full brand export/review, npm lockfile and actual Astro build, source migration/link validation, AI/SEO, API coverage, Pages configuration/deployment, full CI and review. No claim of production readiness. Never promote a foundation check to a full docs release gate.
+
+### Batch 00/01 increment 2
+
+Ten existing public guides are explicitly mapped without moving or copying their authoritative sources. Candidate SVG symbol variants and favicon are created; visual sign-off and complete lockup/wordmark exports remain open. The read-only candidate build workflow resolves an uncommitted lockfile and retains it, installs dependencies, and verifies static output. This is an interim build experiment, not the reproducibility or deployment gate.
+
+### Batch 02 increment — AI and SEO foundations
+
+The prior immutable build 73f569e4e963b45a86a22c87924f02fdba0ee6fa passed npm ci, audit, six tests, Astro build, 12 pages and Pagefind (Actions 44726574375). Added a bounded Markdown/AI export pipeline, per-page discovery metadata, version and documentation manifest, AI guide and AGENTS.md; static checks cover expected HTML/Markdown pairs, canonical, metadata and sitemap. No verified feature registry, OpenAPI/Scalar, crawler registration, external AI benchmark, visual approval or Pages deployment is claimed. The initial development root is the sole documentation candidate and remains explicitly development; when stable documentation is introduced, next/ indexing and retention will be decided explicitly. No origin-root crawler policy is set by this repository. Publication remains gated.
+
+AI build evidence: 44727412875 passed on af2b4191e1f0e70be05f40f8ff904b00908de5a0, generating 13 HTML/Markdown pairs and validating sitemap, metadata, AI links and exact checked-out identity. Foundation workflow 44727412925 failed because its wildcard included dependency-requiring AI tests without npm ci. The foundation workflow and script now explicitly select the six dependency-free tests; AI tests remain in the installed full-build workflow. Re-run both checks on the new ref before acceptance.
+
+### Scoped reference increment
+
+Added development-only health OpenAPI 3.1, selected CLI/configuration references and ten documented-development feature entries. Exact evidence blobs are verified on build; this is a conservative drift guard, not automated semantic coverage. Full REST coverage, OpenAPI standards validation, Scalar, browser/brand review and publication remain open.
+
+### Browser and deployment increment
+
+Prior scoped contract candidate 93d63f55ae2231e350ce40f192de5badcc89846b passed all three CI workflows. Added Chromium functional smoke and manual main-only Pages workflow with expected SHA, environment isolation and live verification, pending actual execution and repository Pages configuration. No deployment or stable release assumed. Full API coverage, independent OpenAPI standards validation, Scalar, accessibility and visual approval remain open.
+
+### REST reference expansion
+
+Expanded OpenAPI from health only to seven operations covering health, generic record CRUD and vector search. The explicit scoped inventory is checked against the OpenAPI operation table and evidence blobs. Authentication, files, administration, batch, realtime, MCP and custom routes still need contract review. Independent schema validator added to candidate CI; its dependency lock and Scalar integration remain open until verified.
+
+### Scalar candidate
+
+Added an isolated noindex self-hosted viewer experiment to candidate CI. Uses the exact release version shown in the upstream integration documentation, records npm archive integrity, disables test requests, credentials persistence and remote fonts, and restricts resource loading with CSP. Full dependency/provenance review and publication integration remain open. No external runtime CDN or proxy is configured.
+
+### Verification continuation
+
+Scalar corrective run 44736137546 failed before opening a browser (Chrome debugging port timeout); the pinned archive and OpenAPI checks passed. Increased bounded browser startup timeout, restored desktop viewport for the viewer, added real Quickstart smoke and CLI help checks, and pinned observed validator dependency versions (not wheel hashes). The docs build now runs on all PRs to detect source drift, and the deployment workflow includes the independent OpenAPI validator. Actual new CI results are required.
+
+### Integrated viewer and accessibility increment
+
+All four prior workflows passed on 99ce9ae6b5172ec19b165e2437075d28ad29030b, including Scalar rendering and actual Quickstart startup. Integrated the pinned viewer into the ordinary build and deployment checks, with public reference link, noindex, file provenance, and browser network assertions. Added digest-pinned axe-core test-only scanner for five representative configurations. New CI results, independent bundle/license review, comprehensive accessibility, full REST scope, brand, versioning and public deployment remain open.
+
+### Accessibility remediation
+
+Integrated viewer build 44747611786 passed the static checks, OpenAPI, Scalar rendering and viewer request boundary. Axe-core caught serious scrollable-region-focusable violations on three code blocks in the dark RLS page and one in mobile Quickstart; other three representative configurations had no violations. Set Expressive Code default wrapping using its documented configuration so long code lines do not require horizontal scrolling and original copied text is preserved. Do not suppress axe rules. Also disable Scalar agent/MCP/developer tools using the exact upstream 1.69.2 source release's configuration tests, and verify absence of visible AI/MCP actions. New verification required.
+
+### Accessibility closure and auth reference increment
+
+Run 44748029804 passed all five representative axe configurations at the serious/critical threshold and verified Scalar rendering and its observed local-only requests; Quickstart 44748030978 passed. Expanded OpenAPI from seven to 19 operations using 14 additional source evidence blobs. This covers selected authentication/account-management operations and file-token creation, but not OAuth2, impersonation, file download, administrative APIs or full runtime behavior. Revalidate the new candidate; brand, full accessibility coverage, bundle review, versioning, rollback and publication remain open.
+
+### Collections and administrative contracts increment
+
+All four workflows passed on ec00b1962970e068e4cf249645231e3850a2b4ba (19 operations). Expanded to 31 scoped operations, adding collections, settings, backup metadata and file reads. Added separate superuser/file-token schemes, administrative scope checks, and browser rendering checks for the new groups. The remaining API families and complete schema/error/runtime coverage, final brand, bundle/license review, versioning, rollback and Pages publication remain open. Require new CI evidence.
+
+### Operational contracts and route coverage
+
+Prior documentation, foundation and Quickstart passed on 7581a9d2fa1b49df7244f8781ef5184f430ed00e. Full CI failed TestSuperuserIPsWhitelist (PostgreSQL 18, missing expected events); retry requested without runtime changes or waivers. Added 13 scoped operational contracts and a bounded static registration scanner with expected binder set and route count; publishes api-coverage.json with covered/uncovered status. This scanner is not a general Go parser. All source evidence verified against Git tree. New build and runtime certification remain open.
+
+### Static HTTP registration scope closure candidate
+
+Previous documentation, foundation and Quickstart checks passed on 330928628e5371e8bd279eb88f6d117e892c4de1. PostgreSQL 18 CI failed TestBaseAppLoggerLevelDevPrint; retry requested. Prior TestSuperuserIPsWhitelist retry passed, without a proven root cause. Added 13 scoped operations; all 57 non-MCP direct registrations are represented, with three MCP methods explicitly assigned to the existing protocol guide. Coverage guard fails on unrepresented registrations within the bounded scanner. All evidence matched the repository tree. Build and browser confirmation pending; complete schema and runtime validation, brand, bundled license review, versioning, recovery and deployment remain open.
+
+### Brand and bundled dependency review
+
+Previous head f96b627a2bd5bb7a22a2ce29f1cd49b5e5888332 passed all four CI workflows, including the 57 non-MCP operation inventory and separate MCP protocol coverage. Added a review-only Potrace workflow deriving six flat vector candidates from the immutable PNG bright-face masks, with geometric overlap threshold and comparison sheet. These flatten texture/outline and do not replace approved originals or current favicon yet. Tool versions are recorded; apt packages are not hash-pinned. Scalar builds now preserve publisher-provided legal notices and dependency declarations from the pinned archive. The inventory is not a complete bundled SBOM or license clearance; actual CI, visual approval, transitive review, versioning and deployment remain open.
+
+Brand review 44759981856 passed with Potrace 1.16/Pillow 12.1.1. Artifact 14639663915 matched its archive digest. CI mask IoU lockup 0.989672, symbol 0.996195, wordmark 0.990895; independent rendered SVG alpha-mask comparison yielded 0.996059, 0.998631, 0.996439 respectively. The six output file hashes and original source hashes matched. Visual comparison confirmed flat faces with original outline/texture intentionally removed; maintainer selection and header/favicon integration still open. Docs build 44759981981 passed; archive 14641118066 SHA-256 verified and 101 provenance file hashes matched. Scalar metadata MIT, 26 declared direct deps. Initial six apparent legal files were License.vue components, not notices; corrected the matcher and explicitly block public Pages deployment until exact bundle legal/dependency review is recorded. Registry gitHead research remains pending.
+
+### Brand integration candidate
+
+On 95216b6bf455c7c4cb10d84bf0672ddc30ef4dcf all four docs jobs passed. Full CI 44760502246 failed release-snapshot on proxy.golang.org HTTP/2 INTERNAL_ERROR downloading golang.org/x/sys v0.49.0; failed-job retry requested, no dependency or runtime changes. Scalar staging confirmed MIT metadata, zero legal notices and no gitHead. Integrated the exact traced symbol files from verified artifact 14639663915 with SHA-256 checks; derived square favicon, theme-specific header and browser assertions. Full lockup and wordmark remain generated review artifacts. New CI and maintainer visual approval required. Distribution gate remains pending; no publication.
+
+### Development artifact sealing and rollback rehearsal
+
+All five workflows passed on f62281877e0044b014856054960a3f4413d59433; retry of earlier release snapshot also passed. Added development-only versions catalog, exact per-file artifact seal, negative tests and temporary activation fixture, pre-upload exact commit verification, retained snapshot and post-deploy manifest digest/representative hash checks. Independently downloaded CI artifacts 14640872698 / 14641811685, verified archive and 17 Markdown hashes each, exercised local A-B-A atomic activation with full file hashes (185/186/185), exact restoration. Local evidence recorded. No Pages deployment or remote rollback; stable and historical catalog empty. Scalar distribution and owner visual approval remain open. New CI required.
+
+### AI retrieval regression benchmark
+
+Added 30 authored queries across startup, migration, database, realtime, search, access boundaries, API scope and AI discovery. Verifies exported Markdown digests, ranks pages without answer labels, checks expected evidence, and gates >=27/30 with zero critical misses. Corrected stale SSE and OpenAPI scope language. CI proof required. This is a deterministic page retrieval proxy, not LLM-generated answer evaluation, search-engine indexing or independently held-out certification. Scalar distribution approval and final publication remain open.
+
+### Performance and social discovery increment
+
+All five CI workflows passed on aff2744c301a322573f41c28bcd93a7981cf5aaf. Added Lighthouse 13.6.0 in an isolated test-only package directory (exact direct version, resolved transitive lock retained as evidence but not yet committed). Three cold mobile simulated runs per home/Quickstart/static API page; median performance, accessibility and SEO >=95, LCP <=2500ms, CLS <=0.1. Best practices/TBT reported. Local static server uses actual project base; no public production network/field INP evidence or crawler claim. Added original lockup social image with metadata and validation for all public HTML pages. No fabricated origin-level robots policy. New CI evidence required; Scalar review gate unchanged, no publication.
+
+### Final restricted publication candidate
+
+On 82cfc98e5574cee39480398537e32be3671485dd docs build, brand, foundation, Quickstart and performance passed. Owner delegated visual approval; source trace comparison and actual light/dark browser screenshots from verified artifacts 14639663915 and 14646405538 reviewed. Approved the documentation identity with exact symbol/favicon pins; retained full lockup/wordmark derivative hashes. To avoid distributing a bundle without completed legal inventory, narrowed initial public development profile to static reference + OpenAPI, preserving opt-in local Scalar preview and existing formal review gate. Public build and deploy reject viewer files, no license approval asserted. Revalidate all gates; no merge or Pages publication yet. Historical channels require an approved actual release; first live rollback must follow actual deployment.
+
+### Integration against advanced main
+
+Main e732fdf1b3cd40097fe529d9ef30e0e4a17cfe11 added 20 assets/instructions relative to original base; only AGENTS.md overlapped. Preserved all main assets and full main AGENTS.md, added scope-specific website/AGENTS.md. Reviewed actual canonical horizontal master SVGs at 720 and 160 px against their exact Git blobs; approved for docs use under delegated authority. Canonical horizontal lockup and dedicated favicon supersede previously approved comparison trace for public use. Added main as second parent on documentation branch, preserved prior 28 commits and all 57 source evidence blobs. New integrated CI, actual browser checks, review and merge required; no deployment claim.
+
+### Retained snapshot recovery hardening
+
+On 584e6c85c7d033dd4839060b04cfdc5ab6dbd5d0, five documentation workflows succeeded. Exact integrated artifact has 93 sealed files; retrieval 30/30, critical failures zero; Lighthouse mobile median scores home 99/100/100, Quickstart 100/100/100, API 100/100/100 (performance/accessibility/SEO). Previous full runtime CI failed PostgreSQL 17 logger test and PostgreSQL 18 Vacuum test; retry requested without altering runtime/tests. Added externally pinned archive/manifest/source validation, strict static-profile exclusion and disposable exact-byte recovery roundtrip on every candidate build and deployment. Local staging only; no claim of remote rollback or deployment. New CI required.

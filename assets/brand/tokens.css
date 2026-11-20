@@ -1,0 +1,10 @@
+/* Initial documentation palette; final contrast and visual review pending. */
+:root {
+  --rux-carbon: #09090b;
+  --rux-graphite: #18181b;
+  --rux-slate: #71717a;
+  --rux-silver: #d4d4d8;
+  --rux-white: #fafafa;
+  --rux-accent-light: #1d4ed8;
+  --rux-accent-dark: #93c5fd;
+}

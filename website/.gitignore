@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.astro/
+src/content/docs/
+src/assets/brand/
+public/favicon.svg
+browser-evidence/
+brand-evidence/
+public/social-preview.png
+performance-evidence/
+public/favicon-16.png
+public/favicon-32.png

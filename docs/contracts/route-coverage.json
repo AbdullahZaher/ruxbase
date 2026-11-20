@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "scope": "Direct static HTTP registrations in 15 built-in API binders called by apis/base.go; excludes UI, custom hooks, middleware and internal batch subrequests. Counts do not certify schema or runtime behavior.",
+  "binders": [
+    {
+      "file": "apis/settings.go",
+      "function": "bindSettingsApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/collection.go",
+      "function": "bindCollectionApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/record_crud.go",
+      "function": "bindRecordCrudApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/record_vector_search.go",
+      "function": "bindRecordVectorSearchApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/record_auth.go",
+      "function": "bindRecordAuthApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/logs.go",
+      "function": "bindLogsApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/backup.go",
+      "function": "bindBackupApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/cron.go",
+      "function": "bindCronApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/file.go",
+      "function": "bindFileApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/batch.go",
+      "function": "bindBatchApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/realtime.go",
+      "function": "bindRealtimeApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/health.go",
+      "function": "bindHealthApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/sql.go",
+      "function": "bindSQLApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/rls_token.go",
+      "function": "bindRLSTokenApi",
+      "base": "/api"
+    },
+    {
+      "file": "apis/mcp_api.go",
+      "function": "bindMCPApi",
+      "base": ""
+    }
+  ]
+}
