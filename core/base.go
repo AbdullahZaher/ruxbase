@@ -570,6 +570,11 @@ func (app *BaseApp) Bootstrap() error {
 		if err := app.initAuxDB(); err != nil {
 			return err
 		}
+		if app.config.PreprovisionedRLSRoles {
+			if err := CheckPreprovisionedRLSRoles(app); err != nil {
+				return err
+			}
+		}
 
 		if err := app.initLogger(); err != nil {
 			return err
