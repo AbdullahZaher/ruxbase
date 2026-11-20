@@ -195,6 +195,20 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	if err := guarded.PingContext(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Changing the authority of this disposable login invalidates the
+	// existing idle sessions as well as newly established connections.
+	if _, err := owner.ExecContext(ctx, "GRANT CREATE ON SCHEMA ruxbase_grant_contract TO "+identifier); err != nil {
+		t.Fatal("unable to update disposable fixture grants")
+	}
+	if err := guarded.PingContext(ctx); err == nil {
+		t.Fatal("guarded pool accepted excess authority after grant change")
+	}
+	if _, err := owner.ExecContext(ctx, "REVOKE CREATE ON SCHEMA ruxbase_grant_contract FROM "+identifier); err != nil {
+		t.Fatal("unable to restore disposable fixture grants")
+	}
+	if err := guarded.PingContext(ctx); err != nil {
+		t.Fatal("guarded pool did not recover after authority correction")
+	}
 	// Reject the disposable database owner even when explicitly named.
 	var ownerRole string
 	if err := owner.QueryRowContext(ctx, "SELECT current_user").Scan(&ownerRole); err != nil {
