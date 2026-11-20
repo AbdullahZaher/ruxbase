@@ -16,6 +16,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      manifest_sha256: ${{ steps.seal.outputs.sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -49,6 +51,19 @@ jobs:
           bash scripts/validate-openapi.sh
           node scripts/check-scalar-release-review.mjs
           node scripts/browser-smoke.mjs
+      - name: Verify exact build before upload
+        id: seal
+        working-directory: website
+        run: |
+          node scripts/release-artifact.mjs verify "$GITHUB_SHA"
+          echo "sha256=$(sha256sum dist/artifact-manifest.json | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - name: Retain reviewed snapshot for recovery
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: docs-reviewed-snapshot
+          path: website/dist
+          retention-days: 30
+          if-no-files-found: error
       - name: Upload reviewed Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
         with:
@@ -72,9 +87,10 @@ jobs:
         env:
           PAGE_URL: ${{ steps.deploy.outputs.page_url }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          EXPECTED_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha256 }}
         run: |
           python3 - <<'PY'
-          import os, json, urllib.request, time
+          import os, json, urllib.request, time, hashlib
           base = os.environ['PAGE_URL'].rstrip('/') + '/'
           expected = os.environ['EXPECTED_COMMIT']
           if base != 'https://abdullahzaher.github.io/ruxbase/':
@@ -84,6 +100,14 @@ jobs:
                   return response.read()
           for attempt in range(12):
               try:
+                  raw = get('artifact-manifest.json')
+                  assert hashlib.sha256(raw).hexdigest() == os.environ['EXPECTED_MANIFEST_SHA256']
+                  manifest = json.loads(raw)
+                  assert manifest['sourceCommit'] == expected
+                  files = {f['path']: f for f in manifest['files']}
+                  for name in ['index.html', 'version.json', 'versions.json', 'llms.txt', 'reference/api.md', 'openapi.json', 'api-viewer/index.html', 'pagefind/pagefind.js', 'sitemap-index.xml']:
+                      data = get(name)
+                      assert len(data) == files[name]['bytes'] and hashlib.sha256(data).hexdigest() == files[name]['sha256'], name
                   ver = json.loads(get('version.json'))
                   assert ver['sourceCommit'] == expected and ver['documentationStatus'] == 'development' and not ver['dirty']
                   assert b'Ruxbase' in get('')

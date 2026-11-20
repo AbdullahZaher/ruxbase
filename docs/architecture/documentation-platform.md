@@ -117,3 +117,7 @@ Brand review 44759981856 passed with Potrace 1.16/Pillow 12.1.1. Artifact 146396
 ### Brand integration candidate
 
 On 95216b6bf455c7c4cb10d84bf0672ddc30ef4dcf all four docs jobs passed. Full CI 44760502246 failed release-snapshot on proxy.golang.org HTTP/2 INTERNAL_ERROR downloading golang.org/x/sys v0.49.0; failed-job retry requested, no dependency or runtime changes. Scalar staging confirmed MIT metadata, zero legal notices and no gitHead. Integrated the exact traced symbol files from verified artifact 14639663915 with SHA-256 checks; derived square favicon, theme-specific header and browser assertions. Full lockup and wordmark remain generated review artifacts. New CI and maintainer visual approval required. Distribution gate remains pending; no publication.
+
+### Development artifact sealing and rollback rehearsal
+
+All five workflows passed on f62281877e0044b014856054960a3f4413d59433; retry of earlier release snapshot also passed. Added development-only versions catalog, exact per-file artifact seal, negative tests and temporary activation fixture, pre-upload exact commit verification, retained snapshot and post-deploy manifest digest/representative hash checks. Independently downloaded CI artifacts 14640872698 / 14641811685, verified archive and 17 Markdown hashes each, exercised local A-B-A atomic activation with full file hashes (185/186/185), exact restoration. Local evidence recorded. No Pages deployment or remote rollback; stable and historical catalog empty. Scalar distribution and owner visual approval remain open. New CI required.

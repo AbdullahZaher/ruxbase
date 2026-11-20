@@ -20,3 +20,9 @@ the sandbox by default. This is a functional smoke, not full accessibility,
 visual equivalence, security or browser-matrix certification.
 
 The integrated vector symbol and favicon are review candidates: owner visual approval is required before publication. Scalar distribution approval is additionally enforced by check-scalar-release-review.mjs; missing archive notices or unresolved bundle provenance must not be treated as cleared.
+
+## Snapshot identity and recovery
+
+The root remains development-only. `versions.json` records development and explicitly null stable, with no historical releases. No /next or /vX routes are implied. A clean build seals `artifact-manifest.json` with sorted paths, sizes and SHA-256 per file, excluding itself. Verify against the exact checkout SHA before upload. CI retains candidate snapshots for 30 days; authorized deployment retains the reviewed snapshot and checks the published manifest digest against the build job output plus nine representative file hashes. This is integrity verification, not a signed provenance attestation.
+
+For recovery, retrieve the previously reviewed snapshot and its independently retained manifest digest, verify source identity and every file, and obtain approval to redeploy via a trusted main-only recovery procedure. Do not repoint the public site to an unreviewed PR artifact. Local A-to-B-to-A atomic activation of two actual CI archives passed; see evidence/docs-rollback-local-2026-11-20.json. This rehearses byte-exact restoration, not the GitHub Pages deployment mechanism. Historical release publishing, durable retention beyond artifact expiry and actual Pages recovery remain unimplemented. No stable release is authorized.
