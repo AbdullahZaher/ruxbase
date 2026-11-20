@@ -69,7 +69,7 @@ func run(args []string) error {
 		DataDir:                os.Getenv("RUXBASE_PREPARE_DATA_DIR"),
 		EncryptionEnv:          os.Getenv("RUXBASE_PREPARE_ENCRYPTION_ENV"),
 		PreprovisionedRLSRoles: *separate,
-		IdentityContract:      identities,
+		IdentityContract:       identities,
 	})
 	if err == nil {
 		fmt.Println("System preparation completed; serving and user migrations not started.")
