@@ -17,6 +17,6 @@ jobs:
         with:
           node-version: '25.2.1'
       - name: Test documentation foundation
-        run: node --test website/tests/*.test.mjs
+        run: node --test website/tests/foundation.test.mjs website/tests/legacy-links.test.mjs
       - name: Verify originals and stage public sources
         run: node website/scripts/prepare.mjs

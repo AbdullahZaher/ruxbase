@@ -5,7 +5,7 @@ This scaffold is a development preview candidate, not deployed or certified.
 
 Run dependency-free foundation checks from the repository root:
 ```sh
-node --test website/tests/*.test.mjs
+node --test website/tests/foundation.test.mjs website/tests/legacy-links.test.mjs
 node website/scripts/prepare.mjs
 ```
 

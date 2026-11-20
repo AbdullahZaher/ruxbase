@@ -8,3 +8,7 @@ Lockfile SHA-256: `8d6bba5bab4d0582518d55d5316dd2211956cfcf4a6d7d9118bff2e27a07d
 Git blob: `ed870a0385b306aec8f8de5ce7a998cba71c3fef`.
 
 Downloaded archive checked independently; 499 dependency entries use npm registry URLs and include integrity. Direct versions match package.json. The committed bytes were verified against the archive Git blob. This is provenance/structural review, not independent security certification. Clean npm ci, advisory audit, and complete build must pass on the new head.
+
+## AI export increment
+
+The package.json and lockfile root declarations now directly list six previously locked dependencies used by the exporter and static verifier. Programmatic comparison against `73f569e4e963b45a86a22c87924f02fdba0ee6fa` confirmed all 499 non-root package entries unchanged, including versions and integrity. Updated lock SHA-256 `519fccf562b419a0aa4e1d70d422e0f59bb577ddf57dabf4b478c473d85cf7b0`; clean npm ci, registry validation and npm audit (0 findings at execution) passed in [44727412875](https://github.com/AbdullahZaher/ruxbase/actions/runs/44727412875). The original checksum above applies to the initial archived lockfile, not this root-metadata update.

@@ -6,7 +6,7 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "test:foundation": "node --test tests/*.test.mjs",
+    "test:foundation": "node --test tests/foundation.test.mjs tests/legacy-links.test.mjs",
     "dev": "node scripts/prepare.mjs && astro dev",
     "build": "node scripts/prepare.mjs && astro build && node scripts/export-ai.mjs",
     "preview": "astro preview",
