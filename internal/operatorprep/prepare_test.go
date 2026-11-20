@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/core"
+	"github.com/AbdullahZaher/ruxbase/internal/pgrolecheck"
 	"github.com/AbdullahZaher/ruxbase/tests"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/jackc/pgx/v5"
@@ -128,6 +130,9 @@ func verifySeparateMigration(t *testing.T) {
 	identifier := pgx.Identifier{role}.Sanitize()
 	password := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	created := false
+	runtimeRole := fixture.Name + "_runtime"
+	runtimeIdentifier := pgx.Identifier{runtimeRole}.Sanitize()
+	runtimeCreated := false
 	defer func() {
 		_ = owner.Close()
 		if err := tests.DropTestDatabase(fixture.Name); err != nil {
@@ -146,6 +151,12 @@ func verifySeparateMigration(t *testing.T) {
 				return
 			}
 			defer db.Close()
+			if runtimeCreated {
+				dropRuntime := "DROP ROLE " + runtimeIdentifier
+				if _, err := db.Exec(dropRuntime); err != nil {
+					t.Errorf("unable to remove disposable runtime role: %v", err)
+				}
+			}
 			drop := "DROP ROLE " + identifier
 			if _, err := db.Exec(drop); err != nil {
 				t.Errorf("unable to remove migration fixture role: %v", err)
@@ -157,6 +168,24 @@ func verifySeparateMigration(t *testing.T) {
 		t.Fatal("unable to create disposable migration role")
 	}
 	created = true
+	runtimePassword := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	createRuntime := "CREATE ROLE " + runtimeIdentifier + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + runtimePassword + "'"
+	if _, err := owner.Exec(createRuntime); err != nil {
+		t.Fatal("unable to create disposable runtime role")
+	}
+	runtimeCreated = true
+	var provisioner string
+	if err := owner.QueryRow("SELECT current_user").Scan(&provisioner); err != nil {
+		t.Fatal(err)
+	}
+	identities := pgrolecheck.IdentityContract{Runtime: runtimeRole, Migration: role, Provisioning: provisioner}
+	if raw := os.Getenv("RUXBASE_TEST_WAL_URL"); raw != "" {
+		wal, err := url.Parse(raw)
+		if err != nil || wal.User == nil || wal.User.Username() != "ruxbase_ci_wal" {
+			t.Fatal("invalid disposable WAL fixture identity")
+		}
+		identities.Replication = wal.User.Username()
+	}
 	// The provisioner grants schema preparation authority only on this
 	// new database, not cluster-wide role or database creation authority.
 	for _, statement := range []string{
@@ -178,6 +207,7 @@ func verifySeparateMigration(t *testing.T) {
 		ExpectedRole:           role,
 		DataDir:                t.TempDir(),
 		PreprovisionedRLSRoles: true,
+		IdentityContract:      &identities,
 	}
 	if err := Prepare(config); err != nil {
 		t.Fatalf("preprovisioned migration failed: %v", err)
@@ -214,5 +244,59 @@ WHERE n.nspname = 'public' AND c.relname = '_migrations'
 	}
 	if err := Prepare(config); err != nil {
 		t.Fatalf("separate migration replay failed: %v", err)
+	}
+
+	// Admit the restricted metadata runtime against the same prepared
+	// database. Grants are given by the respective fixture object owners,
+	// not by the runtime. No public serving is enabled.
+	migration, err := sql.Open("pgx", u.String())
+	if err != nil {
+		t.Fatal("unable to open disposable migration connection")
+	}
+	defer migration.Close()
+	for _, statement := range []string{
+		"GRANT USAGE ON SCHEMA _aux TO " + runtimeIdentifier,
+		"GRANT SELECT ON public._migrations, public._params, public._collections TO " + runtimeIdentifier,
+	} {
+		if _, err := migration.Exec(statement); err != nil {
+			t.Fatal("unable to prepare disposable runtime metadata grants")
+		}
+	}
+	runtimeURL := *u
+	runtimeURL.User = url.UserPassword(runtimeRole, runtimePassword)
+	runtime, err := sql.Open("pgx", runtimeURL.String())
+	if err != nil {
+		t.Fatal("unable to open disposable runtime connection")
+	}
+	defer runtime.Close()
+	checkCtx, stop := context.WithTimeout(context.Background(), 15*time.Second)
+	defer stop()
+	if err := identities.CheckSeparation(checkCtx, runtime, runtimeRole); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := identities.AdmitRuntime(checkCtx, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := identities.CheckSeparation(checkCtx, runtime, role); err == nil {
+		t.Fatal("runtime accepted as migration principal")
+	}
+	missing := identities
+	missing.Migration = fixture.Name + "_missing"
+	if err := missing.CheckSeparation(checkCtx, runtime, runtimeRole); err == nil {
+		t.Fatal("absent declared migration identity accepted")
+	}
+	app := core.NewBaseApp(core.BaseAppConfig{
+		DatabaseURL:         runtimeURL.String(),
+		LogsDatabaseURL:     runtimeURL.String(),
+		DataDir:             t.TempDir(),
+		PreparedRuntimeRole: runtimeRole,
+		RealtimeSource:      "hooks",
+	})
+	defer app.ClearBootstrap()
+	if err := app.Bootstrap(); err != nil {
+		t.Fatalf("runtime rejected separately migrated disposable database: %v", err)
+	}
+	if err := app.ClearBootstrap(); err != nil {
+		t.Fatal(err)
 	}
 }
