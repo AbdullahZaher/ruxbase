@@ -67,3 +67,7 @@ AI build evidence: 44727412875 passed on af2b4191e1f0e70be05f40f8ff904b00908de5a
 ### Scoped reference increment
 
 Added development-only health OpenAPI 3.1, selected CLI/configuration references and ten documented-development feature entries. Exact evidence blobs are verified on build; this is a conservative drift guard, not automated semantic coverage. Full REST coverage, OpenAPI standards validation, Scalar, browser/brand review and publication remain open.
+
+### Browser and deployment increment
+
+Prior scoped contract candidate 93d63f55ae2231e350ce40f192de5badcc89846b passed all three CI workflows. Added Chromium functional smoke and manual main-only Pages workflow with expected SHA, environment isolation and live verification, pending actual execution and repository Pages configuration. No deployment or stable release assumed. Full API coverage, independent OpenAPI standards validation, Scalar, accessibility and visual approval remain open.
