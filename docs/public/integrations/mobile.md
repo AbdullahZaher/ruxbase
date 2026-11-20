@@ -1,5 +1,5 @@
 ---
-title: Mobile integration: React Native and Flutter
+title: "Mobile integration: React Native and Flutter"
 description: Connect mobile clients to a reachable Ruxbase URL and plan secure auth persistence and realtime.
 sidebar:
   order: 6

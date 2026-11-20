@@ -1,5 +1,5 @@
 ---
-title: Example app: collections and rules
+title: "Example app: collections and rules"
 description: Create an example posts collection with owner-controlled access and public published records.
 sidebar:
   order: 2
@@ -30,13 +30,17 @@ Create a base collection called posts with the following fields using the dashbo
 
 These rules are for the example content application only, not a universal security policy. Configure them as ordinary record API rules, not PostgreSQL SQL statements.
 
-| Rule | Expression |
-| --- | --- |
-| List | `published = true || author = @request.auth.id` |
-| View | `published = true || author = @request.auth.id` |
-| Create | `@request.auth.id != '' && author = @request.auth.id` |
-| Update | `author = @request.auth.id` |
-| Delete | `author = @request.auth.id` |
+Set the five rules separately using these expressions:
+
+```text
+List:   published = true || author = @request.auth.id
+View:   published = true || author = @request.auth.id
+Create: @request.auth.id != '' && author = @request.auth.id
+Update: author = @request.auth.id
+Delete: author = @request.auth.id
+```
+
+Copy only the expression after each label into its corresponding rule field.
 
 A locked rule (null) is not the same as an empty rule. Keep administrative access separate. The example allows the owner to edit a record, including its author field if writable under the configured schema. If ownership transfers must be forbidden, design and test an explicit field-change restriction before deploying; these example rules are not a hardened multi-tenant policy.
 
