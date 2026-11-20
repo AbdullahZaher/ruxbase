@@ -1,0 +1,26 @@
+# Overlay for root compose.yaml. Run from repository root:
+# docker compose --env-file .env.quickstart -f compose.yaml -f starters/nextjs/compose.yaml up -d --build --wait nextjs
+services:
+  nextjs:
+    image: node:25.2.1-bookworm-slim
+    working_dir: /workspace
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
+    environment:
+      RUXBASE_INTERNAL_URL: http://ruxbase:8090
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./starters/nextjs:/workspace
+      - nextjs_modules:/workspace/node_modules
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      ruxbase:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:3000/\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 90s
+volumes:
+  nextjs_modules:
