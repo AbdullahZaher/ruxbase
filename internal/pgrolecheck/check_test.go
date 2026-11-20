@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/tests"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -50,11 +51,16 @@ func TestInspectRejectsMissingConnection(t *testing.T) {
 // CI config intentionally grants the existing test role provisioning
 // privileges. The screen must flag that role, without changing its grants.
 func TestInspectPostgreSQL(t *testing.T) {
-	dsn := os.Getenv("RUXBASE_TEST_URL")
-	if dsn == "" {
+	if os.Getenv(tests.TestDatabaseURLEnv) == "" {
 		t.Skip("RUXBASE_TEST_URL not configured")
 	}
-	db, err := sql.Open("pgx", dsn)
+	fixture, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tests.DropTestDatabase(fixture.Name)
+
+	db, err := sql.Open("pgx", fixture.URL)
 	if err != nil {
 		t.Fatal("unable to open test connection")
 	}
@@ -70,7 +76,7 @@ func TestInspectPostgreSQL(t *testing.T) {
 		t.Fatal("expected a direct test identity")
 	}
 	if !report.DatabaseOwner {
-		t.Fatalf("expected the template database owner to be flagged: %+v", report)
+		t.Fatalf("expected the disposable database owner to be flagged: %+v", report)
 	}
 	if len(report.Findings()) == 0 {
 		t.Fatal("existing owner role must fail the restricted identity screen")
