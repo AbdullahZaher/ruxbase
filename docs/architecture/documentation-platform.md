@@ -137,3 +137,7 @@ On 82cfc98e5574cee39480398537e32be3671485dd docs build, brand, foundation, Quick
 ### Integration against advanced main
 
 Main e732fdf1b3cd40097fe529d9ef30e0e4a17cfe11 added 20 assets/instructions relative to original base; only AGENTS.md overlapped. Preserved all main assets and full main AGENTS.md, added scope-specific website/AGENTS.md. Reviewed actual canonical horizontal master SVGs at 720 and 160 px against their exact Git blobs; approved for docs use under delegated authority. Canonical horizontal lockup and dedicated favicon supersede previously approved comparison trace for public use. Added main as second parent on documentation branch, preserved prior 28 commits and all 57 source evidence blobs. New integrated CI, actual browser checks, review and merge required; no deployment claim.
+
+### Retained snapshot recovery hardening
+
+On 584e6c85c7d033dd4839060b04cfdc5ab6dbd5d0, five documentation workflows succeeded. Exact integrated artifact has 93 sealed files; retrieval 30/30, critical failures zero; Lighthouse mobile median scores home 99/100/100, Quickstart 100/100/100, API 100/100/100 (performance/accessibility/SEO). Previous full runtime CI failed PostgreSQL 17 logger test and PostgreSQL 18 Vacuum test; retry requested without altering runtime/tests. Added externally pinned archive/manifest/source validation, strict static-profile exclusion and disposable exact-byte recovery roundtrip on every candidate build and deployment. Local staging only; no claim of remote rollback or deployment. New CI required.
