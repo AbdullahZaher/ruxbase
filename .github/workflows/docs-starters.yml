@@ -23,7 +23,7 @@ jobs:
         run: |
           node --check scripts/check-starter-browser.mjs
           node --check scripts/create-ruxbase-app.mjs
-          python3 -m py_compile scripts/test-starters-e2e.py
+          python3 -m py_compile scripts/test-starters-e2e.py scripts/check-nextjs-session.py
           docker version
           docker compose version
           google-chrome --version

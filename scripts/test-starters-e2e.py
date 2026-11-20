@@ -130,7 +130,7 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
             assert project.is_dir()
             pkg = json.loads((project / "package.json").read_text())
             assert pkg["name"] == project.name
-            subprocess.run(["npm", "install", "--no-audit", "--no-fund"], cwd=project, check=True)
+            subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=project, check=True)
             subprocess.run(["npm", "audit", "--audit-level=high", "--omit=dev"], cwd=project, check=True)
             subprocess.run(["npm", "run", "build"], cwd=project, check=True, env={
                 **os.environ, "NEXT_TELEMETRY_DISABLED": "1",
@@ -139,6 +139,7 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
                 **os.environ,
                 "RUXBASE_INTERNAL_URL": SERVER,
                 "NEXT_TELEMETRY_DISABLED": "1",
+                "RUXBASE_APP_ORIGIN": "http://127.0.0.1:3000",
             }
             # Next.js production start exercises the built App Router bundle
             # without on-demand Turbopack recompilation during browser tests.
@@ -170,6 +171,19 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
                         "RUXBASE_TEST_PASSWORD": alice["password"],
                     },
                 )
+                if framework == "nextjs":
+                    subprocess.run(
+                        ["python3", str(ROOT / "scripts/check-nextjs-session.py")],
+                        check=True, cwd=ROOT, env={
+                            **server_env,
+                            "RUXBASE_TEST_ALICE_EMAIL": alice["email"],
+                            "RUXBASE_TEST_ALICE_PASSWORD": alice["password"],
+                            "RUXBASE_TEST_ALICE_ID": alice["id"],
+                            "RUXBASE_TEST_BOB_EMAIL": bob["email"],
+                            "RUXBASE_TEST_BOB_PASSWORD": bob["password"],
+                            "RUXBASE_TEST_BOB_ID": bob["id"],
+                        },
+                    )
                 _, own = request(origin, "GET", "/api/collections/posts/records",
                                  token=alice["token"])
                 assert any(x["title"] == draft for x in own["items"]), "Owner draft not persisted"
