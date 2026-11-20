@@ -219,6 +219,8 @@ The settings have the extra `mcp` object (`{"enabled": false}`).
 
 ## Multiple instances
 
+- Cluster settings reload notifications are not an exactly-once hook contract: a local save and asynchronous resynchronization may both reload the same state. Hooks should be idempotent. The cluster test verifies bounded convergence to the saved settings on both nodes; direct `ReloadSettings` hook-count tests remain unchanged.
+
 ruxbase can run multiple instances with the same database (see
 [CLUSTER.md](CLUSTER.md)). This adds a few differences even for a single
 instance:

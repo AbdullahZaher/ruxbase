@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Runs the ruxbase benchmarks against PocketBase v0.40.6 (built from the
-# upstream tag of the repository history) in Docker (bench/docker-compose.yml)
+# official upstream in an isolated checkout) in Docker (bench/docker-compose.yml)
 # and writes the JSON results to bench/results/<date>.jsonl.
 #
 # Requires go, git and docker.
@@ -33,6 +33,7 @@ PASSWORD="bench-password-123"
 
 mkdir -p .bin results
 RESULTS="results/$(date +%Y%m%d-%H%M%S).jsonl"
+RESOURCES="${RESULTS%.jsonl}.resources.jsonl"
 
 compose() {
   docker compose -f docker-compose.yml "$@"
@@ -44,7 +45,7 @@ cleanup() {
     return
   fi
   compose down -v >/dev/null 2>&1 || true
-  git -C .. worktree remove --force bench/.bin/pocketbase-src >/dev/null 2>&1 || true
+  if [ -n "${PB_SOURCE:-}" ]; then rm -rf -- "$PB_SOURCE"; fi
 }
 trap cleanup EXIT
 
@@ -54,11 +55,20 @@ export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 (cd .. && go build -trimpath -ldflags "-s -w" -o bench/.bin/ruxbase ./examples/base)
 (cd .. && go build -trimpath -ldflags "-s -w" -o bench/.bin/bench ./bench)
 
-# PocketBase v0.40.6 from the upstream tag
-rm -rf .bin/pocketbase-src
-git -C .. worktree add --detach bench/.bin/pocketbase-src v0.40.6 >/dev/null
-(cd .bin/pocketbase-src && go build -trimpath -ldflags "-s -w" -o ../pocketbase ./examples/base)
-git -C .. worktree remove --force bench/.bin/pocketbase-src
+# Build the official reference only if requested. Never assume Ruxbase contains
+# an upstream tag or that a local v0.40.6 tag belongs to PocketBase.
+if [[ " $TARGETS " == *" pocketbase "* ]]; then
+  PB_SOURCE="$(mktemp -d)"
+  git -C "$PB_SOURCE" init -q
+  git -C "$PB_SOURCE" fetch --no-tags --depth=1 https://github.com/pocketbase/pocketbase.git refs/tags/v0.40.6
+  PB_COMMIT="9d281ccaba65f2686eb7b0b614ccda72d1116a1b"
+  test "$(git -C "$PB_SOURCE" rev-parse 'FETCH_HEAD^{commit}')" = "$PB_COMMIT"
+  git -C "$PB_SOURCE" checkout --detach "$PB_COMMIT"
+  PB_BINARY="$(pwd)/.bin/pocketbase"
+  (cd "$PB_SOURCE" && go build -trimpath -ldflags "-s -w" -o "$PB_BINARY" ./examples/base)
+  rm -rf -- "$PB_SOURCE"
+  PB_SOURCE=
+fi
 
 unset CGO_ENABLED GOOS GOARCH
 
@@ -72,7 +82,9 @@ done
 compose exec -T postgres psql -U postgres -qc "CREATE DATABASE single" -c "CREATE DATABASE cluster"
 
 # the superusers (the ruxbase command also applies the migrations)
-compose run --rm -T pocketbase /bench/pocketbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data >/dev/null
+if [[ " $TARGETS " == *" pocketbase "* ]]; then
+  compose run --rm -T pocketbase /bench/pocketbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data >/dev/null
+fi
 compose run --rm -T ruxbase /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
 compose run --rm -T node1 /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
 
@@ -125,30 +137,63 @@ run_target() {
   compose up -d "${services[@]}"
   for service in "${services[@]}"; do wait_http "$service" 8090; done
 
+  # Capture the complete application stack (including PostgreSQL for Ruxbase).
+  # Stats are Docker-reported CPU and memory usage, not process RSS.
+  local measured_services=("${services[@]}")
+  if [ "$name" != "pocketbase" ]; then measured_services+=(postgres); fi
+  local ids=()
+  mapfile -t ids < <(compose ps -q "${measured_services[@]}")
+  if [ "${#ids[@]}" -ne "${#measured_services[@]}" ]; then
+    echo "missing benchmark containers for $name" >&2
+    return 1
+  fi
+  capture_stats() {
+    local phase="$1" raw sampled
+    raw=$(docker stats --no-stream --format '{{json .}}' "${ids[@]}")
+    sampled=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    while IFS= read -r one; do
+      [ -n "$one" ] || continue
+      printf '{"target":"%s","phase":"%s","sampleTime":"%s","stats":%s}\n' "$name" "$phase" "$sampled" "$one" >> "$RESOURCES"
+    done <<< "$raw"
+  }
+
+  # Sampling is deliberately separate from latency JSON and is diagnostic only.
+  # Start a bounded sampling pass during each load scenario.
+  measured_bench() {
+    local phase="$1" sampler rc=0
+    shift
+    (sleep 1; capture_stats "$phase") &
+    sampler=$!
+    bench "$@" | tee -a "$RESULTS" || rc=$?
+    wait "$sampler" || return 1
+    return "$rc"
+  }
+
   echo "== $name: setup"
   bench -scenario setup -url "${url%%,*}" -email "$EMAIL" -password "$PASSWORD" -records "$RECORDS" -c 50
 
   [ "${#services[@]}" -gt 1 ] && wait_slot "$name" "after the setup"
+  capture_stats idle
 
   for c in $CONCURRENCY; do
     for run in $(seq 1 "$RUNS"); do
       echo "== $name: reads (concurrency $c, run $run)"
-      bench -target "$name" -scenario reads -url "$url" -c "$c" -d "$DURATION" | tee -a "$RESULTS"
+      measured_bench "reads-c${c}-run${run}" -target "$name" -scenario reads -url "$url" -c "$c" -d "$DURATION"
     done
   done
 
   for c in $CONCURRENCY; do
     for run in $(seq 1 "$RUNS"); do
       echo "== $name: writes (concurrency $c, run $run)"
-      bench -target "$name" -scenario writes -url "$url" -c "$c" -d "$DURATION" | tee -a "$RESULTS"
+      measured_bench "writes-c${c}-run${run}" -target "$name" -scenario writes -url "$url" -c "$c" -d "$DURATION"
     done
   done
 
   [ "${#services[@]}" -gt 1 ] && wait_slot "$name" "after the writes"
 
   echo "== $name: realtime"
-  bench -target "$name" -scenario realtime -url "$url" \
-    -clients "$CLIENTS" -events "$EVENTS" -rate "$RATE" | tee -a "$RESULTS"
+  measured_bench realtime -target "$name" -scenario realtime -url "$url" \
+    -clients "$CLIENTS" -events "$EVENTS" -rate "$RATE"
 
   compose stop "${services[@]}" >/dev/null
 }
@@ -159,4 +204,5 @@ run_target "ruxbase" "http://ruxbase:8090" ruxbase
 run_target "ruxbase-3-nodes" "http://node1:8090,http://node2:8090,http://node3:8090" node1 node2 node3
 
 echo "== results: bench/$RESULTS"
+echo "== resource samples: bench/$RESOURCES"
 (cd .. && go run ./bench -scenario report -in "bench/$RESULTS")

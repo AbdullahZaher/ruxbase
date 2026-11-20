@@ -17,8 +17,6 @@ import (
 func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 	t.Parallel()
 
-	testEvents := store.New[core.App, int](nil)
-
 	tmpDir, err := os.MkdirTemp("", "pb_notify_test*")
 	if err != nil {
 		t.Fatal(err)
@@ -57,55 +55,69 @@ func TestNotifyWatcher_SettingsUpdate(t *testing.T) {
 		t.Fatal("app2 cluster LISTEN timeout")
 	}
 
-	timeout := time.After(3 * time.Second)
-	done := make(chan struct{})
-
-	app1.OnSettingsReload().BindFunc(func(e *core.SettingsReloadEvent) error {
-		testEvents.SetFunc(app1, func(old int) int {
-			return old + 1
+	// A local save reloads settings synchronously, while cluster resync can
+	// independently reload the same state. LISTEN readiness does not imply
+	// that the initial asynchronous resync has completed. Assert convergence
+	// to the saved value, not exactly-once invocation of a distributed hook.
+	// Direct ReloadSettings hook counts are covered in settings_query_test.go.
+	observe := func(app *core.BaseApp) <-chan struct{} {
+		done := make(chan struct{}, 1)
+		app.OnSettingsReload().BindFunc(func(e *core.SettingsReloadEvent) error {
+			if err := e.Next(); err != nil {
+				return err
+			}
+			settings, err := e.App.Settings().Clone()
+			if err != nil {
+				return err
+			}
+			if len(settings.SuperuserIPs) == 1 && settings.SuperuserIPs[0] == "127.0.0.1" {
+				// Never block a background reload on a completed test.
+				select {
+				case done <- struct{}{}:
+				default:
+				}
+			}
+			return nil
 		})
-		return e.Next()
-	})
+		return done
+	}
 
-	app2.OnSettingsReload().BindFunc(func(e *core.SettingsReloadEvent) error {
-		testEvents.SetFunc(app2, func(old int) int {
-			return old + 1
-		})
+	local := observe(app1)
+	remote := observe(app2)
 
-		// ruxbase: signal after the reloaded settings were applied
-		// to avoid racing with the assertions below
-		defer func() {
-			done <- struct{}{}
-		}()
-
-		return e.Next()
-	})
-
-	// updating app1 settings should trigger a reload in app2
-	app1.Settings().SuperuserIPs = []string{"127.0.0.1"}
-	if err := app1.Save(app1.Settings()); err != nil {
+	settings, err := app1.Settings().Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.SuperuserIPs = []string{"127.0.0.1"}
+	if err := app1.Save(settings); err != nil {
 		t.Fatal(err)
 	}
 
-	// wait for the event
-	select {
-	case <-timeout:
-		t.Fatal("app2 reload event timeout")
-	case <-done:
-		// ready
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+	for _, event := range []struct {
+		name string
+		done <-chan struct{}
+	}{
+		{"app1", local},
+		{"app2", remote},
+	} {
+		select {
+		case <-timeout.C:
+			t.Fatalf("%s did not apply the saved settings", event.name)
+		case <-event.done:
+		}
 	}
 
-	if app1Total := testEvents.Get(app1); app1Total != 1 {
-		t.Fatalf("Expected 1 app1 event, got %d", app1Total)
-	}
-
-	if app2Total := testEvents.Get(app2); app2Total != 1 {
-		t.Fatalf("Expected 1 app2 event, got %d", app2Total)
-	}
-
-	app2SuperuserIPs := app2.Settings().SuperuserIPs
-	if len(app2SuperuserIPs) != 1 || app2SuperuserIPs[0] != "127.0.0.1" {
-		t.Fatalf("Expected exactly 127.0.0.1 superuser IP in app2 settings event, got %v", app2SuperuserIPs)
+	for _, app := range []*core.BaseApp{app1, app2} {
+		snapshot, err := app.Settings().Clone()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(snapshot.SuperuserIPs) != 1 || snapshot.SuperuserIPs[0] != "127.0.0.1" {
+			t.Fatalf("Expected exactly 127.0.0.1 in the converged settings, got %v", snapshot.SuperuserIPs)
+		}
 	}
 }
 
