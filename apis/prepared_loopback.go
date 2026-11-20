@@ -118,22 +118,23 @@ func ServePreparedLoopback(ctx context.Context, listener *net.TCPListener, confi
 		IdleTimeout:       30 * time.Second,
 		MaxHeaderBytes:    32 << 10,
 	}
-	done := make(chan error, 1)
-	stop := context.AfterFunc(ctx, func() {
+	shutdownServer := func() error {
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdown); err != nil {
-			_ = server.Close()
-			done <- err
-			return
+			return errors.Join(err, server.Close())
 		}
-		done <- nil
-	})
-	err = server.Serve(listener)
-	if !stop() {
-		err = errors.Join(normalizePreparedServeError(err), <-done)
+		return nil
 	}
-	return normalizePreparedServeError(err)
+	done := make(chan error, 1)
+	stop := context.AfterFunc(ctx, func() { done <- shutdownServer() })
+	err = normalizePreparedServeError(server.Serve(listener))
+	if stop() {
+		// Also release active connections if Serve terminates due to a
+		// listener failure rather than context cancellation.
+		return errors.Join(err, shutdownServer())
+	}
+	return errors.Join(err, <-done)
 }
 
 func normalizePreparedServeError(err error) error {
