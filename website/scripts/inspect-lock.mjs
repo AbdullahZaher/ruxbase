@@ -12,7 +12,4 @@ for (const [name, item] of Object.entries(lock.packages)) {
   if (!item.resolved || !/^https:\/\/registry\.npmjs\.org\//.test(item.resolved) || !/^sha(512|1)-[A-Za-z0-9+/=]+$/.test(item.integrity || '')) throw new Error('Unexpected package origin or integrity: ' + name);
 }
 console.log('LOCK-SHA256 ' + createHash('sha256').update(raw).digest('hex'));
-// This is public package metadata only. Bound output and never print environment values.
-if (raw.length > 1000000) throw new Error('Lockfile exceeds review bound');
-for (const [i, line] of raw.trimEnd().split('\n').entries()) console.log('LOCK-LINE ' + i + ' ' + line);
-console.log('LOCK-END ' + raw.trimEnd().split('\n').length);
+console.log('Validated ' + (Object.keys(lock.packages).length - 1) + ' registry package entries.');

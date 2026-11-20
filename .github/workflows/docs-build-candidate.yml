@@ -20,24 +20,15 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '25.2.1'
-      - name: Resolve candidate lockfile (temporary until reviewed and committed)
-        working-directory: website
-        run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          fi
-      - name: Validate registry lockfile and record public lockfile for review
+      - name: Validate committed registry lockfile
         working-directory: website
         run: node scripts/inspect-lock.mjs
-      - name: Retain candidate lockfile
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: docs-lockfile-candidate
-          path: website/package-lock.json
-          if-no-files-found: error
       - name: Install from resolved lockfile
         working-directory: website
         run: npm ci --no-audit --no-fund
+      - name: Check production dependency advisories (high or critical)
+        working-directory: website
+        run: npm audit --omit=dev --audit-level=high
       - name: Test and build
         working-directory: website
         run: |
