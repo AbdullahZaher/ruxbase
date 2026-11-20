@@ -28,5 +28,7 @@ for (const [route, content] of html) {
   }
   if (/href="(?:\.\/)?[A-Z-]+\.md(?:#|")/.test(content)) throw new Error('Unrewritten guide link: ' + route);
 }
-for (const asset of ['favicon.svg', 'pagefind/pagefind.js']) await stat(join(site, 'dist', asset));
+const viewer = await readFile(join(site,'dist/api-viewer/index.html'),'utf8');
+if (!viewer.includes('content="noindex"') || !viewer.includes("connect-src 'self'")) throw new Error('Viewer indexing or resource policy changed');
+for (const asset of ['favicon.svg', 'pagefind/pagefind.js','api-viewer/vendor/standalone.js','api-viewer/provenance.json']) await stat(join(site, 'dist', asset));
 console.log('Verified static output for ' + routes.size + ' pages, mapped anchors, favicon and Pagefind entrypoint.');

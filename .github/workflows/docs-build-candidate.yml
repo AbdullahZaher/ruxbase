@@ -34,14 +34,14 @@ jobs:
           node scripts/check-ai.mjs
       - name: Independent OpenAPI schema validation
         run: bash website/scripts/validate-openapi.sh
-      - name: Stage self-hosted Scalar candidate
-        run: bash website/scripts/stage-scalar-candidate.sh
+      - name: Stage verified test-only accessibility scanner
+        run: bash website/scripts/stage-axe.sh "$RUNNER_TEMP/docs-axe.min.js"
       - name: Exercise built site in Chromium
         working-directory: website
         env:
           CHROME_BIN: google-chrome
           DOCS_BROWSER_NO_SANDBOX: '1'
-          DOCS_SCALAR_CANDIDATE: '1'
+          DOCS_AXE_FILE: ${{ runner.temp }}/docs-axe.min.js
         run: node scripts/browser-smoke.mjs
       - name: Retain browser evidence
         if: always()

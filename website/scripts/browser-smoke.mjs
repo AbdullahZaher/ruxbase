@@ -43,10 +43,11 @@ try{
  const target=await until(async()=>{try{return (await (await fetch('http://127.0.0.1:'+port+'/json/list')).json()).find(x=>x.type==='page');}catch{return false;}},'page target',30000);
  ws=new WebSocket(target.webSocketDebuggerUrl);
  await new Promise((ok,fail)=>{ws.addEventListener('open',ok,{once:true});ws.addEventListener('error',fail,{once:true});});
- let seq=0;const pending=new Map();const failures=[];
+ let seq=0;const pending=new Map();const failures=[];const viewerRequests=[];let viewingScalar=false;
  ws.addEventListener('message',e=>{
   const m=JSON.parse(e.data);
   if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}
+  if(viewingScalar&&m.method==='Network.requestWillBeSent') viewerRequests.push({url:m.params.request.url,method:m.params.request.method});
   if(m.method==='Network.responseReceived'&&m.params.response.url.startsWith(origin+SITE_BASE)&&m.params.response.status>=400)failures.push(m.params.response.url+' '+m.params.response.status);
   if(m.method==='Runtime.exceptionThrown')failures.push(m.params.exceptionDetails.text+' '+(m.params.exceptionDetails.exception?.description||''));
  });
@@ -100,8 +101,9 @@ try{
  assert(markdown.ok&&(await markdown.text()).includes('GET /api/health'),'Markdown retrieval');
  const spec=await(await fetch(origin+SITE_BASE+'openapi.json')).json();
  assert(spec.openapi==='3.1.0','OpenAPI retrieval');
- if(process.env.DOCS_SCALAR_CANDIDATE==='1'){
+ {
   await viewport(1440,900,false);
+  viewingScalar=true;
   await visit('api-viewer/');
   try {
    await until(()=>evaluate('document.querySelector("#api-reference")?.innerText.includes("List records") && document.querySelector("#api-reference")?.innerText.includes("Search records by vector")'),'Scalar rendered operations',30000);
@@ -113,9 +115,30 @@ try{
   assert(await evaluate('!Array.from(document.querySelectorAll("button")).some(b=>/test request/i.test(b.innerText))'),'Scalar must not expose test request buttons');
   await screenshot('scalar-candidate');
   assert(failures.length===0,'Scalar browser exceptions or missing local assets: '+failures.join('; '));
-  console.log('Scalar candidate rendered scoped operations with test requests hidden.');
+  viewingScalar=false;
+  assert(viewerRequests.every(r=>['GET','HEAD'].includes(r.method) && (r.url.startsWith(origin+SITE_BASE+'api-viewer/') || r.url===origin+SITE_BASE+'openapi.json' || r.url===origin+'/favicon.ico' || r.url.startsWith('data:') || r.url.startsWith('blob:'))),'Unexpected viewer requests: '+JSON.stringify(viewerRequests));
+  await writeFile(join(output,'scalar-requests.json'),JSON.stringify(viewerRequests,null,2)+'\n');
+  console.log('Scalar viewer rendered scoped operations with test requests hidden and network requests limited to documentation resources.');
  }
- await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),scalarCandidate:process.env.DOCS_SCALAR_CANDIDATE==='1'?'passed':'not-run',checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
+ if(process.env.DOCS_AXE_FILE){
+  const axeCode=await readFile(process.env.DOCS_AXE_FILE,'utf8');
+  const results=[];
+  for(const [path,theme,width] of [['','light',1440],['','dark',1440],['reference/api/','light',1440],['authorization/row-level-security/','dark',1440],['getting-started/quickstart/','light',390]]){
+   await viewport(width,900,width===390);
+   await visit(path);
+   await until(()=>evaluate('!!customElements.get("starlight-theme-select")'),'a11y theme ready');
+   await evaluate(`(()=>{const s=document.querySelector('starlight-theme-select select');s.value='${theme}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+   await until(()=>evaluate('document.documentElement.dataset.theme === '+JSON.stringify(theme)),'a11y theme');
+   await evaluate(axeCode+'\n;void 0');
+   const result=await evaluate(`axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']}}).then(r=>({version:r.testEngine.version,passes:r.passes.length,incomplete:r.incomplete.length,violations:r.violations.map(v=>({id:v.id,impact:v.impact,description:v.description,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))}))`);
+   results.push({path,theme,width,...result});
+  }
+  await writeFile(join(output,'accessibility.json'),JSON.stringify(results,null,2)+'\n');
+  const blockers=results.flatMap(r=>r.violations.filter(v=>v.impact==='critical'||v.impact==='serious').map(v=>({path:r.path,theme:r.theme,id:v.id,impact:v.impact})));
+  assert(!blockers.length,'Accessibility blockers: '+JSON.stringify(blockers));
+  console.log('Representative accessibility audit passed serious/critical gate: '+results.length+' configurations.');
+ }
+ await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),scalarViewer:'passed',checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
  console.log('Browser smoke passed: themes, search, mobile menu, static reference and machine-readable retrieval.');
 }finally{
  if(ws)ws.close();

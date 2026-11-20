@@ -8,7 +8,7 @@
   "scripts": {
     "test:foundation": "node --test tests/foundation.test.mjs tests/legacy-links.test.mjs",
     "dev": "node scripts/prepare.mjs && astro dev",
-    "build": "node scripts/prepare.mjs && astro build && node scripts/export-ai.mjs && node scripts/export-references.mjs",
+    "build": "node scripts/prepare.mjs && astro build && node scripts/export-ai.mjs && node scripts/export-references.mjs && bash scripts/stage-scalar-candidate.sh",
     "preview": "astro preview",
     "prepare:docs": "node scripts/prepare.mjs",
     "test:ai": "node --test tests/ai.test.mjs"

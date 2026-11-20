@@ -83,3 +83,7 @@ Added an isolated noindex self-hosted viewer experiment to candidate CI. Uses th
 ### Verification continuation
 
 Scalar corrective run 44736137546 failed before opening a browser (Chrome debugging port timeout); the pinned archive and OpenAPI checks passed. Increased bounded browser startup timeout, restored desktop viewport for the viewer, added real Quickstart smoke and CLI help checks, and pinned observed validator dependency versions (not wheel hashes). The docs build now runs on all PRs to detect source drift, and the deployment workflow includes the independent OpenAPI validator. Actual new CI results are required.
+
+### Integrated viewer and accessibility increment
+
+All four prior workflows passed on 99ce9ae6b5172ec19b165e2437075d28ad29030b, including Scalar rendering and actual Quickstart startup. Integrated the pinned viewer into the ordinary build and deployment checks, with public reference link, noindex, file provenance, and browser network assertions. Added digest-pinned axe-core test-only scanner for five representative configurations. New CI results, independent bundle/license review, comprehensive accessibility, full REST scope, brand, versioning and public deployment remain open.

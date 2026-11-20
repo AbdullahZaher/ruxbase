@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Candidate only: registry integrity is recorded for review, not yet committed.
+# Development viewer: exact version and archive integrity pinned after tested CI.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp="$(mktemp -d)"
@@ -38,6 +38,6 @@ assert (vendor / 'standalone.js').is_file() or (vendor / 'standalone.esm.js').is
 print('Scalar entrypoints:', [p.name for p in vendor.glob('standalone*')])
 for name in ['index.html', 'viewer.js']:
     shutil.copyfile(pathlib.Path('scalar-candidate') / name, target / name)
-(target / 'provenance.json').write_text(json.dumps({'package': info['name'], 'version': info['version'], 'integrity': digest, 'scope': 'candidate-only'}, indent=2) + '\n')
-print('Scalar candidate staged:', total, 'bytes')
+(target / 'provenance.json').write_text(json.dumps({'package': info['name'], 'version': info['version'], 'integrity': digest, 'scope': 'development-viewer', 'files': {str(p.relative_to(target)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(target.rglob('*')) if p.is_file()}}, indent=2) + '\n')
+print('Scalar viewer staged:', total, 'bytes')
 PY
