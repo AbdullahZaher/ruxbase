@@ -38,3 +38,23 @@ remain unimplemented in this experimental profile.
 
 Legacy serving, operator preparation, production privileges and main are
 unchanged. Independent certification and Wave 00 owner gates remain open.
+
+## CI remediation and structural RLS readiness
+
+Initial candidate CI #44715927602 failed formatting and both PG17/18
+prepared manifest integration tests: the supposed matching main manifest
+was rejected before the auxiliary-specific assertion. The fixture now
+canonicalizes the explicitly reviewed column identifiers using PostgreSQL
+identifier formatting and independently checks the expected manifest before
+bootstrap with fixture-only drift evidence. Expected privileges are not
+populated from observed ACLs. The exact remaining mismatch, if any, requires
+the new CI evidence; no success is claimed before that run completes.
+
+Prepared metadata inspection also checks one-to-one coverage of the RLS
+state entries and registered collections in its existing read-only snapshot,
+relation presence and expected relation kind, and enabled RLS for non-view
+collections. The disposable fixture verifies that an incomplete marker is
+rejected and that restoration of the original fixture state permits
+initialization. This does not validate policy expressions, function bodies,
+policy roles, view execution privileges, forced RLS or tenant isolation.
+HTTP remains disabled; no change to production or legacy serving.
