@@ -87,3 +87,7 @@ Scalar corrective run 44736137546 failed before opening a browser (Chrome debugg
 ### Integrated viewer and accessibility increment
 
 All four prior workflows passed on 99ce9ae6b5172ec19b165e2437075d28ad29030b, including Scalar rendering and actual Quickstart startup. Integrated the pinned viewer into the ordinary build and deployment checks, with public reference link, noindex, file provenance, and browser network assertions. Added digest-pinned axe-core test-only scanner for five representative configurations. New CI results, independent bundle/license review, comprehensive accessibility, full REST scope, brand, versioning and public deployment remain open.
+
+### Accessibility remediation
+
+Integrated viewer build 44747611786 passed the static checks, OpenAPI, Scalar rendering and viewer request boundary. Axe-core caught serious scrollable-region-focusable violations on three code blocks in the dark RLS page and one in mobile Quickstart; other three representative configurations had no violations. Set Expressive Code default wrapping using its documented configuration so long code lines do not require horizontal scrolling and original copied text is preserved. Do not suppress axe rules. Also disable Scalar agent/MCP/developer tools using the exact upstream 1.69.2 source release's configuration tests, and verify absence of visible AI/MCP actions. New verification required.

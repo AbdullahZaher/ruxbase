@@ -11,6 +11,9 @@ export default defineConfig({
   output: 'static',
   markdown: { processor: unified({ remarkPlugins: [[legacyLinks, { base: SITE_BASE }]] }) },
   integrations: [starlight({
+    // Wrap long code lines instead of introducing inaccessible horizontal scroll regions.
+    // Expressive Code preserves the original text when copied.
+    expressiveCode: { defaultProps: { wrap: true } },
     title: 'Ruxbase',
     description: 'PostgreSQL-native, self-hosted backend platform documentation.',
     // Keep the original PNG in the header until vector candidates are reviewed.

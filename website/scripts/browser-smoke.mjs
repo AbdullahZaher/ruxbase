@@ -113,6 +113,7 @@ try{
    throw error;
   }
   assert(await evaluate('!Array.from(document.querySelectorAll("button")).some(b=>/test request/i.test(b.innerText))'),'Scalar must not expose test request buttons');
+  assert(await evaluate('!Array.from(document.querySelectorAll("button,a")).some(b=>b.getClientRects().length>0 && /^(ask ai|ask ai agent|generate mcp|connect mcp)$/i.test(b.innerText.trim()))'),'Unexpected auxiliary AI/MCP actions');
   await screenshot('scalar-candidate');
   assert(failures.length===0,'Scalar browser exceptions or missing local assets: '+failures.join('; '));
   viewingScalar=false;

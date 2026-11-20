@@ -2,6 +2,7 @@ const specURL = new URL('../openapi.json', location.href);
 const config = {
   url: specURL.href, hideTestRequestButton: true, hideClientButton: true,
   persistAuth: false, telemetry: false, withDefaultFonts: false,
+  agent: { disabled: true }, mcp: { disabled: true }, showDeveloperTools: 'never',
   customFetch: async (input, init = {}) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, location.href);
     if (url.href !== specURL.href || (init.method && init.method !== 'GET')) throw new Error('Documentation viewer does not send API requests');
