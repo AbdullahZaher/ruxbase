@@ -37,6 +37,25 @@ to verify that an owner identity fails the screen and cancellation is rejected.
 It requires RUXBASE_TEST_URL; without the fixture the DB test is skipped.
 The existing suite on PostgreSQL 17 and 18 must pass before integration.
 
+## Increment 2 — declared identity contract
+
+Set the role names (not credentials) with `RUXBASE_ROLE_CHECK_RUNTIME`,
+`RUXBASE_ROLE_CHECK_MIGRATION`, and `RUXBASE_ROLE_CHECK_PROVISIONING`;
+`RUXBASE_ROLE_CHECK_REPLICATION` is optional. If any name is configured,
+all three required names must be defined and distinct. The command verifies
+the actual session and current identity against the declared runtime and
+fails on any initial authority finding. Without these settings the original
+diagnostic behavior is retained. This verifies only the runtime connection;
+declared operator role names are not evidence that those roles exist or have
+the correct grants.
+
+The positive integration test creates a disposable restricted login on the
+CI database server and verifies acceptance, owner-identity rejection and
+mismatch rejection. It does not alter the normal serving process. The
+contract is reusable but not a complete runtime admission boundary until
+pool identity, authority drift, allowed grants and startup isolation are
+established. No production access or authorization.
+
 ## M01 remaining
 
 - Separate runtime, provisioning/migration and replication identity contracts.
