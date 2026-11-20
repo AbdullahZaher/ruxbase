@@ -1,12 +1,15 @@
 package core_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
+	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AbdullahZaher/ruxbase/apis"
 	"github.com/AbdullahZaher/ruxbase/core"
@@ -14,8 +17,8 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/types"
 )
 
-// exercisePreparedHTTP uses the original API handlers on a disposable fixture.
-// It is not a public serving mode or a tenant isolation certification. Its
+// exercisePreparedHTTP uses the original API handlers on a disposable fixture
+// over a real loopback TCP listener. It is not a tenant isolation certification. Its
 // narrow fixture policies intentionally allow only the test's two tables.
 func exercisePreparedHTTP(t *testing.T, owner *sql.DB, ownerURL, identifier string, config core.BaseAppConfig, manifest pgrolecheck.GrantManifest) {
 	t.Helper()
@@ -127,49 +130,69 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	}
 	config.PreparedManifestJSON = string(raw)
 	config.DataDir = t.TempDir()
-	app := core.NewBaseApp(config)
-	defer app.ClearBootstrap()
-	if err := app.Bootstrap(); err != nil {
-		t.Fatalf("restricted HTTP fixture bootstrap: %v", err)
-	}
-	router, err := apis.NewRouter(app)
+	config.RealtimeSource = "hooks"
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	mux, err := router.BuildMux()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Use the real HTTP mux only behind a test-local allowlist. Never open
-	// a production listener or publish administrative routes.
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- apis.ServePreparedLoopback(ctx, listener, config, apis.PreparedLoopbackConfig{
+			AuthCollection:    "m01_fixture_users",
+			RecordCollections: []string{"m01_fixture_items"},
+		})
+	}()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("prepared HTTP lifecycle: %v", err)
+			}
+		case <-time.After(35 * time.Second):
+			t.Error("prepared HTTP server failed to stop")
+		}
+	}()
+	client := &http.Client{Timeout: 30 * time.Second}
+	defer client.CloseIdleConnections()
+	baseURL := "http://" + listener.Addr().String()
 	const records = "/api/collections/m01_fixture_items/records"
 	const login = "/api/collections/m01_fixture_users/auth-with-password"
-	limited := http.NewServeMux()
-	limited.Handle("POST "+login, mux)
-	limited.Handle(records, mux)
-	limited.Handle(records+"/{id}", mux)
 
-	request := func(method, path, body, token string, expected int) *httptest.ResponseRecorder {
+	request := func(method, path, body, token string, expected int) []byte {
 		t.Helper()
-		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req, err := http.NewRequest(method, baseURL+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		if token != "" {
 			req.Header.Set("Authorization", token)
 		}
-		res := httptest.NewRecorder()
-		limited.ServeHTTP(res, req)
-		if res.Code != expected {
-			t.Fatalf("%s %s: expected %d, got %d", method, path, expected, res.Code)
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
 		}
-		return res
+		defer res.Body.Close()
+		raw, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.StatusCode != expected {
+			t.Fatalf("%s %s: expected %d, got %d", method, path, expected, res.StatusCode)
+		}
+		return raw
 	}
+
 	request(http.MethodGet, "/api/settings", "", "", http.StatusNotFound)
+	request(http.MethodGet, "/api/collections/_superusers/records", "", "", http.StatusNotFound)
+	request(http.MethodGet, records+"?expand=other", "", "", http.StatusNotFound)
 	guest := request(http.MethodGet, records, "", "", http.StatusOK)
 	var guestList struct {
 		TotalItems int `json:"totalItems"`
 	}
-	if err := json.Unmarshal(guest.Body.Bytes(), &guestList); err != nil || guestList.TotalItems != 0 {
+	if err := json.Unmarshal(guest, &guestList); err != nil || guestList.TotalItems != 0 {
 		t.Fatal("guest list exposed authenticated fixture records")
 	}
 	request(http.MethodPost, login, `{"identity":"fixture@example.test","password":"incorrect"}`, "", http.StatusBadRequest)
@@ -177,21 +200,21 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	var session struct {
 		Token string `json:"token"`
 	}
-	if err := json.Unmarshal(res.Body.Bytes(), &session); err != nil || session.Token == "" {
+	if err := json.Unmarshal(res, &session); err != nil || session.Token == "" {
 		t.Fatal("fixture authentication did not return a token")
 	}
 	res = request(http.MethodPost, records, `{"title":"fixture-created"}`, session.Token, http.StatusOK)
 	var item struct {
 		ID string `json:"id"`
 	}
-	if err := json.Unmarshal(res.Body.Bytes(), &item); err != nil || item.ID == "" {
+	if err := json.Unmarshal(res, &item); err != nil || item.ID == "" {
 		t.Fatal("fixture create did not return a record")
 	}
 	path := records + "/" + item.ID
 	request(http.MethodGet, path, "", session.Token, http.StatusOK)
 	request(http.MethodGet, path, "", "", http.StatusNotFound)
 	guest = request(http.MethodGet, records, "", "", http.StatusOK)
-	if err := json.Unmarshal(guest.Body.Bytes(), &guestList); err != nil || guestList.TotalItems != 0 {
+	if err := json.Unmarshal(guest, &guestList); err != nil || guestList.TotalItems != 0 {
 		t.Fatal("guest list exposed a persisted authenticated fixture record")
 	}
 	request(http.MethodPatch, path, `{"title":"fixture-updated"}`, session.Token, http.StatusOK)
