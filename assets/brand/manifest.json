@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "originals": [
+    {
+      "file": "ruxbase.png",
+      "role": "lockup",
+      "width": 2172,
+      "height": 724,
+      "bytes": 549725,
+      "gitBlob": "8ed1c0b8c20eeea039b303241bbcb8de29e48e60"
+    },
+    {
+      "file": "ruxbase_logo.png",
+      "role": "symbol",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 498173,
+      "gitBlob": "fa06624e3b64649bbffd78caac8ed29a49a2f478"
+    },
+    {
+      "file": "ruxbase_name.png",
+      "role": "wordmark",
+      "width": 2172,
+      "height": 724,
+      "bytes": 559718,
+      "gitBlob": "4b401a97c43b1fa8e6f26d80781ddfad62986e2f"
+    }
+  ]
+}

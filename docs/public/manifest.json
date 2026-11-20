@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "pages": [
+    {
+      "source": "docs/public/index.md",
+      "target": "index.md"
+    }
+  ]
+}
