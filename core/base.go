@@ -104,6 +104,10 @@ type BaseAppConfig struct {
 	// manifests during experimental metadata-only bootstrap. It is not serving approval.
 	PreparedManifestJSON string
 
+	// PreprovisionedRLSRoles forbids role creation/grant repair by the
+	// offline migration process; the roles must have been provisioned separately.
+	PreprovisionedRLSRoles bool
+
 	// ruxbase: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
