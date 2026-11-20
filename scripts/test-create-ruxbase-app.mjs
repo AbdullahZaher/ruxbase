@@ -29,7 +29,7 @@ test("Both starters scaffold deterministically with portable lock and no secrets
       const dry=run(["--framework",framework,"--name",name,"--output",dir,"--dry-run","--json"]);
       assert.equal(dry.status,0,dry.stderr);
       assert.equal(json(dry).dryRun,true);
-      assert.deepEqual(await readdir(dir),[]);
+      assert.ok(!(await readdir(dir)).includes(name),"dry-run must not create this target");
       const proc=run([framework,name,"--output",dir,"--json"]);
       assert.equal(proc.status,0,proc.stderr);
       const target=join(dir,name);

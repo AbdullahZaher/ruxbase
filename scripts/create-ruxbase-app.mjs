@@ -26,7 +26,7 @@ Start Ruxbase first using the Docker Compose Quickstart.
 `;
 
 const input = process.argv.slice(2);
-let opts = { framework: "", name: "", output: process.cwd(), json: false, dryRun: false, help: false, list: false };
+let opts = { framework: "", name: "", output: process.cwd(), json: input.includes("--json"), dryRun: false, help: false, list: false };
 let positional = [];
 let parseError = "";
 const seen = new Set();
