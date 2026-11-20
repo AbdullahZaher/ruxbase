@@ -19,7 +19,7 @@ import (
 // StartPreparedWALFixture starts the existing decoder on a guarded runtime
 // event-store pool and a different CI WAL login. All provisioning is confined
 // to the disposable fixture. It does not enable realtime on the HTTP server.
-func StartPreparedWALFixture(t *testing.T, owner *sql.DB, runtimeURL string, identities pgrolecheck.IdentityContract, collectionID string) (verify func(string), stop func()) {
+func StartPreparedWALFixture(t *testing.T, owner *sql.DB, runtimeURL string, identities pgrolecheck.IdentityContract, manifest pgrolecheck.GrantManifest, collectionID string) (verify func(string), stop func()) {
 	t.Helper()
 	raw := os.Getenv("RUXBASE_TEST_WAL_URL")
 	if raw == "" || identities.Replication != "ruxbase_ci_wal" {
@@ -86,6 +86,9 @@ func StartPreparedWALFixture(t *testing.T, owner *sql.DB, runtimeURL string, ide
 	builder := dbx.NewFromDB(db, "pgx")
 	if _, err := identities.AdmitRuntime(ctx, db); err != nil {
 		t.Fatal(err)
+	}
+	if drift, err := manifest.Check(ctx, db); err != nil {
+		t.Fatalf("worker fixture grant manifest rejected: %+v (%v)", drift, err)
 	}
 	secret := security.RandomString(50)
 	worker := cluster.New(cluster.Config{
