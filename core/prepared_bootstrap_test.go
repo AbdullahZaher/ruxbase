@@ -196,6 +196,9 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Exercise the existing HTTP handlers only inside this disposable fixture.
+	exercisePreparedHTTP(t, owner, fixture.URL, identifier, config, manifest)
+
 	// A privileged owner and even a valid restricted login against incomplete
 	// metadata must be rejected, and no bootstrap write may repair it.
 	privileged := core.NewBaseApp(core.BaseAppConfig{
