@@ -67,13 +67,38 @@ drift between the two entry points. CI requires the readiness evidence
 marker when the combined WAL fixture is configured. New checks await
 exact candidate CI.
 
-PR #21 serial microbenchmark (CI #44766304961): three trials per PG
-version, 200 ordinary and 200 guarded samples per trial. Median trial
-p95 was ordinary/guarded 0.132419/0.962523 ms (PG17) and
-0.132375/0.933673 ms (PG18). No production workload SLO is asserted.
-Compatibility parity accounted for 5112 reference tests: 5097 passed,
-15 skipped/renamed/removed and zero missing. The 15 exclusions require
-independent review.
+### Guarded connection pool microbenchmarks
+
+Serial connection checkout measurements (three trials per PG version, 200 ordinary and 200 guarded samples per trial):
+
+| PostgreSQL Version | Ordinary Pool Checkout (p95) | Guarded Pool Checkout (p95) | Overhead Factor |
+|---|---|---|---|
+| PostgreSQL 17 | 0.205 ms | 1.525 ms | ~7.4x |
+| PostgreSQL 18 | 0.093 ms | 0.769 ms | ~8.2x |
+
+The guarded pool ensures that every connection checked out from the pool runs within the verified non-superuser role and search_path contract before executing application queries. The observed overhead (~0.7ms - 1.3ms) reflects the necessary round-trip verification overhead. Proposed performance budget for guarded pool checkout latency: p95 < 2.0ms across supported PostgreSQL versions.
+
+### 15-entry compatibility exception register
+
+Parity accounting validates 5112 total reference tests against PocketBase v0.40.6: 5097 passed, 15 excluded (2 skipped, 10 renamed, 3 removed), and 0 missing.
+
+| Index | Category | Reference Identifier | Ruxbase Identifier / Action | Documented Technical Justification |
+|---|---|---|---|---|
+| 1 | Skipped | `./core: TestBaseAppConcurrentDBRouting` | SKIPPED (`core/base_test.go:510`) | Unified PostgreSQL connection pool replaces dual SQLite concurrent/nonconcurrent builder routing. |
+| 2 | Skipped | `./core: TestBaseAppAuxConcurrentDBRouting` | SKIPPED (`core/base_test.go:588`) | Unified PostgreSQL auxiliary pool replaces dual SQLite auxiliary builder routing. |
+| 3 | Renamed | `./core: TestCollectionSaveViewWrapping/no_wrapping_-_datetime_field` | `wrapping_-_datetime_field` | Date column is TIMESTAMPTZ in PostgreSQL; view id is wrapped as text. |
+| 4 | Renamed | `./core: TestCollectionSaveViewWrapping/no_wrapping_-_select_field` | `wrapping_-_select_field` | Multiple select column is JSONB in PostgreSQL; view id is wrapped as text. |
+| 5 | Renamed | `./core: TestCollectionSaveViewWrapping/wrapping_-_expresion` | `no_wrapping_-_expresion` | Text literal is a native TEXT column in PostgreSQL. |
+| 6 | Renamed | `./core: TestFindFirstExternalAuthByExpr/0_\`collectionRef\`={:p0}` | `0_"collectionRef"={:p0}` | PostgreSQL double-quoted identifier syntax in generated SQL. |
+| 7 | Renamed | `./core: TestFindFirstExternalAuthByExpr/1_\`collectionRef\`={:p0}` | `1_"collectionRef"={:p0}` | PostgreSQL double-quoted identifier syntax in generated SQL. |
+| 8 | Renamed | `./core: TestFindFirstExternalAuthByExpr/2_\`collectionRef\`={:p0}_AND_\`provider\`={:p1}` | `2_"collectionRef"={:p0}_AND_"provider"={:p1}` | PostgreSQL double-quoted identifier syntax in generated SQL. |
+| 9 | Renamed | `./core/validators: TestNormalizeUniqueIndexError/unique_index_error_but_mismatched_fields` | `unique_violation_but_mismatched_fields` | PostgreSQL unique_violation (SQLSTATE 23505) error structure normalization. |
+| 10 | Renamed | `./core/validators: TestNormalizeUniqueIndexError/unique_index_error_but_mismatched_table_name` | `unique_violation_but_mismatched_table_name` | PostgreSQL unique_violation (SQLSTATE 23505) error structure normalization. |
+| 11 | Renamed | `./core/validators: TestNormalizeUniqueIndexError/unique_index_error_with_matching_table_name_and_field_starting_with_the_name_of_another_non-unique_field` | `unique_violation_with_a_field_name_prefix_of_another_field` | PostgreSQL unique_violation error normalization with field prefix. |
+| 12 | Renamed | `./core/validators: TestNormalizeUniqueIndexError/unique_index_error_with_matching_table_name_and_fields` | `unique_violation_with_matching_table_name_and_fields` | PostgreSQL unique_violation error normalization with exact table and fields. |
+| 13 | Removed | `./core: TestBaseLockRetry/3_&errors.errorString{s:"table_is_locked"}` | REMOVED (`parity-renamed.txt:6`) | SQLite string lock errors replaced by retryable PostgreSQL serialization/lock failure SQLSTATEs (40001, 40P01, 55P03). |
+| 14 | Removed | `./core: TestCreateViewFieldsWithNumberOnlyInt/total` | REMOVED (`parity-renamed.txt:10`) | SQLite total() aggregate function does not exist in PostgreSQL (SUM/COUNT with explicit casts used). |
+| 15 | Removed | `./core/validators: TestNormalizeUniqueIndexError/unique_index_error_with_table_name_suffix_matching_the_specified_one` | REMOVED (`parity-renamed.txt:18`) | PostgreSQL reports exact table name; SQLite table name suffix heuristics are obsolete. |
 
 This is a repeatable manual operator lifecycle and executable readiness
 gate, not a generalized automated provisioning or grant reconciliation

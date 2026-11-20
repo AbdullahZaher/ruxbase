@@ -25,11 +25,12 @@ type Cron struct {
 	timezone   *time.Location
 	ticker     *time.Ticker
 	startTimer *time.Timer
-	tickerDone chan bool
-	jobs       []*Job
-	interval   time.Duration
-	claim      ClaimFunc
-	mux        sync.RWMutex
+	// ruxbase: stopCh is closed on Stop() to reliably signal cancellation without deadlock (RB-CRON-01)
+	stopCh   chan struct{}
+	jobs     []*Job
+	interval time.Duration
+	claim    ClaimFunc
+	mux      sync.RWMutex
 }
 
 // ClaimFunc is called before running a scheduled job.
@@ -50,10 +51,9 @@ type ClaimFunc func(jobId string, slot time.Time) bool
 // You can change the default timezone with Cron.SetTimezone().
 func New() *Cron {
 	return &Cron{
-		interval:   1 * time.Minute,
-		timezone:   time.UTC,
-		jobs:       []*Job{},
-		tickerDone: make(chan bool),
+		interval: 1 * time.Minute,
+		timezone: time.UTC,
+		jobs:     []*Job{},
 	}
 }
 
@@ -62,7 +62,7 @@ func New() *Cron {
 func (c *Cron) SetInterval(d time.Duration) {
 	// update interval
 	c.mux.Lock()
-	wasStarted := c.ticker != nil
+	wasStarted := c.ticker != nil || c.startTimer != nil
 	c.interval = d
 	c.mux.Unlock()
 
@@ -176,60 +176,101 @@ func (c *Cron) Jobs() []*Job {
 	return copy
 }
 
-// Stop stops the current cron ticker (if not already).
+// stop stops any pending timer, closes stopCh, and stops any active ticker.
+// Assumes c.mux.Lock() is held by the caller.
 //
-// You can resume the ticker by calling Start().
-func (c *Cron) Stop() {
-	c.mux.Lock()
-	defer c.mux.Unlock()
-
+// ruxbase: non-blocking cancellation helper (RB-CRON-01)
+func (c *Cron) stop() {
 	if c.startTimer != nil {
 		c.startTimer.Stop()
 		c.startTimer = nil
 	}
 
-	if c.ticker == nil {
-		return // already stopped
+	if c.stopCh != nil {
+		close(c.stopCh)
+		c.stopCh = nil
 	}
 
-	c.tickerDone <- true
-	c.ticker.Stop()
-	c.ticker = nil
+	if c.ticker != nil {
+		c.ticker.Stop()
+		c.ticker = nil
+	}
+}
+
+// Stop stops the current cron ticker (if not already).
+//
+// You can resume the ticker by calling Start().
+//
+// ruxbase: fix deadlock in Stop() by closing stopCh instead of blocking chan send (RB-CRON-01)
+func (c *Cron) Stop() {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	c.stop()
 }
 
 // Start starts the cron ticker.
 //
 // Calling Start() on already started cron will restart the ticker.
+//
+// ruxbase: atomically stops previous run and initializes cancellation channel (RB-CRON-01)
 func (c *Cron) Start() {
-	c.Stop()
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	c.stop()
 
 	// delay the ticker to start at 00 of 1 c.interval duration
 	now := time.Now()
 	next := now.Add(c.interval).Truncate(c.interval)
 	delay := next.Sub(now)
 
-	c.mux.Lock()
+	stopCh := make(chan struct{})
+	c.stopCh = stopCh
+
 	c.startTimer = time.AfterFunc(delay, func() {
 		c.mux.Lock()
-		c.ticker = time.NewTicker(c.interval)
+		select {
+		case <-stopCh:
+			c.mux.Unlock()
+			return
+		default:
+		}
+
+		ticker := time.NewTicker(c.interval)
+		c.ticker = ticker
+		c.startTimer = nil
 		c.mux.Unlock()
 
-		// run immediately at 00
-		c.runDue(time.Now())
+		// run immediately at 00 if not stopped
+		select {
+		case <-stopCh:
+			return
+		default:
+			c.runDue(time.Now())
+		}
 
 		// run after each tick
 		routine.FireAndForget(func() {
 			for {
 				select {
-				case <-c.tickerDone:
+				case <-stopCh:
 					return
-				case t := <-c.ticker.C:
-					c.runDue(t)
+				case t, ok := <-ticker.C:
+					if !ok {
+						return
+					}
+					// Double check stopCh in case Go select chose ticker.C concurrently
+					select {
+					case <-stopCh:
+						return
+					default:
+						c.runDue(t)
+					}
 				}
 			}
 		})
 	})
-	c.mux.Unlock()
 }
 
 // HasStarted checks whether the current Cron ticker has been started.
@@ -237,7 +278,7 @@ func (c *Cron) HasStarted() bool {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
 
-	return c.ticker != nil
+	return c.ticker != nil || c.startTimer != nil
 }
 
 // runDue runs all registered jobs that are scheduled for the provided time.
