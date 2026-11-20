@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/core"
+	"github.com/AbdullahZaher/ruxbase/internal/pgrolecheck"
 	"github.com/pocketbase/dbx"
 
 	_ "github.com/AbdullahZaher/ruxbase/migrations"
@@ -23,6 +24,8 @@ type Config struct {
 	EncryptionEnv   string
 	// Require an independently preprovisioned, non-administrative migration role.
 	PreprovisionedRLSRoles bool
+	// IdentityContract optionally binds the offline migration to the reviewed principals.
+	IdentityContract *pgrolecheck.IdentityContract
 }
 
 func (c Config) Validate() error {
@@ -30,6 +33,14 @@ func (c Config) Validate() error {
 		strings.TrimSpace(c.ExpectedRole) == "" ||
 		strings.TrimSpace(c.DataDir) == "" {
 		return errors.New("explicit operator database URL, role and data directory are required")
+	}
+	if c.IdentityContract != nil {
+		if err := c.IdentityContract.Validate(); err != nil {
+			return err
+		}
+		if !c.PreprovisionedRLSRoles || c.ExpectedRole != c.IdentityContract.Migration {
+			return errors.New("reviewed identity contract requires separate migration mode")
+		}
 	}
 	return nil
 }
@@ -68,6 +79,11 @@ func Prepare(c Config) error {
 		err = db.DB().QueryRowContext(ctx, "SELECT session_user, current_user").Scan(&session, &current)
 		if err != nil || session != c.ExpectedRole || current != c.ExpectedRole {
 			return nil, errors.New("operator connection identity mismatch or unavailable")
+		}
+		if c.IdentityContract != nil {
+			if err := c.IdentityContract.CheckSeparation(ctx, db.DB(), c.ExpectedRole); err != nil {
+				return nil, err
+			}
 		}
 		return db, nil
 	}
