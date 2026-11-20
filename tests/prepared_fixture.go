@@ -77,6 +77,24 @@ func ExercisePreparedHTTP(t *testing.T, owner *sql.DB, ownerURL, identifier stri
 		}
 	}
 
+	var verifyWAL func(string)
+	combinedWAL := identities != nil && identities.Replication != ""
+	if combinedWAL {
+		grant := "GRANT INSERT ON public._realtime_events TO " + identifier
+		if _, err := owner.Exec(grant); err != nil {
+			t.Fatal("unable to prepare event-store fixture grant")
+		}
+		defer func() {
+			revoke := "REVOKE INSERT ON public._realtime_events FROM " + identifier
+			if _, err := owner.Exec(revoke); err != nil {
+				t.Error("unable to revoke disposable event-store grant")
+			}
+		}()
+		var stop func()
+		verifyWAL, stop = StartPreparedWALFixture(t, owner, config.DatabaseURL, *identities, items.Id)
+		defer stop()
+	}
+
 	// Build expected grants from the reviewed test policy and declared object
 	// names, not from observed runtime ACLs. Copy slices before modifying.
 	manifest.Schemas = append([]pgrolecheck.GrantContract(nil), manifest.Schemas...)
@@ -86,13 +104,18 @@ func ExercisePreparedHTTP(t *testing.T, owner *sql.DB, ownerURL, identifier stri
 			continue
 		}
 		schema.Grants = append([]pgrolecheck.Grant(nil), schema.Grants...)
-		for _, target := range []struct {
+		type targetGrant struct {
 			name        string
 			permissions []string
-		}{
+		}
+		targets := []targetGrant{
 			{"m01_fixture_users", []string{"SELECT"}},
 			{"m01_fixture_items", []string{"SELECT", "INSERT", "UPDATE", "DELETE"}},
-		} {
+		}
+		if combinedWAL {
+			targets = append(targets, targetGrant{"_realtime_events", []string{"INSERT"}})
+		}
+		for _, target := range targets {
 			rows, err := owner.Query(`
 SELECT pg_catalog.quote_ident(a.attname)
 FROM pg_catalog.pg_attribute a
@@ -218,6 +241,9 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	}
 	if err := json.Unmarshal(res, &item); err != nil || item.ID == "" {
 		t.Fatal("fixture create did not return a record")
+	}
+	if verifyWAL != nil {
+		verifyWAL(item.ID)
 	}
 	path := records + "/" + item.ID
 	request(http.MethodGet, path, "", session.Token, http.StatusOK)
