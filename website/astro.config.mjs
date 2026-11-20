@@ -44,6 +44,8 @@ export default defineConfig({
       { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
       { label: 'Migration', items: [{ autogenerate: { directory: 'migration' } }] },
     ],
+    // Keep the Pagefind index, but initialize its UI only on explicit search intent.
+    components: { Search: './src/components/DeferredSearch.astro' },
     customCss: ['./src/assets/brand/tokens.css', './src/styles/theme.css'],
   })],
 });

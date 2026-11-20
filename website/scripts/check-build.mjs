@@ -55,3 +55,4 @@ for (const name of ['README.md','AGENTS.md']) {
   }
 }
 console.log('Verified README and AGENTS public discovery links against built output.');
+await import('./check-initial-assets.mjs');

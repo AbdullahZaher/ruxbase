@@ -83,12 +83,24 @@ try{
  assert(await evaluate('document.querySelector("h1").textContent.includes("API reference")'),'Reference heading');
  assert(await evaluate('!!document.querySelector(\'a[href="/ruxbase/reference/api.md"]\')'),'Markdown link');
  await until(()=>evaluate('!!document.querySelector("button[data-open-modal]:not([disabled])")'),'search ready');
+ // Leave a cold navigation idle long enough to catch the former requestIdleCallback load.
+ await sleep(1800);
+ const searchRequests=()=>evaluate('performance.getEntriesByType("resource").map(r=>r.name).filter(n=>/\\/pagefind\\/|\\/ui-core\\.|\\/Search\\.astro/i.test(n))');
+ assert((await searchRequests()).length===0,'Search assets requested before user intent');
  await evaluate('document.querySelector("button[data-open-modal]").click()');
  await until(()=>evaluate('!!document.querySelector("#starlight__search input")'),'Pagefind input');
  await evaluate(`(()=>{const input=document.querySelector('#starlight__search input');input.value='readiness';input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
  await until(()=>evaluate('Array.from(document.querySelectorAll("#starlight__search a")).some(a=>a.href.includes("/ruxbase/reference/api/")||a.href.includes("/ruxbase/operations/overview/"))'),'Pagefind readiness result',25000);
+ const deferredRequests=await searchRequests();
+ assert(deferredRequests.some(n=>n.endsWith('/pagefind/pagefind-ui.js'))&&deferredRequests.some(n=>n.endsWith('/pagefind/pagefind-ui.css')),'Deferred search assets were not loaded on demand');
  await screenshot('desktop-search');
  await evaluate('document.querySelector("site-search dialog").close()');
+ await until(()=>evaluate('document.activeElement === document.querySelector("[data-open-modal]")'),'search focus restored');
+ await evaluate('window.dispatchEvent(new KeyboardEvent("keydown",{key:"k",ctrlKey:true,bubbles:true,cancelable:true}))');
+ await until(()=>evaluate('document.querySelector("site-search dialog").open && document.activeElement === document.querySelector("#starlight__search input")'),'keyboard reopen and focus');
+ assert((await searchRequests()).filter(n=>n.endsWith('/pagefind/pagefind-ui.js')).length===1,'Search UI fetched twice');
+ await evaluate('document.querySelector("site-search dialog").close()');
+ await writeFile(join(output,'deferred-search.json'),JSON.stringify({beforeIntent:[],afterIntent:deferredRequests,keyboardReopen:true,focusRestored:true},null,2)+'\n');
  await viewport(390,844,true);
  await visit('getting-started/quickstart/');
  assert(await evaluate('document.documentElement.scrollWidth <= innerWidth + 2'),'Mobile horizontal overflow');
