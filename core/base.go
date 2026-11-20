@@ -100,6 +100,10 @@ type BaseAppConfig struct {
 	// the declared restricted PostgreSQL identity. The profile cannot serve HTTP.
 	PreparedRuntimeRole string
 
+	// PreparedManifestJSON optionally requires reviewed main and auxiliary grant
+	// manifests during experimental metadata-only bootstrap. It is not serving approval.
+	PreparedManifestJSON string
+
 	// ruxbase: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
@@ -534,6 +538,9 @@ func (app *BaseApp) IsBootstrapped() bool {
 //
 // It calls ClearBootstrap() if the application was already bootstrapped.
 func (app *BaseApp) Bootstrap() error {
+	if app.config.PreparedManifestJSON != "" && app.config.PreparedRuntimeRole == "" {
+		return errors.New("prepared manifest requires an explicit prepared runtime identity")
+	}
 	if app.config.PreparedRuntimeRole != "" {
 		return app.bootstrapPrepared()
 	}
