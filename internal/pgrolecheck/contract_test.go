@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/url"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -102,6 +103,54 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	if _, err := contract.AdmitRuntime(ctx, owner); err == nil {
 		t.Fatal("owner connection admitted as declared restricted runtime")
 	}
+	// Verify effective grants in an isolated schema belonging to the fixture.
+	// The schema is removed before the temporary runtime login is dropped.
+	if _, err := owner.ExecContext(ctx, "CREATE SCHEMA ruxbase_grant_contract"); err != nil {
+		t.Fatal("unable to create grant fixture schema")
+	}
+	defer func() {
+		cleanupCtx, stop := context.WithTimeout(context.Background(), 15*time.Second)
+		defer stop()
+		if _, err := owner.ExecContext(cleanupCtx, "DROP SCHEMA ruxbase_grant_contract CASCADE"); err != nil {
+			t.Error("unable to clean up grant fixture schema")
+		}
+	}()
+	for _, query := range []string{
+		"CREATE TABLE ruxbase_grant_contract.items (id integer PRIMARY KEY)",
+		"CREATE SEQUENCE ruxbase_grant_contract.item_seq",
+		"GRANT USAGE ON SCHEMA ruxbase_grant_contract TO " + identifier,
+		"GRANT SELECT ON ruxbase_grant_contract.items TO " + identifier,
+		"GRANT USAGE ON SEQUENCE ruxbase_grant_contract.item_seq TO " + identifier,
+	} {
+		if _, err := owner.ExecContext(ctx, query); err != nil {
+			t.Fatal("unable to prepare scoped grant fixture")
+		}
+	}
+	grants := GrantContract{
+		Role:   role,
+		Schema: "ruxbase_grant_contract",
+		Grants: []Grant{
+			{"schema", "ruxbase_grant_contract", "USAGE"},
+			{"relation", "items", "SELECT"},
+			{"sequence", "item_seq", "USAGE"},
+		},
+	}
+	if drift, err := grants.Check(ctx, runtime); err != nil {
+		t.Fatalf("approved scoped grants rejected: %v; drift: %+v", err, drift)
+	}
+	// Change only the expected contract to exercise drift rejection without
+	// introducing extra database privileges.
+	grants.Grants = []Grant{
+		{"schema", "ruxbase_grant_contract", "USAGE"},
+		{"relation", "items", "INSERT"},
+		{"sequence", "item_seq", "USAGE"},
+	}
+	drift, err := grants.Check(ctx, runtime)
+	if err == nil || !reflect.DeepEqual(drift.Missing, []Grant{{"relation", "items", "INSERT"}}) ||
+		!reflect.DeepEqual(drift.Unexpected, []Grant{{"relation", "items", "SELECT"}}) {
+		t.Fatalf("expected exact grant drift, got %+v (%v)", drift, err)
+	}
+
 	contract.Runtime = fixture.Name + "_different"
 	if _, err := contract.AdmitRuntime(ctx, runtime); err == nil {
 		t.Fatal("mismatched restricted identity admitted")
