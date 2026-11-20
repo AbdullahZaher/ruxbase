@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,7 +51,8 @@ func ServePreparedLoopback(ctx context.Context, listener *net.TCPListener, confi
 	if !listener.Addr().(*net.TCPAddr).IP.IsLoopback() {
 		return errors.New("prepared HTTP requires a loopback listener")
 	}
-	if config.PreparedRuntimeRole == "" || config.PreparedManifestJSON == "" ||
+	strictEnv, _ := strconv.ParseBool(os.Getenv(core.RLSStrictEnv))
+	if strictEnv || config.PreparedRuntimeRole == "" || config.PreparedManifestJSON == "" ||
 		config.DatabaseURL == "" || config.LogsDatabaseURL == "" || config.DataDir == "" ||
 		config.ClusterMode || config.IsDev || config.OfflineSystemPreparation ||
 		config.PreprovisionedRLSRoles || config.RLSStrict || config.ReplicationIdentity.Enabled() ||
