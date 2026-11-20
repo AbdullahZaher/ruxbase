@@ -91,3 +91,7 @@ All four prior workflows passed on 99ce9ae6b5172ec19b165e2437075d28ad29030b, inc
 ### Accessibility remediation
 
 Integrated viewer build 44747611786 passed the static checks, OpenAPI, Scalar rendering and viewer request boundary. Axe-core caught serious scrollable-region-focusable violations on three code blocks in the dark RLS page and one in mobile Quickstart; other three representative configurations had no violations. Set Expressive Code default wrapping using its documented configuration so long code lines do not require horizontal scrolling and original copied text is preserved. Do not suppress axe rules. Also disable Scalar agent/MCP/developer tools using the exact upstream 1.69.2 source release's configuration tests, and verify absence of visible AI/MCP actions. New verification required.
+
+### Accessibility closure and auth reference increment
+
+Run 44748029804 passed all five representative axe configurations at the serious/critical threshold and verified Scalar rendering and its observed local-only requests; Quickstart 44748030978 passed. Expanded OpenAPI from seven to 19 operations using 14 additional source evidence blobs. This covers selected authentication/account-management operations and file-token creation, but not OAuth2, impersonation, file download, administrative APIs or full runtime behavior. Revalidate the new candidate; brand, full accessibility coverage, bundle review, versioning, rollback and publication remain open.

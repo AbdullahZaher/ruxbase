@@ -1,11 +1,11 @@
 ---
 title: API reference
-description: Explore health, record CRUD and vector search contracts.
+description: Explore health, record, vector search, authentication and file token contracts.
 ---
 
 **Development documentation.** Scoped reference, not a certified production release.
 
-The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **seven operations**: health, record CRUD and vector search. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
+The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **19 operations**: health, record CRUD, vector search, selected record authentication and account management, and file tokens. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
 
 [Open the Scalar API viewer](/ruxbase/api-viewer/) to explore the same contract. The viewer is for documentation only and does not provide a live API request console. Static text and Markdown remain the authoritative readable references.
 
@@ -34,7 +34,7 @@ Without the `ready` query parameter, the handler reports liveness (HTTP 200 and 
 }
 ```
 
-See [operations](/ruxbase/operations/overview/). Other REST operations, authentication flows, SSE, MCP and custom routes remain outside this OpenAPI increment. Collection schemas and permissions are application-specific.
+See [operations](/ruxbase/operations/overview/). Other REST operations, including SSE, MCP and custom routes, remain outside this OpenAPI increment. Collection schemas and permissions are application-specific.
 
 ## Record operations
 
@@ -51,6 +51,27 @@ Collection API rules control access to records. Guest access is conditional on t
 
 List operations accept page, perPage, sort, filter, skipTotal, expand and fields. When totals are skipped, counts may be -1. Vector search requires field and vector, with optional k and filter. See [vector search](/ruxbase/data/vector-search/) and [authorization](/ruxbase/authorization/row-level-security/) for the supported behavior and limitations.
 
+## Authentication and account management
+
+Authentication is configured per auth collection. Password and OTP authentication may require a further MFA step. Protect authentication tokens, passwords and recovery tokens; use HTTPS outside local development. A successful account-recovery or verification request is not proof of account existence or delivery.
+
+| Method | Path | Success |
+| --- | --- | --- |
+| GET | `/api/collections/{collection}/auth-methods` | 200 |
+| POST | `/api/collections/{collection}/auth-refresh` | 200 |
+| POST | `/api/collections/{collection}/auth-with-password` | 200 |
+| POST | `/api/collections/{collection}/request-otp` | 200 |
+| POST | `/api/collections/{collection}/auth-with-otp` | 200 |
+| POST | `/api/collections/{collection}/request-password-reset` | 204 |
+| POST | `/api/collections/{collection}/confirm-password-reset` | 204 |
+| POST | `/api/collections/{collection}/request-verification` | 204 |
+| POST | `/api/collections/{collection}/confirm-verification` | 204 |
+| POST | `/api/collections/{collection}/request-email-change` | 204 |
+| POST | `/api/collections/{collection}/confirm-email-change` | 204 |
+| POST | `/api/files/token` | 200 |
+
+The auth-refresh, request-email-change and file-token operations require authenticated context. Review each operation's JSON request schema and authentication requirements in the OpenAPI contract. Account-specific rules and application-defined fields remain authoritative.
+
 ## Scope
 
-Authentication, file downloads/uploads, administrative APIs, realtime, batch, MCP and custom routes are not fully represented. The contract describes selected success responses; error details and collection-specific schemas remain outside this increment.
+OAuth2, impersonation, file downloads/multipart uploads, administrative APIs, realtime, batch, MCP and custom routes are not fully represented. The contract describes selected success responses; error details and collection-specific schemas remain outside this increment.

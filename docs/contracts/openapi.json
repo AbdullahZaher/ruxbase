@@ -3,7 +3,7 @@
   "info": {
     "title": "Ruxbase API (scoped reference)",
     "version": "development",
-    "description": "Development documentation. Health, generic record CRUD and vector search. Not a complete REST API specification or release certification."
+    "description": "Development documentation. Health, generic record CRUD, vector search, selected record authentication and account management, and file token creation. Not full REST coverage or production certification."
   },
   "servers": [
     {
@@ -510,6 +510,718 @@
           }
         }
       }
+    },
+    "/api/collections/{collection}/auth-methods": {
+      "get": {
+        "operationId": "getAuthMethods",
+        "summary": "List authentication methods",
+        "description": "Returns enabled authentication methods and associated collection settings.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authentication methods.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMethods"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/auth-refresh": {
+      "post": {
+        "operationId": "refreshAuth",
+        "summary": "Refresh authentication",
+        "description": "Requires an existing authenticated record in the collection context. Non-refreshable tokens are not renewed.",
+        "security": [
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current or refreshed authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/auth-with-password": {
+      "post": {
+        "operationId": "authWithPassword",
+        "summary": "Authenticate with password",
+        "description": "Requires a configured password authentication method. MFA and collection auth rules may require additional steps.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "mfaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MFA challenge identifier returned by the previous authentication step."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authentication completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Additional authentication may be required; other unauthorized errors are possible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mfaId": {
+                      "type": "string",
+                      "description": "Challenge identifier when MFA is required."
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "identity": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "identityField": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "identity",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/request-otp": {
+      "post": {
+        "operationId": "requestOTP",
+        "summary": "Request one-time password",
+        "description": "Requires OTP configured for the collection and email delivery. A successful response does not prove that an account exists or that mail was delivered.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request acknowledged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "otpId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "otpId"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/auth-with-otp": {
+      "post": {
+        "operationId": "authWithOTP",
+        "summary": "Authenticate with one-time password",
+        "description": "Requires valid OTP, collection configuration and applicable authentication rules. MFA may require additional authentication.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "mfaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MFA challenge identifier returned by the previous authentication step."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authentication completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Additional authentication may be required; other unauthorized errors are possible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mfaId": {
+                      "type": "string",
+                      "description": "Challenge identifier when MFA is required."
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otpId": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "otpId",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/request-password-reset": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "summary": "Request password reset",
+        "description": "Request a reset message. A successful response is not proof of account existence or mail delivery.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/confirm-password-reset": {
+      "post": {
+        "operationId": "confirmPasswordReset",
+        "summary": "Confirm password reset",
+        "description": "Complete password reset using a valid reset token and matching new password fields. Collection password validation applies.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "passwordConfirm": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "token",
+                  "password",
+                  "passwordConfirm"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/request-verification": {
+      "post": {
+        "operationId": "requestVerification",
+        "summary": "Request email verification",
+        "description": "Request a verification message. Success does not prove account existence or mail delivery.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/confirm-verification": {
+      "post": {
+        "operationId": "confirmVerification",
+        "summary": "Confirm email verification",
+        "description": "Confirm verification with a valid verification token.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/request-email-change": {
+      "post": {
+        "operationId": "requestEmailChange",
+        "summary": "Request email change",
+        "description": "Requires a valid authenticated record in the collection context. Superuser email changes use a different flow.",
+        "security": [
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "newEmail": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "newEmail"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/confirm-email-change": {
+      "post": {
+        "operationId": "confirmEmailChange",
+        "summary": "Confirm email change",
+        "description": "Requires a valid email-change token and current password; superuser email changes use a different flow.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Auth collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/token": {
+      "post": {
+        "operationId": "createFileToken",
+        "summary": "Request protected file token",
+        "description": "Requires a valid authenticated record. The token is for protected file access, not a replacement for collection file permissions.",
+        "security": [
+          {
+            "RecordToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "token"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authentication, configuration and resource errors depend on the collection."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -591,6 +1303,103 @@
             }
           }
         }
+      },
+      "AuthResult": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Authentication token."
+          },
+          "record": {
+            "$ref": "#/components/schemas/Record"
+          },
+          "meta": {}
+        },
+        "required": [
+          "token",
+          "record"
+        ]
+      },
+      "AuthMethods": {
+        "type": "object",
+        "description": "Enabled methods and collection-specific settings. Provider entries and legacy fields may be present.",
+        "properties": {
+          "password": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "identityFields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          },
+          "oauth2": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          },
+          "mfa": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "duration": {
+                "type": "integer",
+                "description": "Seconds."
+              }
+            },
+            "required": [
+              "enabled",
+              "duration"
+            ]
+          },
+          "otp": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "duration": {
+                "type": "integer",
+                "description": "Seconds."
+              }
+            },
+            "required": [
+              "enabled",
+              "duration"
+            ]
+          }
+        },
+        "required": [
+          "password",
+          "oauth2",
+          "mfa",
+          "otp"
+        ],
+        "additionalProperties": true
       }
     },
     "securitySchemes": {
@@ -602,5 +1411,5 @@
       }
     }
   },
-  "x-ruxbase-coverage": "partial: health, generic record CRUD, vector search; JSON only where applicable"
+  "x-ruxbase-coverage": "partial: 19 operations; excludes OAuth2, impersonation, file download and multipart, administration, batch, realtime, MCP and custom routes"
 }
