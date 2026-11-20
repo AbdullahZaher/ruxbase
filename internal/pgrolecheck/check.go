@@ -11,15 +11,15 @@ import (
 // Report records a conservative subset of runtime authority. Membership is
 // treated as a reason for review even when inheritance or SET is disabled.
 type Report struct {
-	SessionRole       string `json:"sessionRole"`
-	CurrentRole       string `json:"currentRole"`
-	PrivilegedMember  bool   `json:"privilegedMember"`
-	DatabaseOwner     bool   `json:"databaseOwner"`
-	DatabaseCreate    bool   `json:"databaseCreate"`
-	SchemaOwner       bool   `json:"schemaOwner"`
-	SchemaCreate      bool   `json:"schemaCreate"`
-	RelationOwner     bool   `json:"relationOwner"`
-	RoutineOwner      bool   `json:"routineOwner"`
+	SessionRole      string `json:"sessionRole"`
+	CurrentRole      string `json:"currentRole"`
+	PrivilegedMember bool   `json:"privilegedMember"`
+	DatabaseOwner    bool   `json:"databaseOwner"`
+	DatabaseCreate   bool   `json:"databaseCreate"`
+	SchemaOwner      bool   `json:"schemaOwner"`
+	SchemaCreate     bool   `json:"schemaCreate"`
+	RelationOwner    bool   `json:"relationOwner"`
+	RoutineOwner     bool   `json:"routineOwner"`
 }
 
 // Findings lists reasons the proposed serving identity fails this initial
@@ -64,7 +64,7 @@ func Inspect(ctx context.Context, db *sql.DB) (Report, error) {
 	if err != nil {
 		return Report{}, errors.New("unable to begin read-only role inspection")
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	const query = `
 SELECT session_user, current_user,
@@ -78,28 +78,28 @@ SELECT session_user, current_user,
        pg_catalog.has_database_privilege(session_user, d.oid, 'CREATE'),
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_namespace n
-           WHERE n.nspname <> 'information_schema' AND left(n.nspname, 3) <> 'pg_'
+           WHERE n.nspname <> 'information_schema' AND pg_catalog.left(n.nspname, 3) <> 'pg_'
              AND pg_catalog.pg_has_role(session_user, n.nspowner, 'MEMBER')
        ),
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_namespace n
-           WHERE n.nspname <> 'information_schema' AND left(n.nspname, 3) <> 'pg_'
+           WHERE n.nspname <> 'information_schema' AND pg_catalog.left(n.nspname, 3) <> 'pg_'
              AND pg_catalog.has_schema_privilege(session_user, n.oid, 'CREATE')
        ),
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-           WHERE n.nspname <> 'information_schema' AND left(n.nspname, 3) <> 'pg_'
+           WHERE n.nspname <> 'information_schema' AND pg_catalog.left(n.nspname, 3) <> 'pg_'
              AND pg_catalog.pg_has_role(session_user, c.relowner, 'MEMBER')
        ),
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_proc p
            JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-           WHERE n.nspname <> 'information_schema' AND left(n.nspname, 3) <> 'pg_'
+           WHERE n.nspname <> 'information_schema' AND pg_catalog.left(n.nspname, 3) <> 'pg_'
              AND pg_catalog.pg_has_role(session_user, p.proowner, 'MEMBER')
        )
 FROM pg_catalog.pg_database d
-WHERE d.datname = current_database()
+WHERE d.datname = pg_catalog.current_database()
 `
 	var report Report
 	err = tx.QueryRowContext(ctx, query).Scan(
