@@ -56,7 +56,8 @@ fi
 # preserve the same runtime role and safety checks within each trial.
 if [ -n "${RUXBASE_TEST_URL:-}" ]; then
   go test -count=3 -p 1 -parallel 1 -timeout 5m -v \
-    -run '^TestRestrictedIdentityAdmissionPostgreSQL  measurement_status=$?
+    -run '^TestRestrictedIdentityAdmissionPostgreSQL$' ./internal/pgrolecheck | tee checkout-measurements.txt
+  measurement_status=$?
   if [ "$measurement_status" -ne 0 ]; then
     exit "$measurement_status"
   fi
@@ -64,11 +65,5 @@ if [ -n "${RUXBASE_TEST_URL:-}" ]; then
     [ "$(grep -c '^--- PASS: TestRestrictedIdentityAdmissionPostgreSQL ' checkout-measurements.txt)" -ne 3 ]; then
     echo "M01 checkout requires three completed measurement trials"
     exit 1
-  fi
-fi
- ./internal/pgrolecheck | tee checkout-measurements.txt
-  measurement_status=$?
-  if [ "$measurement_status" -ne 0 ]; then
-    exit "$measurement_status"
   fi
 fi
