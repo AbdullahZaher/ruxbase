@@ -102,7 +102,13 @@ try{
  assert(spec.openapi==='3.1.0','OpenAPI retrieval');
  if(process.env.DOCS_SCALAR_CANDIDATE==='1'){
   await visit('api-viewer/');
-  await until(()=>evaluate('document.querySelector("#api-reference")?.innerText.includes("List records") && document.querySelector("#api-reference")?.innerText.includes("Search records by vector")'),'Scalar rendered operations',30000);
+  try {
+   await until(()=>evaluate('document.querySelector("#api-reference")?.innerText.includes("List records") && document.querySelector("#api-reference")?.innerText.includes("Search records by vector")'),'Scalar rendered operations',30000);
+  } catch(error) {
+   await screenshot('scalar-failure');
+   console.log('Scalar diagnostic:',await evaluate('document.querySelector("#api-reference")?.innerText.slice(0,1500)'),failures);
+   throw error;
+  }
   assert(await evaluate('!Array.from(document.querySelectorAll("button")).some(b=>/test request/i.test(b.innerText))'),'Scalar must not expose test request buttons');
   await screenshot('scalar-candidate');
   assert(failures.length===0,'Scalar browser exceptions or missing local assets: '+failures.join('; '));

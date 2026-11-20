@@ -1,10 +1,6 @@
-const target = document.querySelector('#api-reference');
 const specURL = new URL('../openapi.json', location.href);
-const response = await fetch(specURL, { credentials:'omit' });
-if (!response.ok) throw new Error('OpenAPI unavailable');
-const spec = await response.json();
 const config = {
-  content: spec, hideTestRequestButton: true, hideClientButton: true,
+  url: specURL.href, hideTestRequestButton: true, hideClientButton: true,
   persistAuth: false, telemetry: false, withDefaultFonts: false,
   customFetch: async (input, init = {}) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, location.href);
@@ -12,10 +8,18 @@ const config = {
     return fetch(specURL, {credentials:'omit'});
   },
 };
-const esm = await fetch('./vendor/standalone.esm.js', {method:'HEAD'});
-if (esm.ok) {
-  const { createApiReference } = await import('./vendor/standalone.esm.js');
-  createApiReference(target, config);
-} else {
-  throw new Error('Scalar ESM bundle unavailable');
+try {
+  // The documented standalone IIFE API avoids CDN entrypoint imports.
+  await new Promise((ok, fail) => {
+    const script = document.createElement('script');
+    script.src = './vendor/standalone.js';
+    script.onload = ok;
+    script.onerror = () => fail(Error('Scalar standalone bundle could not be loaded'));
+    document.head.append(script);
+  });
+  if (!globalThis.Scalar?.createApiReference) throw new Error('Scalar standalone API unavailable');
+  globalThis.Scalar.createApiReference('#api-reference', config);
+} catch (error) {
+  document.querySelector('#api-reference').textContent = 'Viewer initialization failed. Use the static API reference.';
+  throw error;
 }

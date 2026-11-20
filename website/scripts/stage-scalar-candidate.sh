@@ -12,7 +12,7 @@ info = json.loads((tmp / 'pack.json').read_text())[0]
 assert info['name'] == '@scalar/api-reference' and info['version'] == '1.69.2'
 archive = tmp / pathlib.Path(info['filename']).name
 digest = 'sha512-' + base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode()
-assert digest == info['integrity']
+assert digest == info['integrity'] == 'sha512-dh72RlSKRfjk+wTfplO1oNLQBGKmczWxi+zoI553pgPA7Zer03iBf084qqGoIwwSA+odO2oXIxwvcXVHTWRE/Q=='
 print('SCALAR-INTEGRITY', digest)
 target = pathlib.Path('dist/api-viewer')
 target.mkdir(exist_ok=False)
@@ -35,6 +35,7 @@ with tarfile.open(archive, 'r:gz') as tar:
         with tar.extractfile(m) as src, dest.open('xb') as out:
             shutil.copyfileobj(src, out)
 assert (vendor / 'standalone.js').is_file() or (vendor / 'standalone.esm.js').is_file()
+print('Scalar entrypoints:', [p.name for p in vendor.glob('standalone*')])
 for name in ['index.html', 'viewer.js']:
     shutil.copyfile(pathlib.Path('scalar-candidate') / name, target / name)
 (target / 'provenance.json').write_text(json.dumps({'package': info['name'], 'version': info['version'], 'integrity': digest, 'scope': 'candidate-only'}, indent=2) + '\n')
