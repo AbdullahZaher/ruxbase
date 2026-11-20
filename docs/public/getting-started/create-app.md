@@ -16,7 +16,7 @@ The checked-in generator copies complete source templates. It does not execute g
 ```sh
 node scripts/create-ruxbase-app.mjs react my-react-app
 cd my-react-app
-npm install
+npm ci
 npm run dev
 ```
 
@@ -27,7 +27,7 @@ Open http://127.0.0.1:5173. The Vite development server forwards same-origin `/a
 ```sh
 node scripts/create-ruxbase-app.mjs nextjs my-next-app
 cd my-next-app
-npm install
+npm ci
 npm run dev
 ```
 
@@ -50,6 +50,14 @@ docker compose --env-file .env.quickstart -f compose.yaml -f starters/nextjs/com
 ```
 
 The overlays require the root checked-out Ruxbase source and are **not** standalone generated project Compose files. Generated applications run with npm against the already-started backend. All published host ports are bound to loopback; PostgreSQL remains private.
+
+## Reproducible project builds and protected server sessions
+
+Both starter templates include exact `package-lock.json` dependency graphs with integrity data. The generator copies the lockfile and renames its root package consistently. Run `npm ci` instead of resolving new versions with `npm install`. CI exercises the generated project, real Ruxbase/PostgreSQL and Chromium.
+
+Next.js includes a **separate protected server session example** with routes `/api/session/login`, `/api/session/me`, `/api/session/posts`, `/api/session/logout` and the authenticated server-rendered `/protected` page. It uses HttpOnly cookies, a fresh SDK instance per request, backend auth-refresh validation and explicit same-origin JSON mutation checks. For real security boundaries and limitations see [protected Next.js sessions](/ruxbase/tutorials/nextjs-protected-sessions/).
+
+For safe CLI flags, machine-readable output, setup checks and the opt-in AI evaluation see [Developer tooling](/ruxbase/getting-started/developer-tooling/).
 
 ## What to do when setup fails
 

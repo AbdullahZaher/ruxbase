@@ -21,7 +21,7 @@ docker compose --env-file .env.quickstart -f compose.yaml -f starters/react/comp
 Start Ruxbase separately at http://127.0.0.1:8090 using the root Quickstart. Then from this folder:
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 

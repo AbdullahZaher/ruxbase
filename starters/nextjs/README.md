@@ -21,7 +21,7 @@ docker compose --env-file .env.quickstart -f compose.yaml -f starters/nextjs/com
 Start Ruxbase at http://127.0.0.1:8090, then:
 
 ```sh
-npm install
+npm ci
 npm run dev
 ```
 
@@ -35,3 +35,14 @@ Configure a disposable `posts` collection and ordinary user login with [the exam
 - **Posts collection missing:** create the example schema with owner rules.
 - **Login rejected:** verify password authentication for an ordinary user.
 - **Port 3000 occupied:** stop the competing service or change the host port.
+
+## Optional authenticated server route example
+
+The `/protected` page and `/api/session/{login,me,posts,logout}` handlers demonstrate **request-scoped**, validated PocketBase SDK sessions. For a local Next.js production server, configure:
+
+```sh
+RUXBASE_APP_ORIGIN=http://127.0.0.1:3000 npm run build
+RUXBASE_APP_ORIGIN=http://127.0.0.1:3000 npm run start
+```
+
+`RUXBASE_APP_ORIGIN` must match the browser-facing origin and is never selected from an untrusted request header. Protected POST routes reject missing/mismatched Origin, cross-site Fetch Metadata and non-JSON payloads. Cookies are HttpOnly and Secure in production, but this does not make plain HTTP suitable for public deployment: use HTTPS beyond loopback. Logout deletes the browser cookie only; it does not revoke the upstream bearer token. Do not consider this example independently production security-certified. See the [server session tutorial](../../docs/public/tutorials/nextjs-protected-sessions.md) for bounded tests and remaining work.
