@@ -29,3 +29,18 @@ explicit provisioning and migration authorities, complete grant manifest,
 read-only readiness and drift checks, pool-wide authority admission,
 removal of privileged startup actions and certification on real PG17/18
 evidence. This increment does not certify recovery or production readiness.
+
+## Read-only system ledger inspection
+
+Select `--check-system` instead of `--apply-system` to inspect the
+registered system migration history using an explicit connection and role.
+The checker uses a bounded read-only repeatable-read transaction against
+`public._migrations` and does not create a ledger when one is absent.
+It rejects missing migrations, unverified conditional migrations and
+identity mismatches. It prints JSON evidence and exits nonzero on rejection.
+
+This is not complete readiness: app migrations, unknown historical entries,
+checksums, auxiliary schema, privileges, RLS drift and DDL consistency
+are separate gates. A ledger match does not authorize serving. Tests exercise
+an empty disposable fixture, check that inspection creates no ledger, and
+verify history after preparation. Existing serving is unchanged.
