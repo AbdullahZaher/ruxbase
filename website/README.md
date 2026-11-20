@@ -44,3 +44,5 @@ Expanded scoped API contract to 19 operations, including selected record authent
 The scoped OpenAPI reference now covers 31 operations, adding collections, settings, backup metadata and file reads. Schema validation and evidence guards apply; administrative operations explicitly require superuser credentials. Collection and settings models remain partial open-object schemas. Do not treat the reference as exhaustive or a runtime certification.
 
 Brand review uses the separate docs-brand-review CI workflow and does not change published graphics. Scalar archive staging now retains legal notices and package dependency metadata under api-viewer/legal; this is an inventory, not full transitive license/advisory certification.
+
+Independent inspection of artifact 14641118066 revealed that the broad notice matcher selected six License.vue component files, not legal notices. Corrected the matcher, recorded registry gitHead when available, and added a deployment-only fail-closed gate pending actual distribution review. MIT metadata alone is insufficient. The docs development build remains reviewable.

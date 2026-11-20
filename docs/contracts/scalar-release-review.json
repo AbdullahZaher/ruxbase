@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "package": "@scalar/api-reference",
+  "version": "1.69.2",
+  "integrity": "sha512-dh72RlSKRfjk+wTfplO1oNLQBGKmczWxi+zoI553pgPA7Zer03iBf084qqGoIwwSA+odO2oXIxwvcXVHTWRE/Q==",
+  "status": "pending",
+  "required": [
+    "Exact release source license and copyright notice",
+    "Bundled dependency inventory and license obligations",
+    "Advisory review of actual bundled versions",
+    "Verified legal notices included in deployed artifact"
+  ],
+  "evidence": "Initial archive review found MIT metadata and 26 declared direct dependencies. The six initially matched License.vue* files are code, not license notices. No distribution clearance inferred."
+}

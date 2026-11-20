@@ -5,15 +5,19 @@ cd "$(dirname "$0")/.."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 npm pack @scalar/api-reference@1.69.2 --ignore-scripts --json --pack-destination "$tmp" > "$tmp/pack.json"
+npm view @scalar/api-reference@1.69.2 --json > "$tmp/metadata.json"
 python3 - "$tmp" <<'PY'
-import base64, hashlib, json, pathlib, shutil, sys, tarfile
+import base64, hashlib, json, pathlib, re, shutil, sys, tarfile
 tmp = pathlib.Path(sys.argv[1])
 info = json.loads((tmp / 'pack.json').read_text())[0]
 assert info['name'] == '@scalar/api-reference' and info['version'] == '1.69.2'
 archive = tmp / pathlib.Path(info['filename']).name
 digest = 'sha512-' + base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode()
 assert digest == info['integrity'] == 'sha512-dh72RlSKRfjk+wTfplO1oNLQBGKmczWxi+zoI553pgPA7Zer03iBf084qqGoIwwSA+odO2oXIxwvcXVHTWRE/Q=='
+metadata = json.loads((tmp / 'metadata.json').read_text())
+assert metadata['name'] == info['name'] and metadata['version'] == info['version'] and metadata['dist']['integrity'] == digest
 print('SCALAR-INTEGRITY', digest)
+print('Scalar upstream gitHead:', metadata.get('gitHead', 'not published'))
 target = pathlib.Path('dist/api-viewer')
 target.mkdir(exist_ok=False)
 vendor = target / 'vendor'
@@ -45,7 +49,7 @@ with tarfile.open(archive, 'r:gz') as tar:
         if not m.isfile() or not m.name.startswith('package/'):
             continue
         name = pathlib.PurePosixPath(m.name).name
-        if not name.upper().startswith(('LICENSE', 'LICENCE', 'NOTICE', 'COPYING', 'THIRD-PARTY', 'THIRD_PARTY')):
+        if not re.fullmatch(r'(?:LICENSE|LICENCE|NOTICE|COPYING|THIRD[-_]PARTY(?:[-_ ](?:LICENSES?|NOTICES?))?)(?:[-_.](?:MIT|APACHE|BSD|GPL|LGPL|MPL|TXT|MD|RST|HTML|JSON))*', name, re.IGNORECASE):
             continue
         rel = pathlib.PurePosixPath(m.name[len('package/'):])
         assert not rel.is_absolute() and '..' not in rel.parts and m.size <= 4 * 1024 * 1024
@@ -59,6 +63,8 @@ with tarfile.open(archive, 'r:gz') as tar:
         'declaredDependencies': pkg.get('dependencies', {}), 'declaredOptionalDependencies': pkg.get('optionalDependencies', {}),
         'declaredPeerDependencies': pkg.get('peerDependencies', {}),
         'includedNotices': sorted(notices),
+        'publisherGitHead': metadata.get('gitHead'),
+        'noticeStatus': 'present-unreviewed' if notices else 'missing-from-published-archive',
         'reviewStatus': 'inventory-only',
         'limitations': 'Package declarations are not an SBOM of the bundled standalone JS. Transitive license and advisory review remains required.'
     }, indent=2) + '\n')

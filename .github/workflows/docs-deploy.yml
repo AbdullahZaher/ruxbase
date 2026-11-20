@@ -47,6 +47,7 @@ jobs:
           node scripts/check-build.mjs
           node scripts/check-ai.mjs
           bash scripts/validate-openapi.sh
+          node scripts/check-scalar-release-review.mjs
           node scripts/browser-smoke.mjs
       - name: Upload reviewed Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
