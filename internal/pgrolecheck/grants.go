@@ -81,10 +81,23 @@ func (c GrantContract) Check(ctx context.Context, db *sql.DB) (GrantDrift, error
 		return GrantDrift{}, errors.New("unable to begin scoped grant inspection")
 	}
 	defer func() { _ = tx.Rollback() }()
+	drift, err := c.checkTx(ctx, tx)
+	if err != nil {
+		return drift, err
+	}
+	if err := tx.Commit(); err != nil {
+		return GrantDrift{}, errors.New("unable to finish scoped grant inspection")
+	}
+	if len(drift.Missing) != 0 || len(drift.Unexpected) != 0 {
+		return drift, errors.New("scoped runtime grant drift detected")
+	}
+	return drift, nil
+}
 
+func (c GrantContract) checkTx(ctx context.Context, tx *sql.Tx) (GrantDrift, error) {
 	var session, current string
 	var exists bool
-	err = tx.QueryRowContext(ctx, `
+	err := tx.QueryRowContext(ctx, `
 SELECT session_user, current_user,
        EXISTS (SELECT 1 FROM pg_catalog.pg_namespace
                WHERE nspname = $1 AND nspname <> 'information_schema'
@@ -158,12 +171,5 @@ SELECT kind, object, privilege FROM privileges ORDER BY kind, object, privilege
 	if err := rows.Err(); err != nil {
 		return GrantDrift{}, errors.New("incomplete scoped grant inspection")
 	}
-	if err := tx.Commit(); err != nil {
-		return GrantDrift{}, errors.New("unable to finish scoped grant inspection")
-	}
-	drift := CompareGrants(c.Grants, actual)
-	if len(drift.Missing) != 0 || len(drift.Unexpected) != 0 {
-		return drift, errors.New("scoped runtime grant drift detected")
-	}
-	return drift, nil
+	return CompareGrants(c.Grants, actual), nil
 }
