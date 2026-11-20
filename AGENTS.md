@@ -69,6 +69,15 @@ Database-dependent commands require a disposable local or CI database, never pro
 - Modify dashboard source, not generated bundles by hand. Rebuild ui/dist for UI changes; review formatter and asset diffs. For branding use the supplied assets and machine-readable tokens; proposed supporting specifications are not automatically approved standards.
 - Keep code, tests, documentation and generated artifacts aligned. Update user-facing docs when contracts change.
 
+### Brand and visual design
+
+- Before any branding, dashboard, website, documentation illustration or other visual-design change, read [brand guidelines](assets/brand/brand-guidelines.md) and [brand tokens](assets/brand/brand-tokens.json). Consult the [visual HTML guide](assets/brand/brand-guidelines.html) and [construction grid](assets/brand/ruxbase-construction-grid.svg) when visual or geometric detail is needed.
+- Use the current repository assets and token values, not remembered specifications, generated approximations or third-party lookalikes. Preserve the approved modular R silhouette, SVG paths, proportions, module contact points, negative space and diagonal leg. Use the supplied wordmark outlines rather than retyping or redrawing them. Write Ruxbase in running text and RUXBASE in the wordmark.
+- Select the supplied black SVG for light surfaces and white SVG for dark surfaces; use the horizontal lockup for headers/navigation, standalone icon for compact spaces and the dedicated favicon at favicon sizes. For a single cross-theme raster asset, use the supplied white-fill, black-outline PNG: [full lockup](assets/brand/ruxbase.png), [icon](assets/brand/ruxbase_logo.png) or [wordmark](assets/brand/ruxbase_name.png). Do not add custom outlines, gradients, shadows or glows, stretch or rotate the master artwork.
+- Preserve existing UI conventions, accessible contrast, keyboard focus, responsive layouts and semantic state colors. Supporting typography, UI neutrals, clear space and minimum sizes marked proposed or recommended in the brand tokens are not automatically approved standards. Do not introduce a new palette, typeface, logo variant or tagline as official without maintainer approval.
+- Verify the actual asset paths, proportions, legibility and contrast on light and dark backgrounds and at relevant viewport/icon sizes. Follow the UI/brand verification requirements below when dashboard source changes.
+- For approved identity changes, keep the HTML guide, Markdown guide, JSON tokens and relevant master assets synchronized; update recorded source revisions as applicable. If references disagree, report the discrepancy and obtain clarification rather than silently inventing geometry or brand specifications.
+
 ## 6. Verification by change type
 
 Run the narrowest relevant test first, then wider checks according to the change. A passing mock or compile check does not replace a required integration test.
