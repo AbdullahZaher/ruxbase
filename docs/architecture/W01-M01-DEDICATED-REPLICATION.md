@@ -24,8 +24,9 @@ The configuration tests reject shared logins, incomplete settings, different
 database endpoints and preselected replication protocol mode. Positive
 streaming with an actual separately provisioned REPLICATION login requires
 a disposable cluster whose provisioner is authorized to create that login.
-The present CI service account is not such an authority; do not elevate
-it just to satisfy this test. No production grants, credentials or
+The application CI account is not such an authority; do not elevate
+it just to satisfy this test. The existing disposable container administrator
+can separately provision a test-only WAL login. No production grants, credentials or
 persistent databases are changed.
 
 This is partial M01 closure, not a certified serving or replication
@@ -63,3 +64,35 @@ and clustered operation, and uses fixture-specific row policies rather
 than a certified generalized RLS authorization engine. It does not
 satisfy the remaining complete provisioning, dedicated WAL, performance,
 compatibility and independent certification gates.
+
+## Separate executable and verification evidence
+
+The experimental command cmd/ruxbase-prepared starts only the loopback
+profile, with an explicit TCP port, auth collection, base collection list,
+main and auxiliary prepared URLs, runtime role, data directory and reviewed
+manifest file. It validates required settings, caps manifest input at 4 MiB,
+and uses a cancellation context for process shutdown. It neither chooses
+legacy credentials nor runs migrations. The configuration test covers
+missing explicit settings. This is still not a general serving command.
+
+The PostgreSQL 17/18 CI jobs already create throwaway databases using the
+container administrator. That same fixture provisioner now creates a
+dedicated test-only WAL login, without changing the application role's
+attributes or granting the WAL login schema DDL. The new dedicated WAL
+integration prepares publication metadata using the disposable fixture
+owner, starts a node with explicit WAL credentials, verifies the active
+slot session identity and observes a record update delivered over realtime.
+The legacy fixture's SQL application account is still administrative;
+this test isolates and verifies the actual WAL connection, not all four
+principals together in a restricted production deployment. The CI-only
+login is never configured in the legacy default or prepared loopback
+server.
+
+The existing disposable restricted-role test now records 200 alternating
+warmed SELECT 1 checkout samples per pool, with baseline and guarded
+p50/p95, surfaced in CI logs and the test-output artifact. This is a
+microbenchmark of checkout/round-trip overhead, not the complete HTTP
+workload or Supabase comparison. No latency threshold or result is claimed
+before numerical evidence and review. All new tests are pending exact
+candidate CI. Production provisioning and combined full runtime/replication
+isolation remain open.
