@@ -118,3 +118,27 @@ The functional HTTP fixture remains isolated and has not yet been shown
 to pass. Replication separation, complete restricted server lifecycle,
 performance and independent certification remain open. Do not close M01
 or authorize a production release based on the new code alone.
+
+## Offline lifecycle and replication reliability remediation
+
+CI #44723872694 on a38c4bfb8760c0a56799fbb4d81c13e3827f3caf
+passed eight jobs but failed PG17 fixture database/role cleanup and PG18
+TestReplicationLeaderFailover (one of 500 events missing at the subscriber
+despite being stored, no duplicates or reported queue drops).
+
+The explicit offline preparation process now skips background logger,
+cluster LISTEN and realtime startup. Legacy server bootstrap is unchanged.
+The positive separate migration fixture verifies orderly disconnection
+within five seconds and retains database/role cleanup assertions with actual
+error details. This addresses a possible cause of cleanup failures; the
+original error details were not captured, so causality remains unproven.
+
+The replication batch writer now resolves the notification key and writes
+events plus transactional PostgreSQL NOTIFY in the same transaction, with
+cancellation checks and unchanged stable event IDs. The existing failover
+test still requires every event exactly once in its observed burst. This
+removes one identified store/publish gap, but does not establish that it caused
+the observed missing event or guarantee durable end-to-end replay. Dedicated
+WAL identity, publication administration separation, general restricted HTTP
+serving and independent certification remain outstanding. No production
+access or broad grant changes; no M01 closure claim until evidence passes.
