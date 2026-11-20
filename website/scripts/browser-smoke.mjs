@@ -70,6 +70,8 @@ try{
  for(const theme of ['light','dark']){
   await evaluate(`(()=>{const s=document.querySelector('starlight-theme-select select');s.value='${theme}';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await until(()=>evaluate('document.documentElement.dataset.theme === '+JSON.stringify(theme)),'theme '+theme);
+  const expectedLogo='symbol-on-'+theme;
+  await until(()=>evaluate('Array.from(document.querySelectorAll(".site-title img")).some(i=>i.complete&&i.naturalWidth>0&&i.getClientRects().length>0&&i.currentSrc.includes('+JSON.stringify(expectedLogo)+'))'),'theme logo '+theme);
   await screenshot('desktop-'+theme);
  }
  await visit('reference/api/');

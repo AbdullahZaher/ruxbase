@@ -18,3 +18,5 @@ Chromium smoke runs with no-sandbox only on disposable GitHub-hosted CI for
 public static documentation, without production credentials. Local runs use
 the sandbox by default. This is a functional smoke, not full accessibility,
 visual equivalence, security or browser-matrix certification.
+
+The integrated vector symbol and favicon are review candidates: owner visual approval is required before publication. Scalar distribution approval is additionally enforced by check-scalar-release-review.mjs; missing archive notices or unresolved bundle provenance must not be treated as cleared.

@@ -46,3 +46,5 @@ The scoped OpenAPI reference now covers 31 operations, adding collections, setti
 Brand review uses the separate docs-brand-review CI workflow and does not change published graphics. Scalar archive staging now retains legal notices and package dependency metadata under api-viewer/legal; this is an inventory, not full transitive license/advisory certification.
 
 Independent inspection of artifact 14641118066 revealed that the broad notice matcher selected six License.vue component files, not legal notices. Corrected the matcher, recorded registry gitHead when available, and added a deployment-only fail-closed gate pending actual distribution review. MIT metadata alone is insufficient. The docs development build remains reviewable.
+
+The header now uses the two source-derived symbol SVGs with exact SHA-256 pins from artifact 14639663915. The favicon uses the same two paths on a dark square. Browser smoke checks the visible logo in both themes. Original PNGs and historical manual candidates are preserved; final visual approval is pending.

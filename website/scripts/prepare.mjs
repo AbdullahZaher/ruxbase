@@ -106,12 +106,16 @@ export async function prepare() {
   // Only the symbol is consumed by this candidate; do not copy large unused PNGs.
   await writeFile(join(brandDest, 'ruxbase_logo.png'), assets.get('ruxbase_logo.png'));
   await writeFile(join(brandDest, 'tokens.css'), await readFile(join(brand, 'tokens.css')));
+  const vector = JSON.parse(await readFile(join(brand, 'vector-review', 'manifest.json'), 'utf8'));
+  if (vector.sourceGitBlob !== bm.originals.find(x=>x.role==='symbol').gitBlob) throw new Error('Vector source mismatch');
   for (const name of ['symbol-on-light.svg', 'symbol-on-dark.svg']) {
-    await writeFile(join(brandDest, name), await readFile(join(brand, 'svg-candidates', name)));
+    const data = await readFile(join(brand, 'vector-review', name));
+    if (createHash('sha256').update(data).digest('hex') !== vector.symbols[name]) throw new Error('Vector candidate digest mismatch: '+name);
+    await writeFile(join(brandDest, name), data);
   }
   const publicDir = join(site, 'public');
   await mkdir(publicDir, { recursive: true });
-  await writeFile(join(publicDir, 'favicon.svg'), await readFile(join(brand, 'svg-candidates', 'favicon.svg')));
+  await writeFile(join(publicDir, 'favicon.svg'), await readFile(join(brand, 'vector-review', 'favicon.svg')));
   console.log('Validated ' + assets.size + ' originals and staged ' + pages.size + ' public pages.');
 }
 

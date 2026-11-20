@@ -16,8 +16,8 @@ export default defineConfig({
     expressiveCode: { defaultProps: { wrap: true } },
     title: 'Ruxbase',
     description: 'PostgreSQL-native, self-hosted backend platform documentation.',
-    // Keep the original PNG in the header until vector candidates are reviewed.
-    logo: { src: './src/assets/brand/ruxbase_logo.png', alt: '' },
+    // Source-derived, hash-verified vector candidate; final owner approval pending.
+    logo: { light: './src/assets/brand/symbol-on-light.svg', dark: './src/assets/brand/symbol-on-dark.svg', alt: '' },
     favicon: '/favicon.svg',
     social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/AbdullahZaher/ruxbase' }],
     sidebar: [

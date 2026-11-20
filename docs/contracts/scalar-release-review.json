@@ -10,5 +10,5 @@
     "Advisory review of actual bundled versions",
     "Verified legal notices included in deployed artifact"
   ],
-  "evidence": "Initial archive review found MIT metadata and 26 declared direct dependencies. The six initially matched License.vue* files are code, not license notices. No distribution clearance inferred."
+  "evidence": "Verified corrected staging run 44760502180: declared MIT, zero actual legal notice files found, npm metadata gitHead not published. Prior six License.vue matches were UI code. Exact release license, bundled inventory and advisories remain unverified. No distribution approval."
 }

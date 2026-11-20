@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "integrated-review-candidate",
+  "artifactId": 14639663915,
+  "artifactSha256": "dd7e13258ff16f4e54d6887eb0aba19cb98843af9ec3151e1220388dbecd33c1",
+  "sourceGitBlob": "fa06624e3b64649bbffd78caac8ed29a49a2f478",
+  "source": "ruxbase_logo.png",
+  "symbols": {
+    "symbol-on-light.svg": "0ce76c776fbbaddc2fbf0bb5fefee5ed7adad254e996480d1f459f6116ba75a4",
+    "symbol-on-dark.svg": "a466a2441833c33398c1b46021d2aaa8f33af808d38ef0a67929875bd3afc4c7"
+  },
+  "favicon": "Derived from the same contour on a fixed dark square with rounded corners; not an exact original trace.",
+  "review": "Maintainer visual approval pending; full lockup and wordmark remain reproducible review artifacts."
+}
