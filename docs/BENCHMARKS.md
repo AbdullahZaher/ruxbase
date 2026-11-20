@@ -12,9 +12,34 @@ Run them with:
 ```
 
 The script builds ruxbase from the sources and PocketBase v0.40.6 from the
-upstream tag, starts the environment of `bench/docker-compose.yml` and runs the
+official upstream tag in an isolated checkout (verified against the pinned commit), starts the environment of `bench/docker-compose.yml` and runs the
 load generator (`bench/main.go`), which works with any PocketBase compatible
 server.
+
+## Reproducible Ruxbase smoke baseline
+
+The benchmark can run independently of the imported Git ancestry:
+
+```sh
+BENCH_TARGETS=ruxbase BENCH_DURATION=8s BENCH_CONCURRENCY=8 \
+  BENCH_RUNS=1 BENCH_RECORDS=1000 BENCH_CLIENTS=20 \
+  BENCH_EVENTS=20 BENCH_RATE=5 bash bench/run.sh
+```
+
+Run only against the disposable benchmark Compose project; its setup and
+cleanup delete benchmark containers and volumes. Do not reuse production data.
+The `benchmark baseline` workflow executes this bounded workload, checks fresh
+JSON output, zero request errors, delivery counts and resource samples, and
+uploads the environment and measurement artifacts.
+
+The companion `*.resources.jsonl` records one Docker CPU/memory sample per
+container at idle and during each workload. PostgreSQL is included when
+measuring Ruxbase. These are Docker-reported samples, not process RSS or peak
+memory measurements. Short runs are a functional measurement smoke test,
+not a statistically robust benchmark or a Supabase comparison. The existing
+environment uses public collection rules and disposable database credentials;
+production-equivalent authorization and matched CPU/RAM budgets remain
+requirements for competitive performance evaluation.
 
 ## Environment
 
