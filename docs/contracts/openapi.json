@@ -3,7 +3,7 @@
   "info": {
     "title": "Ruxbase API (scoped reference)",
     "version": "development",
-    "description": "Development documentation. Scoped public and operational API contracts; schemas and runtime behavior are not exhaustively verified."
+    "description": "Development documentation. Scoped HTTP operation reference; not exhaustive schemas, errors or runtime certification. MCP transport is documented separately."
   },
   "servers": [
     {
@@ -2282,6 +2282,772 @@
           }
         }
       }
+    },
+    "/api/settings/test/s3": {
+      "post": {
+        "operationId": "testS3",
+        "summary": "Test configured storage",
+        "description": "Superuser only. Tests configured storage; does not certify durability.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filesystem": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "filesystem"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/test/email": {
+      "post": {
+        "operationId": "testEmail",
+        "summary": "Send test email",
+        "description": "Superuser only. Sends a test message to an authorized recipient; does not certify delivery.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "template": {
+                    "type": "string"
+                  },
+                  "collection": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "template"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/apple/generate-client-secret": {
+      "post": {
+        "operationId": "generateAppleClientSecret",
+        "summary": "Generate Apple client secret",
+        "description": "Superuser only. Use authorized provider credentials and keep request and response confidential.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "secret": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "secret"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string"
+                  },
+                  "teamId": {
+                    "type": "string"
+                  },
+                  "keyId": {
+                    "type": "string"
+                  },
+                  "privateKey": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "duration": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "clientId",
+                  "teamId",
+                  "keyId",
+                  "privateKey",
+                  "duration"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/meta/dry-run-view": {
+      "post": {
+        "operationId": "dryRunView",
+        "summary": "Validate proposed view definition",
+        "description": "Superuser only. Reviews a proposed view query. Result fields are not fully specified.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "View validation result."
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/oauth2-redirect": {
+      "get": {
+        "operationId": "oauthRedirectGet",
+        "summary": "OAuth2 browser callback",
+        "description": "Provider-managed callback associated with an existing OAuth2 flow. Use the SDK; do not log authorization codes.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Browser completion or failure page; not evidence of successful authentication.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Browser redirect.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "307": {
+            "description": "Browser redirect.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        }
+      },
+      "post": {
+        "operationId": "oauthRedirectPost",
+        "summary": "OAuth2 form callback",
+        "description": "Provider-managed form callback. Use the configured OAuth2 flow.",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Browser completion or failure page; not evidence of successful authentication.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Browser redirect.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "307": {
+            "description": "Browser redirect.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "user": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/auth-with-oauth2": {
+      "post": {
+        "operationId": "authWithOAuth2",
+        "summary": "Authenticate with OAuth2",
+        "description": "Requires configured provider and valid authorization flow; collection rules and MFA still apply.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mfaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized or additional authentication required."
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "codeVerifier": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "redirectURL": {
+                    "type": "string"
+                  },
+                  "createData": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "provider",
+                  "code"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/impersonate/{id}": {
+      "post": {
+        "operationId": "impersonateRecord",
+        "summary": "Administrative impersonation",
+        "description": "Privileged operation for authorized administration only; resulting token is sensitive. Not an ordinary user login.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "duration": {
+                    "type": "integer"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/batch": {
+      "post": {
+        "operationId": "batchRecords",
+        "summary": "Submit record batch",
+        "description": "Requires enabled batch configuration. Supported internal record operations run in a transaction under request authorization and configured limits. Internal action schemas and multipart format are outside this scoped reference.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "body": {}
+                    },
+                    "required": [
+                      "status",
+                      "body"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requests": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "required": [
+                  "requests"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/realtime": {
+      "get": {
+        "operationId": "connectRealtime",
+        "summary": "Connect realtime event stream",
+        "description": "Server-sent events stream. Protocol behavior, subscription lifecycle and reconnect semantics are described in the realtime guide.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Event stream.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        }
+      },
+      "post": {
+        "operationId": "setRealtimeSubscriptions",
+        "summary": "Set realtime subscriptions",
+        "description": "Updates subscriptions for the existing client; applicable access rules and connection authorization remain in force.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string"
+                  },
+                  "subscriptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "clientId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sql": {
+      "post": {
+        "operationId": "executeAdminSQL",
+        "summary": "Administrative SQL operation",
+        "description": "Superuser only. Use approved database administration procedures; statements may affect stored data. This reference does not provide query recipes.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execTime": {
+                      "type": "integer"
+                    },
+                    "affectedRows": {
+                      "type": "integer"
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "nullable": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": []
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {}
+                      }
+                    }
+                  },
+                  "required": []
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rls/token": {
+      "post": {
+        "operationId": "issueRLSToken",
+        "summary": "Issue RLS token",
+        "description": "Authenticated record only. Short-lived token for documented direct database integration, not an API authentication token. Review row-level security constraints.",
+        "security": [
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "token"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; consult configuration, permissions and validation errors."
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "duration": {
+                    "type": "integer"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2583,5 +3349,5 @@
       }
     }
   },
-  "x-ruxbase-coverage": "partial: 44 operations"
+  "x-ruxbase-coverage": "57 scoped operations; MCP transport documented separately"
 }

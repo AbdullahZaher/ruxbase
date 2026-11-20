@@ -25,3 +25,5 @@ The text index improves direct retrieval, but does not promise that any search e
 ## Machine-readable references
 
 [OpenAPI JSON](/ruxbase/openapi.json) covers health, records, vector search, selected authentication, files, collections, settings and backup metadata; not the complete API. [Feature manifest](/ruxbase/feature-manifest.json), [CLI flags](/ruxbase/cli-reference.json), and [configuration settings](/ruxbase/configuration-reference.json) record their scope and source identity.
+
+The scoped OpenAPI now represents the 57 non-MCP static HTTP registrations. The three MCP transport methods are covered separately by the MCP guide; the coverage report distinguishes protocol documentation from OpenAPI operations. Neither route counts nor schema validation imply runtime certification.

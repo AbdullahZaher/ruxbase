@@ -5,7 +5,7 @@ description: Explore scoped data, authentication, file and administrative API co
 
 **Development documentation.** Scoped reference, not a certified production release.
 
-The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **44 operations**: health, records, vector search, selected authentication, files, collections, settings, logs, cron and backups. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
+The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **57 operations**: all direct built-in HTTP registrations outside the MCP transport, with scoped schemas. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
 
 [Open the Scalar API viewer](/ruxbase/api-viewer/) to explore the same contract. The viewer is for documentation only and does not provide a live API request console. Static text and Markdown remain the authoritative readable references.
 
@@ -113,6 +113,26 @@ The following administrative operations require the appropriate superuser author
 | DELETE | `/api/backups/{key}` | 204 |
 | POST | `/api/backups/{key}/restore` | 204 |
 
+## Additional HTTP operations
+
+Follow the appropriate SDK and administrator documentation. Sensitive credentials and privileged requests are not intended for public client applications. These are scoped operation contracts, not executable test recipes.
+
+| Method | Path | Success |
+| --- | --- | --- |
+| POST | `/api/settings/test/s3` | 204 |
+| POST | `/api/settings/test/email` | 204 |
+| POST | `/api/settings/apple/generate-client-secret` | 200 |
+| POST | `/api/collections/meta/dry-run-view` | 200 |
+| GET | `/api/oauth2-redirect` | 200 |
+| POST | `/api/oauth2-redirect` | 200 |
+| POST | `/api/collections/{collection}/auth-with-oauth2` | 200 |
+| POST | `/api/collections/{collection}/impersonate/{id}` | 200 |
+| POST | `/api/batch` | 200 |
+| GET | `/api/realtime` | 200 |
+| POST | `/api/realtime` | 204 |
+| POST | `/api/sql` | 200 |
+| POST | `/api/rls/token` | 200 |
+
 ## Scope
 
-The [route coverage report](/ruxbase/api-coverage.json) counts direct built-in registrations, not dynamic or internal batch routes. OAuth2 authentication and redirect, impersonation, collection dry-run, settings test routes, SQL, RLS tokens, batch, realtime and MCP are outside the current contract. Ordinary record multipart bodies, exhaustive schemas and runtime behavior remain separate requirements.
+All 57 direct non-MCP registrations now have scoped OpenAPI operations. The remaining three registrations are the GET, POST and DELETE methods of the MCP transport, documented in the [MCP guide](/ruxbase/ai/mcp/), rather than represented as ordinary REST operations. See [route coverage](/ruxbase/api-coverage.json). Complete schema details, record multipart bodies, protocol negotiation, error behavior and runtime verification remain separate requirements. Dynamic custom routes and internal batch subrequests are outside the inventory.

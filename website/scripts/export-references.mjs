@@ -19,14 +19,14 @@ export async function verifyReferenceInputs(){
   const source=resolve(root,name);assertWithin(root,source);
   assert(gitBlob(await readFile(source))===sha,'Reference evidence changed: '+name);
  }
- assert(api.openapi==='3.1.0'&&Object.keys(api.paths).length===34&&api.paths['/api/health']?.get?.operationId==='getHealth','Unexpected API scope');
+ assert(api.openapi==='3.1.0'&&Object.keys(api.paths).length===45&&api.paths['/api/health']?.get?.operationId==='getHealth','Unexpected API scope');
  const op=api.paths['/api/health'].get;
  assert(op.security.length===0&&op.parameters.some(p=>p.name==='ready'&&p.in==='query'&&!p.required),'Health parameter mismatch');
  assert(Object.keys(op.responses).sort().join(',')==='200,503','Health codes mismatch');
  assert(api.components.schemas.HealthResponse.required.join(',')==='message,code,data','Health schema mismatch');
  const actual=Object.entries(api.paths).flatMap(([path,methods])=>Object.entries(methods).map(([method,o])=>({method:method.toUpperCase(),path,operationId:o.operationId,success:Object.keys(o.responses).filter(k=>k.startsWith('2'))[0]})));
- assert(actual.length===44&&JSON.stringify(actual)===JSON.stringify(refs.operations),'Operation inventory mismatch');
- const adminPaths=new Set(['/api/collections','/api/collections/{collection}','/api/collections/{collection}/rls','/api/collections/meta/scaffolds','/api/collections/meta/oauth2-providers','/api/settings','/api/backups','/api/collections/import','/api/collections/{collection}/truncate','/api/logs','/api/logs/stats','/api/logs/{id}','/api/crons','/api/crons/{id}','/api/backups/upload','/api/backups/{key}/restore']);
+ assert(actual.length===57&&JSON.stringify(actual)===JSON.stringify(refs.operations),'Operation inventory mismatch');
+ const adminPaths=new Set(['/api/collections','/api/collections/{collection}','/api/collections/{collection}/rls','/api/collections/meta/scaffolds','/api/collections/meta/oauth2-providers','/api/settings','/api/backups','/api/collections/import','/api/collections/{collection}/truncate','/api/logs','/api/logs/stats','/api/logs/{id}','/api/crons','/api/crons/{id}','/api/backups/upload','/api/backups/{key}/restore','/api/settings/test/s3','/api/settings/test/email','/api/settings/apple/generate-client-secret','/api/collections/meta/dry-run-view','/api/collections/{collection}/impersonate/{id}','/api/sql']);
  for(const path of adminPaths) for(const operation of Object.values(api.paths[path])) assert(JSON.stringify(operation.security)===JSON.stringify([{SuperuserToken:[]}]),'Missing superuser contract: '+path);
  const file=api.paths['/api/files/{collection}/{recordId}/{filename}'].get;
  assert(JSON.stringify(file.security)===JSON.stringify([{}, {FileToken:[]}]),'Unexpected file authentication contract');

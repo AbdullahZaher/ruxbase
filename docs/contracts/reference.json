@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "documentationStatus": "development",
   "coverage": {
-    "openapi": "44 scoped operations: health, records, selected authentication, files, collections, settings, logs, cron and backups; not exhaustive",
+    "openapi": "57 of 60 static HTTP registrations represented by scoped OpenAPI; three MCP transport methods documented separately. Schemas and runtime behavior remain partial.",
     "cli": "core startup and serve flags; other commands omitted",
     "configuration": "selected database and realtime settings",
     "features": "documented development capabilities; not production certification"
@@ -58,7 +58,13 @@
     "apis/collection_import.go": "698094f2a1ae80d0b5ab26e163498d153870e57a",
     "apis/backup_create.go": "d380a9323de40dfbc2324d91fb863ce4d4ae4a26",
     "apis/backup_upload.go": "e43c1a6e4194cb4e73b0fac8be2b7c76dfbc9799",
-    "tools/cron/job.go": "7827da52bc6a46d2724b25116defe0bf1d357146"
+    "tools/cron/job.go": "7827da52bc6a46d2724b25116defe0bf1d357146",
+    "forms/test_email_send.go": "cec3810a6b0622842b6c5a5f11654af38c5716e4",
+    "forms/test_s3_filesystem.go": "7a4b911e859127f2ef67285dfa13fda44e32c291",
+    "forms/apple_client_secret_create.go": "cb5b9f8463c515ccc14c75bfba874a63012d7622",
+    "apis/record_auth_with_oauth2.go": "988b70066f7d943fb40f2201c82627686d7cd65b",
+    "apis/record_auth_with_oauth2_redirect.go": "8b5d8eb36080a1b3eaf06ee150f7126db8995bc2",
+    "apis/record_auth_impersonate.go": "c75b4d9fb3bc4b6d5ff62d75881201927d25edfa"
   },
   "cli": [
     {
@@ -477,6 +483,84 @@
       "path": "/api/backups/{key}/restore",
       "operationId": "restoreBackup",
       "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/test/s3",
+      "operationId": "testS3",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/test/email",
+      "operationId": "testEmail",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/apple/generate-client-secret",
+      "operationId": "generateAppleClientSecret",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/meta/dry-run-view",
+      "operationId": "dryRunView",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/oauth2-redirect",
+      "operationId": "oauthRedirectGet",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/oauth2-redirect",
+      "operationId": "oauthRedirectPost",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/auth-with-oauth2",
+      "operationId": "authWithOAuth2",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/impersonate/{id}",
+      "operationId": "impersonateRecord",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/batch",
+      "operationId": "batchRecords",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/realtime",
+      "operationId": "connectRealtime",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/realtime",
+      "operationId": "setRealtimeSubscriptions",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sql",
+      "operationId": "executeAdminSQL",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rls/token",
+      "operationId": "issueRLSToken",
+      "success": "200"
     }
   ]
 }

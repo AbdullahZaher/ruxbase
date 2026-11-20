@@ -34,10 +34,14 @@ export async function buildCoverage(root,refs){
   for(const r of scanBinder(await readFile(join(root,b.file),'utf8'),b)){
    const key=r.method+' '+r.path;
    assert(!seen.has(key),'Duplicate route: '+key);seen.add(key);
-   routes.push({...r,status:ops.has(key)?'scoped-openapi':'not-yet-in-openapi'});
+   routes.push({...r,status:ops.has(key)?'scoped-openapi':r.path==='/mcp'?'separate-protocol-guide':'not-yet-in-openapi'});
   }
  }
  assert([...ops].every(key=>seen.has(key)),'OpenAPI operation missing from inventory');
  assert(routes.length===60,'Static route count changed: '+routes.length);
- return {schemaVersion:1,scope:spec.scope,registered:routes.length,documented:ops.size,remaining:routes.length-ops.size,routes};
+ const protocol=routes.filter(r=>r.status==='separate-protocol-guide');
+ assert(protocol.length===3&&protocol.every(r=>r.source==='apis/mcp_api.go'),'MCP scope mismatch');
+ const unrepresented=routes.filter(r=>r.status==='not-yet-in-openapi');
+ assert(unrepresented.length===0,'Unrepresented built-in HTTP registrations');
+ return {schemaVersion:1,scope:spec.scope,registered:routes.length,documented:ops.size,remaining:routes.length-ops.size,separateProtocolGuide:protocol.length,protocolGuide:'/ruxbase/ai/mcp/',unrepresented:unrepresented.length,routes};
 }

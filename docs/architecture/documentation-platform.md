@@ -103,3 +103,7 @@ All four workflows passed on ec00b1962970e068e4cf249645231e3850a2b4ba (19 operat
 ### Operational contracts and route coverage
 
 Prior documentation, foundation and Quickstart passed on 7581a9d2fa1b49df7244f8781ef5184f430ed00e. Full CI failed TestSuperuserIPsWhitelist (PostgreSQL 18, missing expected events); retry requested without runtime changes or waivers. Added 13 scoped operational contracts and a bounded static registration scanner with expected binder set and route count; publishes api-coverage.json with covered/uncovered status. This scanner is not a general Go parser. All source evidence verified against Git tree. New build and runtime certification remain open.
+
+### Static HTTP registration scope closure candidate
+
+Previous documentation, foundation and Quickstart checks passed on 330928628e5371e8bd279eb88f6d117e892c4de1. PostgreSQL 18 CI failed TestBaseAppLoggerLevelDevPrint; retry requested. Prior TestSuperuserIPsWhitelist retry passed, without a proven root cause. Added 13 scoped operations; all 57 non-MCP direct registrations are represented, with three MCP methods explicitly assigned to the existing protocol guide. Coverage guard fails on unrepresented registrations within the bounded scanner. All evidence matched the repository tree. Build and browser confirmation pending; complete schema and runtime validation, brand, bundled license review, versioning, recovery and deployment remain open.
