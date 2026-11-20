@@ -12,7 +12,7 @@ export function checkPlan(task,plan) {
   if (JSON.stringify(Object.keys(plan).sort())!==JSON.stringify(["framework","name","tool"])) throw Error("Unexpected model properties");
   if (plan.tool!=="ruxbase-starter" || plan.framework!==task.framework || plan.name!==task.name) throw Error("Wrong or unsafe starter choice");
   if (!/^[a-z][a-z0-9-]{1,49}$/.test(plan.name)) throw Error("Unsafe project name");
-  return {taskId:task.id,tool:plan.tool,framework:plan.framework,name:plan.name};
+  return {tool:plan.tool,framework:plan.framework,name:plan.name};
 }
 export function verifyPlans(data) {
   if(data?.schemaVersion!==1 || !Array.isArray(data.plans) || data.plans.length!==tasks.length) throw Error("Incomplete model run");
