@@ -28,7 +28,18 @@ func run() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	report, err := pgrolecheck.Inspect(ctx, db)
+	contract := pgrolecheck.IdentityContract{
+		Runtime:      os.Getenv("RUXBASE_ROLE_CHECK_RUNTIME"),
+		Migration:    os.Getenv("RUXBASE_ROLE_CHECK_MIGRATION"),
+		Provisioning: os.Getenv("RUXBASE_ROLE_CHECK_PROVISIONING"),
+		Replication:  os.Getenv("RUXBASE_ROLE_CHECK_REPLICATION"),
+	}
+	var report pgrolecheck.Report
+	if contract != (pgrolecheck.IdentityContract{}) {
+		report, err = contract.AdmitRuntime(ctx, db)
+	} else {
+		report, err = pgrolecheck.Inspect(ctx, db)
+	}
 	if err != nil {
 		return err
 	}
