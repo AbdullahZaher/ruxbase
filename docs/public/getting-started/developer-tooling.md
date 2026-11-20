@@ -32,6 +32,17 @@ The CLI rejects duplicate options, unknown templates, path traversal, invalid np
 
 Both templates commit `package-lock.json` with npm lockfile v3, pinned direct dependencies and resolved package integrity. Generation rewrites both the package name and the lockfile root names while retaining the pinned transitive dependency graph. CI performs an actual `npm ci` build, vulnerability audit, browser test and live Ruxbase/PostgreSQL test; `npm install` is not part of the certified install path.
 
+## Run the read-only setup doctor
+
+The diagnostic never starts/stops containers, modifies collections or asks for credentials. It accepts **only local HTTP origins** (localhost/127.0.0.1), rejects external addresses and can emit a structured status for agents:
+
+```sh
+node scripts/ruxbase-doctor.mjs --url http://127.0.0.1:8090
+node scripts/ruxbase-doctor.mjs --json
+```
+
+The result distinguishes an unavailable backend from a missing/denied example `posts` collection and reports actionable next steps. A private collection can deny unauthenticated reads even when it exists, so a negative posts check is not proof the schema is absent. Unit tests use a disposable local HTTP stub, and the starter integration suite separately exercises the actual backend.
+
 ## Backend and common setup errors
 
 First start Ruxbase using [Docker Compose Quickstart](/ruxbase/getting-started/quickstart/), and configure an ordinary `users` account and `posts` collection with the [documented rules](/ruxbase/integrations/example-app/). No admin credential or PostgreSQL URL belongs in a frontend application.

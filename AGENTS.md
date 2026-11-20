@@ -35,6 +35,8 @@ Use the versions in [go.mod](go.mod), [ui/package.json](ui/package.json) and [CI
 | Embedded dev mode | `go run ./examples/base serve --dev` |
 | Dashboard dependencies/build | `npm --prefix ui ci && npm --prefix ui run build` |
 | Dashboard dev server | `npm --prefix ui run dev` |
+| Generate a locked frontend | `node scripts/create-ruxbase-app.mjs react example-app` or `nextjs example-app` then `npm ci` |
+| Diagnose local Ruxbase | `node scripts/ruxbase-doctor.mjs --json` (read-only, local origin only) |
 | Generate JS hook types (when changed) | `make jstypes` |
 | Upstream inventory (when relevant) | `python3 scripts/upstream_inventory.py --output evidence/upstream-inventory.json` |
 

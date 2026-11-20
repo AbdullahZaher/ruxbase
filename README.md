@@ -30,6 +30,14 @@ docker compose --env-file .env.quickstart up -d --build --wait
 
 Open http://localhost:8090/_/ to initialize the administrator. The app binds to host loopback and PostgreSQL is private to the Compose network. See [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) for persistence, cleanup, troubleshooting and the Go + embedded PostgreSQL alternative. This local development stack is not production-certified.
 
+## Read-only local developer diagnostic
+
+```sh
+node scripts/ruxbase-doctor.mjs --json
+```
+
+Checks local Ruxbase readiness and `posts` accessibility without starting containers, requiring credentials, changing application state or contacting external URLs. See the [developer tooling guide](https://abdullahzaher.github.io/ruxbase/getting-started/developer-tooling/).
+
 ## Create a React or Next.js project
 
 Use the two [tested starter templates](https://abdullahzaher.github.io/ruxbase/getting-started/create-app/) or generate a copy from the repository root:

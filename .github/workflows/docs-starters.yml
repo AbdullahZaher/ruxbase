@@ -20,7 +20,7 @@ jobs:
       - name: Verify starter lockfile graph and registry integrity
         run: node scripts/check-starter-locks.mjs
       - name: Validate AI scaffolding contracts and safe inputs
-        run: node --test scripts/test-create-ruxbase-app.mjs
+        run: node --test scripts/test-create-ruxbase-app.mjs scripts/test-ruxbase-doctor.mjs
       - name: Test AI evaluation safety without external model credentials
         run: node --test scripts/test-ai-project-eval.mjs
       - name: Compile browser acceptance and Python orchestration
