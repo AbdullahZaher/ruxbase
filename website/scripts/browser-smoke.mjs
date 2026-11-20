@@ -74,6 +74,11 @@ try{
   await until(()=>evaluate('Array.from(document.querySelectorAll(".site-title img")).some(i=>i.complete&&i.naturalWidth>0&&i.getClientRects().length>0&&i.currentSrc.includes('+JSON.stringify(expectedLogo)+'))'),'theme logo '+theme);
   await screenshot('desktop-'+theme);
  }
+ await visit('integrations/javascript/');
+ assert(await evaluate('document.querySelector("h1").textContent.includes("JavaScript")'),'Integration heading');
+ assert(await evaluate('!!document.querySelector(\'a[href="/ruxbase/integrations/javascript.md"]\')'),'Integration Markdown link');
+ const topicResponse=await fetch(origin+SITE_BASE+'llms-integrations.txt');
+ assert(topicResponse.ok&&(await topicResponse.text()).includes('Build a complete local posts application'),'Integration bundle retrieval');
  await visit('reference/api/');
  assert(await evaluate('document.querySelector("h1").textContent.includes("API reference")'),'Reference heading');
  assert(await evaluate('!!document.querySelector(\'a[href="/ruxbase/reference/api.md"]\')'),'Markdown link');

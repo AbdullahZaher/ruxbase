@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { fromHtml } from 'hast-util-from-html';
 import { SITE_BASE, SITE_ORIGIN, absolute, routeFor, markdownFor } from './site-config.mjs';
 import { splitPage, rewriteContextLinks, markdownDocument } from './export-ai.mjs';
+import { TOPICS, topicPages, makeTopic } from './ai-topics.mjs';
 
 const root = fileURLToPath(new URL('../../',import.meta.url));
 const dist = join(root,'website/dist');
@@ -74,14 +75,14 @@ for(const match of index.matchAll(/\]\((https?:\/\/[^)]+)\)/g)) {
   assert(url.origin===SITE_ORIGIN && url.pathname.startsWith(SITE_BASE),'Unexpected index origin');
   await stat(join(dist,url.pathname.slice(SITE_BASE.length)));
 }
-const integrationPages=output.pages.filter(p=>p.target.startsWith('integrations/'));
-assert(integrationPages.length>0,'Missing integration pages');
-const topic=await read('llms-integrations.txt');
-const topicIntro='# Ruxbase documentation\n\n> PostgreSQL-native self-hosted backend platform. Development documentation, not a certified production release.\n\nSource commit: '+version.sourceCommit+'\n\n';
-const expectedTopic=topicIntro+'## SDK and integration guides\n\n'+(await Promise.all(integrationPages.map(p=>read(p.target)))).join('\n---\n\n');
-assert(topic===expectedTopic && Buffer.byteLength(topic)<=262144,'Integration topic context mismatch');
-assert(index.includes(']('+absolute(SITE_BASE+'llms-integrations.txt')+')'),'Missing integration topic discovery');
-console.log('Verified integration context: '+integrationPages.length+' exact Markdown pages.');
+for (const topic of TOPICS) {
+  const selected=topicPages(output.pages,topic);
+  const actual=await read(topic.name);
+  const expected=makeTopic(version,topic,await Promise.all(selected.map(p=>read(p.target))));
+  assert(actual===expected && Buffer.byteLength(actual)<=262144,'Topic context mismatch: '+topic.name);
+  assert(index.includes(']('+absolute(SITE_BASE+topic.name)+')'),'Missing topic discovery: '+topic.name);
+  console.log('Verified topic '+topic.name+': '+selected.length+' exact Markdown pages.');
+}
 const preview=await readFile(join(dist,'social-preview.png'));
 const original=await readFile(join(root,'assets/brand/ruxbase.png'));
 assert(preview.equals(original),'Social preview does not match verified original');

@@ -15,7 +15,7 @@ Use a trusted runtime configuration for the Ruxbase origin, not a URL supplied b
 
 ## Framework-neutral session adapter
 
-This illustrative adapter uses the upstream SDK's cookie functions and a request-scoped client. It has not been executed in a framework-specific integration test.
+This illustrative adapter uses the upstream SDK's cookie functions and a request-scoped client. The exact function is exercised by the repository SDK suite for separate user cookies and missing-cookie behavior; framework-specific adapters remain untested.
 
 ```js
 import PocketBase from "pocketbase";
@@ -59,4 +59,4 @@ These are integration locations, not tested adapters. Server-only variables must
 
 ## Evidence and limitations
 
-Ruxbase's JS SDK suite tests password auth and refresh, but not SSR cookie round-trips, framework adapters, CSRF or concurrent user isolation in those frameworks. The adapter pattern is based on [upstream SDK cookie guidance](https://github.com/pocketbase/js-sdk) and must be tested in the target application before deployment. See [JavaScript SDK](/ruxbase/integrations/javascript/) and [example API rules](/ruxbase/integrations/example-app/).
+Ruxbase's JS SDK suite tests password auth and refresh, and the documented request-scoped cookie adapter, but not framework-specific cookie round-trips, CSRF or concurrent user isolation in those frameworks. The adapter pattern is based on [upstream SDK cookie guidance](https://github.com/pocketbase/js-sdk) and must be tested in the target application before deployment. See [JavaScript SDK](/ruxbase/integrations/javascript/) and [example API rules](/ruxbase/integrations/example-app/).

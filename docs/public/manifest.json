@@ -112,6 +112,86 @@
     {
       "source": "docs/public/integrations/mobile.md",
       "target": "integrations/mobile.md"
+    },
+    {
+      "source": "docs/public/concepts/collections.md",
+      "target": "concepts/collections.md"
+    },
+    {
+      "source": "docs/public/concepts/fields.md",
+      "target": "concepts/fields.md"
+    },
+    {
+      "source": "docs/public/concepts/records.md",
+      "target": "concepts/records.md"
+    },
+    {
+      "source": "docs/public/concepts/authentication.md",
+      "target": "concepts/authentication.md"
+    },
+    {
+      "source": "docs/public/concepts/rules.md",
+      "target": "concepts/rules.md"
+    },
+    {
+      "source": "docs/public/concepts/relations.md",
+      "target": "concepts/relations.md"
+    },
+    {
+      "source": "docs/public/concepts/files.md",
+      "target": "concepts/files.md"
+    },
+    {
+      "source": "docs/public/integrations/react.md",
+      "target": "integrations/react.md"
+    },
+    {
+      "source": "docs/public/integrations/nextjs.md",
+      "target": "integrations/nextjs.md"
+    },
+    {
+      "source": "docs/public/reference/records-api.md",
+      "target": "reference/records-api.md"
+    },
+    {
+      "source": "docs/public/reference/account-api.md",
+      "target": "reference/account-api.md"
+    },
+    {
+      "source": "docs/public/reference/file-api.md",
+      "target": "reference/file-api.md"
+    },
+    {
+      "source": "docs/public/extend-go/overview.md",
+      "target": "extend-go/overview.md"
+    },
+    {
+      "source": "docs/public/extend-go/data-hooks.md",
+      "target": "extend-go/data-hooks.md"
+    },
+    {
+      "source": "docs/public/extend-js/overview.md",
+      "target": "extend-js/overview.md"
+    },
+    {
+      "source": "docs/public/extend-js/data-migrations.md",
+      "target": "extend-js/data-migrations.md"
+    },
+    {
+      "source": "docs/public/postgresql/overview.md",
+      "target": "postgresql/overview.md"
+    },
+    {
+      "source": "docs/public/operations/deployment.md",
+      "target": "operations/deployment.md"
+    },
+    {
+      "source": "docs/public/operations/recovery.md",
+      "target": "operations/recovery.md"
+    },
+    {
+      "source": "docs/public/tutorials/posts-app.md",
+      "target": "tutorials/posts-app.md"
     }
   ]
 }

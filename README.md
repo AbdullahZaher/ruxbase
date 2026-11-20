@@ -45,6 +45,8 @@ The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes t
 
 The checked-out sources and tests remain authoritative when they differ from a previously published snapshot. API contracts are scoped, and MCP is documented separately.
 
+For application design and server extensions, see [core concepts](https://abdullahzaher.github.io/ruxbase/concepts/collections/), [local tutorial](https://abdullahzaher.github.io/ruxbase/tutorials/posts-app/), [Go extensions](https://abdullahzaher.github.io/ruxbase/extend-go/overview/) and [JavaScript extensions](https://abdullahzaher.github.io/ruxbase/extend-js/overview/).
+
 ## Current capabilities
 
 | Capability | Description |

@@ -12,6 +12,8 @@ import { EventSource } from "eventsource";
 import PocketBase from "pocketbase";
 import { readFile } from "node:fs/promises";
 import { listPosts, listVisiblePosts } from "./documentation-examples.mjs";
+import { loadSession } from "./documentation-session.mjs";
+import { signIn, createDraft, readPosts } from "../../../examples/docs-posts/client.mjs";
 
 // the SDK realtime service uses the browser EventSource
 globalThis.EventSource = EventSource;
@@ -303,5 +305,36 @@ test("integration documentation contains the tested functions", async () => {
         const example = blocks.find(block => block.startsWith("export async function " + name + "("));
         assert.ok(example, "Missing documented example: " + name);
         assert.ok(source.includes(example + "\n"), "Documentation example drift: " + name);
+    }
+});
+
+// Run the actual documented server adapter and sample app against the same disposable server.
+test("documented SSR adapter keeps two request sessions separate", async () => {
+    const cookie = client => client.authStore.exportToCookie().split(";")[0];
+    const [a, b, empty] = await Promise.all([
+        loadSession(url, cookie(alice.pb)), loadSession(url, cookie(bob.pb)), loadSession(url, ""),
+    ]);
+    assert.equal(a.user.id, alice.record.id);
+    assert.equal(b.user.id, bob.record.id);
+    assert.notEqual(a.pb, b.pb);
+    assert.equal(empty.user, null);
+    assert.equal(empty.pb.authStore.isValid, false);
+    assert.match(a.setCookie, /HttpOnly/i);
+    assert.match(a.setCookie, /Secure/i);
+    const doc = await readFile(new URL("../../../docs/public/integrations/server-side.md", import.meta.url), "utf8");
+    const source = await readFile(new URL("./documentation-session.mjs", import.meta.url), "utf8");
+    assert.ok(doc.includes(source.trimEnd()));
+});
+
+test("local posts application client keeps a draft private", async () => {
+    const [a, b] = await Promise.all([signIn(url, alice.email, alice.password), signIn(url, bob.email, bob.password)]);
+    const draft = await createDraft(url, postsName, a, "documentation sample draft");
+    try {
+        const [owner, other, guest] = await Promise.all([readPosts(url, postsName, a), readPosts(url, postsName, b), readPosts(url, postsName, null)]);
+        assert.ok(owner.items.some(item => item.id === draft.id));
+        assert.ok(!other.items.some(item => item.id === draft.id));
+        assert.ok(!guest.items.some(item => item.id === draft.id));
+    } finally {
+        await alice.pb.collection(postsName).delete(draft.id);
     }
 });
