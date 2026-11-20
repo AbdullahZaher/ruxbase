@@ -190,6 +190,10 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	path := records + "/" + item.ID
 	request(http.MethodGet, path, "", session.Token, http.StatusOK)
 	request(http.MethodGet, path, "", "", http.StatusNotFound)
+	guest = request(http.MethodGet, records, "", "", http.StatusOK)
+	if err := json.Unmarshal(guest.Body.Bytes(), &guestList); err != nil || guestList.TotalItems != 0 {
+		t.Fatal("guest list exposed a persisted authenticated fixture record")
+	}
 	request(http.MethodPatch, path, `{"title":"fixture-updated"}`, session.Token, http.StatusOK)
 	var storedTitle string
 	if err := owner.QueryRow("SELECT title FROM public.m01_fixture_items WHERE id = $1", item.ID).Scan(&storedTitle); err != nil || storedTitle != "fixture-updated" {
