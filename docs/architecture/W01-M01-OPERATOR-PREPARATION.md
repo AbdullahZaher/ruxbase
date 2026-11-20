@@ -37,7 +37,12 @@ registered system migration history using an explicit connection and role.
 The checker uses a bounded read-only repeatable-read transaction against
 `public._migrations` and does not create a ledger when one is absent.
 It rejects missing migrations, unverified conditional migrations and
-identity mismatches. It prints JSON evidence and exits nonzero on rejection.
+identity mismatches. The reviewed built-in auxiliary condition is verified
+with a read-only catalog check for the actual _aux._logs table and schema
+USAGE in the explicit logs database (or the main database if no logs URL
+is supplied), rather than executing its callback. Other conditional
+migrations remain rejected. Separate database snapshots do not prove
+atomic cross-database readiness. It prints JSON evidence and exits nonzero on rejection.
 
 This is not complete readiness: app migrations, unknown historical entries,
 checksums, auxiliary schema, privileges, RLS drift and DDL consistency
