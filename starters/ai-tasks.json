@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "objective": "Create a working Ruxbase frontend from a repository-provided template, without invented credentials or backend changes",
+  "steps": [
+    {
+      "id": "react-generate",
+      "command": "node scripts/create-ruxbase-app.mjs react ai-react-demo --output ./tmp",
+      "expect": [
+        "package.json",
+        "src/main.jsx",
+        "public/ruxbase-horizontal-white.svg"
+      ]
+    },
+    {
+      "id": "nextjs-generate",
+      "command": "node scripts/create-ruxbase-app.mjs nextjs ai-next-demo --output ./tmp",
+      "expect": [
+        "package.json",
+        "app/page.jsx",
+        "public/ruxbase-horizontal-black.svg"
+      ]
+    }
+  ],
+  "acceptance": [
+    "Both outputs npm-installable and framework-buildable",
+    "Both serve health via trusted same-origin /api proxy",
+    "Browser renders white/black brand and true black night background",
+    "Two user sessions cannot access another user's unpublished post",
+    "Never expose a DB URL or admin credential in frontend"
+  ],
+  "sources": [
+    "docs/public/getting-started/create-app.md",
+    "docs/public/integrations/example-app.md",
+    "docs/public/integrations/server-side.md"
+  ],
+  "limitations": "Deterministic executable scaffolding benchmark; not an independent LLM model quality evaluation."
+}

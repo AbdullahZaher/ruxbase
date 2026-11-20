@@ -192,6 +192,18 @@
     {
       "source": "docs/public/tutorials/posts-app.md",
       "target": "tutorials/posts-app.md"
+    },
+    {
+      "source": "docs/public/getting-started/create-app.md",
+      "target": "getting-started/create-app.md"
+    },
+    {
+      "source": "docs/public/tutorials/starter-react.md",
+      "target": "tutorials/starter-react.md"
+    },
+    {
+      "source": "docs/public/tutorials/starter-nextjs.md",
+      "target": "tutorials/starter-nextjs.md"
     }
   ]
 }
