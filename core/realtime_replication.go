@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -28,7 +29,7 @@ func (app *BaseApp) initRealtimeSource() {
 		replication = true
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err := app.cluster.CheckReplicationSupport(ctx)
+		err := app.cluster.CheckConfiguredReplicationSupport(ctx, app.config.ReplicationIdentity)
 		cancel()
 
 		if err != nil {
@@ -51,8 +52,13 @@ func (app *BaseApp) initRealtimeSource() {
 	app.cluster.SetRealtimeSource(source)
 
 	if replication {
+		prepare := app.prepareRealtimePublication
+		if app.config.ReplicationIdentity.Enabled() {
+			prepare = app.verifyRealtimePublication
+		}
 		app.cluster.StartReplication(cluster.ReplicationConfig{
-			PrepareTables:     app.prepareRealtimePublication,
+			Dedicated:         app.config.ReplicationIdentity,
+			PrepareTables:     prepare,
 			ResolveCollection: app.resolveRealtimeCollection,
 		})
 	}
@@ -145,4 +151,37 @@ func setReplicaIdentityFull(txApp App, tableName string) error {
 	_, err = txApp.DB().NewQuery("ALTER TABLE {{" + tableName + "}} REPLICA IDENTITY FULL").Execute()
 
 	return err
+}
+
+// verifyRealtimePublication checks the already prepared publication without
+// granting the WAL or application identity permission to change its tables.
+func (app *BaseApp) verifyRealtimePublication() error {
+	var ready bool
+	err := app.DB().NewQuery(`
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_publication p
+    WHERE p.pubname = {:publication} AND NOT p.puballtables
+      AND p.pubinsert AND p.pubupdate AND p.pubdelete
+) AND NOT EXISTS (
+    SELECT 1 FROM public._collections m
+    LEFT JOIN pg_catalog.pg_publication_tables p
+      ON p.pubname = {:publication} AND p.schemaname = 'public' AND p.tablename = m.name
+    LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = 'public'
+    LEFT JOIN pg_catalog.pg_class c ON c.relnamespace = n.oid AND c.relname = m.name
+    WHERE m.type IN ('base', 'auth')
+      AND (p.tablename IS NULL OR c.oid IS NULL OR c.relreplident <> 'f'
+           OR p.rowfilter IS NOT NULL)
+) AND NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_publication_tables p
+    WHERE p.pubname = {:publication} AND NOT EXISTS (
+        SELECT 1 FROM public._collections m
+        WHERE p.schemaname = 'public' AND p.tablename = m.name
+          AND m.type IN ('base', 'auth')
+    )
+)
+`).Bind(dbx.Params{"publication": cluster.PublicationName}).Row(&ready)
+	if err != nil || !ready {
+		return errors.New("dedicated replication requires an operator-prepared publication")
+	}
+	return nil
 }

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tests"
 	"github.com/AbdullahZaher/ruxbase/tools/list"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/jackc/pgx/v5"
 	"github.com/pocketbase/dbx"
 )
 
@@ -22,6 +25,11 @@ import (
 // and returns them together with a direct database connection (that doesn't use the app API).
 func newReplicationCluster(t *testing.T, total int) ([]*clusterNode, *dbx.DB) {
 	t.Helper()
+	return newReplicationClusterWithWAL(t, total, "")
+}
+
+func newReplicationClusterWithWAL(t *testing.T, total int, walURL string) ([]*clusterNode, *dbx.DB) {
+	t.Helper()
 
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
@@ -29,12 +37,48 @@ func newReplicationCluster(t *testing.T, total int) ([]*clusterNode, *dbx.DB) {
 	}
 	t.Cleanup(func() { _ = tests.DropTestDatabase(testDB.Name) })
 
+	var dedicated cluster.DedicatedReplication
+	if walURL != "" {
+		u, err := url.Parse(walURL)
+		if err != nil || u.User == nil || u.User.Username() != "ruxbase_ci_wal" {
+			t.Fatal("expected disposable CI WAL login")
+		}
+		u.Path = "/" + testDB.Name
+		dedicated = cluster.DedicatedReplication{DatabaseURL: u.String(), Role: u.User.Username()}
+		// The fixture owner prepares publication metadata offline; the
+		// dedicated WAL login receives no DDL grants.
+		func() {
+			db, err := dbx.Open("pgx", testDB.URL)
+			if err != nil {
+				t.Fatal("unable to open fixture owner")
+			}
+			defer db.Close()
+			var names []string
+			if err := db.NewQuery("SELECT name FROM public._collections WHERE type IN ('base', 'auth') ORDER BY name").Column(&names); err != nil || len(names) == 0 {
+				t.Fatal("unable to enumerate disposable publication collections")
+			}
+			tables := make([]string, 0, len(names))
+			for _, name := range names {
+				table := pgx.Identifier{"public", name}.Sanitize()
+				if _, err := db.NewQuery("ALTER TABLE " + table + " REPLICA IDENTITY FULL").Execute(); err != nil {
+					t.Fatal("unable to prepare fixture replica identity")
+				}
+				tables = append(tables, table)
+			}
+			query := "CREATE PUBLICATION " + pgx.Identifier{cluster.PublicationName}.Sanitize() + " FOR TABLE " + strings.Join(tables, ", ")
+			if _, err := db.NewQuery(query).Execute(); err != nil {
+				t.Fatal("unable to prepare disposable publication")
+			}
+		}()
+	}
+
 	nodes := make([]*clusterNode, total)
 	for i := range nodes {
 		nodes[i] = startNode(t, core.BaseAppConfig{
-			DatabaseURL:    testDB.URL,
-			ClusterMode:    true,
-			RealtimeSource: cluster.RealtimeSourceReplication,
+			DatabaseURL:         testDB.URL,
+			ClusterMode:         true,
+			RealtimeSource:      cluster.RealtimeSourceReplication,
+			ReplicationIdentity: dedicated,
 		})
 
 		if source := nodes[i].app.Cluster().RealtimeSource(); source != cluster.RealtimeSourceReplication {
@@ -471,5 +515,30 @@ func TestReplicationFallbackWithoutReplicationRole(t *testing.T) {
 	}
 	if total == 0 {
 		t.Fatal("Expected the replication fallback warning to be logged")
+	}
+}
+
+func TestDedicatedWALStreaming(t *testing.T) {
+	walURL := os.Getenv("RUXBASE_TEST_WAL_URL")
+	if walURL == "" {
+		t.Skip("disposable dedicated WAL fixture not configured")
+	}
+	nodes, db := newReplicationClusterWithWAL(t, 1, walURL)
+	var role string
+	if err := db.NewQuery(`
+SELECT a.usename FROM pg_catalog.pg_replication_slots s
+JOIN pg_catalog.pg_stat_activity a ON a.pid = s.active_pid
+WHERE s.database = current_database()
+`).Row(&role); err != nil || role != "ruxbase_ci_wal" {
+		t.Fatal("logical decoding session did not use dedicated WAL login")
+	}
+	client := connectRealtime(t, nodes[0].srv.URL)
+	subscribe(t, nodes[0], client, "demo2/*")
+	if _, err := db.NewQuery("UPDATE public.demo2 SET title = 'dedicated_wal_fixture' WHERE id = 'achvryl401bhse3'").Execute(); err != nil {
+		t.Fatal("unable to update disposable record")
+	}
+	events := recordEvents(t, client, 1, 10*time.Second)
+	if len(events) != 1 || events[0] != "update:achvryl401bhse3" {
+		t.Fatal("dedicated WAL event not delivered")
 	}
 }

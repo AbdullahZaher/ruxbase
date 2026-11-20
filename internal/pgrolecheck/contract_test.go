@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"sort"
 	"testing"
 	"time"
 
@@ -237,6 +238,10 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	if err := guarded.PingContext(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Compare the same restricted role and small read under ordinary and
+	// guarded pools. This measures checkout cost, not HTTP throughput.
+	measureGuardedCheckout(t, runtime, guarded)
+
 	// Changing the authority of this disposable login invalidates the
 	// existing idle sessions as well as newly established connections.
 	if _, err := owner.ExecContext(ctx, "GRANT CREATE ON SCHEMA ruxbase_grant_contract TO "+identifier); err != nil {
@@ -272,4 +277,36 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	if _, err := contract.AdmitRuntime(ctx, runtime); err == nil {
 		t.Fatal("mismatched restricted identity admitted")
 	}
+}
+
+func measureGuardedCheckout(t *testing.T, ordinary, guarded *sql.DB) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	const samples = 200
+	var baseline, checked []time.Duration
+	read := func(db *sql.DB) time.Duration {
+		start := time.Now()
+		var one int
+		if err := db.QueryRowContext(ctx, "SELECT 1").Scan(&one); err != nil || one != 1 {
+			t.Fatal("disposable checkout measurement failed")
+		}
+		return time.Since(start)
+	}
+	// Warm up both pools before collecting alternating samples.
+	_ = read(ordinary)
+	_ = read(guarded)
+	for i := range samples {
+		if i%2 == 0 {
+			baseline = append(baseline, read(ordinary))
+			checked = append(checked, read(guarded))
+		} else {
+			checked = append(checked, read(guarded))
+			baseline = append(baseline, read(ordinary))
+		}
+	}
+	sort.Slice(baseline, func(i, j int) bool { return baseline[i] < baseline[j] })
+	sort.Slice(checked, func(i, j int) bool { return checked[i] < checked[j] })
+	t.Logf("M01_CHECKOUT samples=%d baseline_p50=%s baseline_p95=%s guarded_p50=%s guarded_p95=%s",
+		samples, baseline[samples/2-1], baseline[samples*95/100-1], checked[samples/2-1], checked[samples*95/100-1])
 }
