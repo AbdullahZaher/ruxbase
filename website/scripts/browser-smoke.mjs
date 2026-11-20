@@ -39,8 +39,8 @@ try{
  if(process.env.DOCS_BROWSER_NO_SANDBOX==='1')args.unshift('--no-sandbox');
  chrome=spawn(process.env.CHROME_BIN||'google-chrome',args,{stdio:['ignore','ignore','inherit']});
  let launchError;chrome.on('error',e=>{launchError=e;});
- const port=await until(async()=>{if(launchError)throw launchError;if(chrome.exitCode!==null)throw Error('Chrome exited '+chrome.exitCode);try{return Number((await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);}catch{return false;}},'Chrome debugging port');
- const target=await until(async()=>{try{return (await (await fetch('http://127.0.0.1:'+port+'/json/list')).json()).find(x=>x.type==='page');}catch{return false;}},'page target');
+ const port=await until(async()=>{if(launchError)throw launchError;if(chrome.exitCode!==null)throw Error('Chrome exited '+chrome.exitCode);try{return Number((await readFile(join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);}catch{return false;}},'Chrome debugging port',60000);
+ const target=await until(async()=>{try{return (await (await fetch('http://127.0.0.1:'+port+'/json/list')).json()).find(x=>x.type==='page');}catch{return false;}},'page target',30000);
  ws=new WebSocket(target.webSocketDebuggerUrl);
  await new Promise((ok,fail)=>{ws.addEventListener('open',ok,{once:true});ws.addEventListener('error',fail,{once:true});});
  let seq=0;const pending=new Map();const failures=[];
@@ -101,6 +101,7 @@ try{
  const spec=await(await fetch(origin+SITE_BASE+'openapi.json')).json();
  assert(spec.openapi==='3.1.0','OpenAPI retrieval');
  if(process.env.DOCS_SCALAR_CANDIDATE==='1'){
+  await viewport(1440,900,false);
   await visit('api-viewer/');
   try {
    await until(()=>evaluate('document.querySelector("#api-reference")?.innerText.includes("List records") && document.querySelector("#api-reference")?.innerText.includes("Search records by vector")'),'Scalar rendered operations',30000);
@@ -114,7 +115,7 @@ try{
   assert(failures.length===0,'Scalar browser exceptions or missing local assets: '+failures.join('; '));
   console.log('Scalar candidate rendered scoped operations with test requests hidden.');
  }
- await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
+ await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),scalarCandidate:process.env.DOCS_SCALAR_CANDIDATE==='1'?'passed':'not-run',checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
  console.log('Browser smoke passed: themes, search, mobile menu, static reference and machine-readable retrieval.');
 }finally{
  if(ws)ws.close();

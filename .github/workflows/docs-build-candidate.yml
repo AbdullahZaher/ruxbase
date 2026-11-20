@@ -1,11 +1,6 @@
 name: docs-build-candidate
 on:
   pull_request:
-    paths:
-      - 'website/**'
-      - 'assets/brand/**'
-      - 'docs/**'
-      - '.github/workflows/docs-build-candidate.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,11 +32,8 @@ jobs:
           npm run build
           node scripts/check-build.mjs
           node scripts/check-ai.mjs
-      - name: Independent OpenAPI schema validation (candidate tool)
-        run: |
-          python3 -m venv "$RUNNER_TEMP/docs-openapi-validator"
-          "$RUNNER_TEMP/docs-openapi-validator/bin/pip" install --disable-pip-version-check openapi-spec-validator==0.7.2
-          "$RUNNER_TEMP/docs-openapi-validator/bin/openapi-spec-validator" website/dist/openapi.json
+      - name: Independent OpenAPI schema validation
+        run: bash website/scripts/validate-openapi.sh
       - name: Stage self-hosted Scalar candidate
         run: bash website/scripts/stage-scalar-candidate.sh
       - name: Exercise built site in Chromium

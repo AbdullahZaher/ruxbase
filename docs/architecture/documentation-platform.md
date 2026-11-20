@@ -79,3 +79,7 @@ Expanded OpenAPI from health only to seven operations covering health, generic r
 ### Scalar candidate
 
 Added an isolated noindex self-hosted viewer experiment to candidate CI. Uses the exact release version shown in the upstream integration documentation, records npm archive integrity, disables test requests, credentials persistence and remote fonts, and restricts resource loading with CSP. Full dependency/provenance review and publication integration remain open. No external runtime CDN or proxy is configured.
+
+### Verification continuation
+
+Scalar corrective run 44736137546 failed before opening a browser (Chrome debugging port timeout); the pinned archive and OpenAPI checks passed. Increased bounded browser startup timeout, restored desktop viewport for the viewer, added real Quickstart smoke and CLI help checks, and pinned observed validator dependency versions (not wheel hashes). The docs build now runs on all PRs to detect source drift, and the deployment workflow includes the independent OpenAPI validator. Actual new CI results are required.

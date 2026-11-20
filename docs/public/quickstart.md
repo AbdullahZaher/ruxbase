@@ -33,5 +33,4 @@ Review [PocketBase compatibility](/ruxbase/migration/compatibility/),
 [operations](/ruxbase/operations/overview/), and
 [row-level security](/ruxbase/authorization/row-level-security/) before deploying.
 
-The build and startup example is based on existing repository instructions;
-an automated end-to-end quickstart verification is still pending.
+The docs-quickstart workflow checks the build and development startup on a disposable Linux runner, including CLI help, health, readiness and dashboard HTML. This does not establish production readiness.
