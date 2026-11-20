@@ -163,6 +163,7 @@ type BaseApp struct {
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
 	clusterFingerprints *clusterFingerprints // shared with the transaction app clones
 	logger              *slog.Logger
+	logPrinter          func(*logger.Log) // ruxbase: per-app printer for isolated tests
 	concurrentDB        dbx.Builder
 	nonconcurrentDB     dbx.Builder
 	auxConcurrentDB     dbx.Builder
@@ -1641,6 +1642,12 @@ func getLoggerMinLevel(app App) slog.Level {
 }
 
 func (app *BaseApp) initLogger() error {
+	// ruxbase: capture the printer before starting background work.
+	printer := app.logPrinter
+	if printer == nil {
+		printer = printLog
+	}
+
 	var stopped atomic.Bool
 
 	duration := 3 * time.Second
@@ -1659,8 +1666,9 @@ func (app *BaseApp) initLogger() error {
 		// significant performance difference between small number
 		// of separate write queries vs 1 big INSERT
 		app.AuxRunInTransaction(func(txApp App) error {
-			model := &Log{}
 			for _, l := range logs {
+				// ruxbase: post-commit hooks must retain each saved log's identity.
+				model := &Log{}
 				model.MarkAsNew()
 				model.Id = GenerateDefaultRandomId()
 				model.Level = int(l.Level)
@@ -1682,7 +1690,7 @@ func (app *BaseApp) initLogger() error {
 		BatchSize: 200,
 		BeforeAddFunc: func(ctx context.Context, log *logger.Log) bool {
 			if app.IsDev() {
-				printLog(log)
+				printer(log)
 
 				// manually check the log level and skip if necessary
 				if log.Level < slog.Level(app.Settings().Logs.MinLevel) {
