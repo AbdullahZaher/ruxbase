@@ -41,6 +41,20 @@ func parsePreparedManifest(raw, role string) (preparedManifest, error) {
 	return manifest, nil
 }
 
+// ValidatePreparedIdentityManifest checks the explicit prepared executable's
+// identity contract before opening a listener. Actual database authority and
+// grant admission are still verified during prepared bootstrap.
+func ValidatePreparedIdentityManifest(raw, role string) error {
+	manifest, err := parsePreparedManifest(raw, role)
+	if err != nil {
+		return err
+	}
+	if manifest.Identities == nil {
+		return errors.New("prepared executable requires declared database identities")
+	}
+	return nil
+}
+
 func checkPreparedManifest(ctx context.Context, main, aux *sql.DB, manifest preparedManifest) error {
 	if manifest.Identities != nil {
 		for _, db := range []*sql.DB{main, aux} {
