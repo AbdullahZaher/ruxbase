@@ -37,6 +37,50 @@ to verify that an owner identity fails the screen and cancellation is rejected.
 It requires RUXBASE_TEST_URL; without the fixture the DB test is skipped.
 The existing suite on PostgreSQL 17 and 18 must pass before integration.
 
+## Increment 2 — declared identity contract
+
+Set the role names (not credentials) with `RUXBASE_ROLE_CHECK_RUNTIME`,
+`RUXBASE_ROLE_CHECK_MIGRATION`, and `RUXBASE_ROLE_CHECK_PROVISIONING`;
+`RUXBASE_ROLE_CHECK_REPLICATION` is optional. If any name is configured,
+all three required names must be defined and distinct. The command verifies
+the actual session and current identity against the declared runtime and
+fails on any initial authority finding. Without these settings the original
+diagnostic behavior is retained. This verifies only the runtime connection;
+declared operator role names are not evidence that those roles exist or have
+the correct grants.
+
+The positive integration test creates a disposable restricted login on the
+CI database server and verifies acceptance, owner-identity rejection and
+mismatch rejection. It does not alter the normal serving process. The
+contract is reusable but not a complete runtime admission boundary until
+pool identity, authority drift, allowed grants and startup isolation are
+established. No production access or authorization.
+
+## Increment 3 — scoped effective grant contract
+
+The optional `RUXBASE_ROLE_CHECK_GRANTS_FILE` points to a JSON contract
+containing `role`, `schema`, and an explicit `grants` array. Each entry
+declares `kind` (schema, relation or sequence), `object`, and
+`privilege`. This mode also requires an explicit runtime identity contract.
+
+The checker compares effective privileges in that named non-system schema,
+including grant options, with the provided set. Missing entries and excess
+privileges are reported separately. A mismatched identity, missing schema,
+incomplete inspection or grant drift fails the diagnostic. All catalog
+queries use a read-only repeatable-read transaction. The CLI does not issue
+any GRANT, REVOKE or migration.
+
+Unit tests verify set comparison. The disposable PostgreSQL fixture exercises
+an approved schema, table and sequence contract and rejects missing and
+unexpected permissions; it does not widen production authority.
+
+This is not the final application-wide grant manifest. Column ACLs, routine
+execution, other schemas, role switching, administrative privileges,
+default privileges, RLS and future DDL remain outside this check. The initial
+identity screen and grant check use separate transactions, so this is not a
+serving admission boundary or protection against concurrent authority drift.
+A single successful sample does not prove pool-wide identity consistency.
+
 ## M01 remaining
 
 - Separate runtime, provisioning/migration and replication identity contracts.
