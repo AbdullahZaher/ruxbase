@@ -1,7 +1,5 @@
 <p align="center">
-    <img src="assets/brand/ruxbase_logo.png" alt="ruxbase logo" width="160" />
-    <br />
-    <img src="assets/brand/ruxbase_name.png" alt="ruxbase" width="320" />
+    <img src="assets/brand/ruxbase.png" alt="ruxbase" width="320" />
 </p>
 
 <p align="center">
