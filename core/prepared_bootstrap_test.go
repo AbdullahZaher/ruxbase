@@ -223,7 +223,7 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 // preparedFixtureManifest derives object names only for extension and built-in
 // public routines in this controlled CI fixture; it never reads the runtime
 // ACLs to decide what to approve. The fixture policy explicitly expects
-// default PUBLIC EXECUTE on public routines, no rights on ruxbase_rls,
+// default PUBLIC EXECUTE on public and auxiliary routines, no rights on ruxbase_rls,
 // and only the three metadata table reads plus schema usage. This is not a
 // production manifest generator or a serving-role grant recommendation.
 func preparedFixtureManifest(t *testing.T, owner *sql.DB, role string) pgrolecheck.GrantManifest {
@@ -250,6 +250,10 @@ func preparedFixtureManifest(t *testing.T, owner *sql.DB, role string) pgroleche
 			main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "column", Object: object, Privilege: "SELECT"})
 		}
 	}
+	aux := pgrolecheck.GrantContract{
+		Role: role, Schema: "_aux", Extended: true,
+		Grants: []pgrolecheck.Grant{{Kind: "schema", Object: "_aux", Privilege: "USAGE"}},
+	}
 	ctx := context.Background()
 	tx, err := owner.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -260,22 +264,27 @@ func preparedFixtureManifest(t *testing.T, owner *sql.DB, role string) pgroleche
 		t.Fatal(err)
 	}
 	rows, err := tx.QueryContext(ctx, `
-SELECT pg_catalog.quote_ident(p.proname) || '(' ||
+SELECT n.nspname, pg_catalog.quote_ident(p.proname) || '(' ||
        pg_catalog.pg_get_function_identity_arguments(p.oid) || ')'
 FROM pg_catalog.pg_proc p
 JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
+WHERE n.nspname IN ('public', '_aux')
 `)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var signature string
-		if err := rows.Scan(&signature); err != nil {
+		var schema, signature string
+		if err := rows.Scan(&schema, &signature); err != nil {
 			t.Fatal(err)
 		}
-		main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "routine", Object: signature, Privilege: "EXECUTE"})
+		grant := pgrolecheck.Grant{Kind: "routine", Object: signature, Privilege: "EXECUTE"}
+		if schema == "_aux" {
+			aux.Grants = append(aux.Grants, grant)
+		} else {
+			main.Grants = append(main.Grants, grant)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
@@ -287,9 +296,7 @@ WHERE n.nspname = 'public'
 		Role: role,
 		Schemas: []pgrolecheck.GrantContract{
 			main,
-			{Role: role, Schema: "_aux", Extended: true, Grants: []pgrolecheck.Grant{
-				{Kind: "schema", Object: "_aux", Privilege: "USAGE"},
-			}},
+			aux,
 			{Role: role, Schema: "ruxbase_rls", Extended: true, Grants: []pgrolecheck.Grant{}},
 		},
 	}
