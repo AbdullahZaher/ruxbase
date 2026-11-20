@@ -68,6 +68,10 @@
       "target": "migration/from-pocketbase.md",
       "title": "Migrating from PocketBase",
       "description": "Review supported import and migration requirements."
+    },
+    {
+      "source": "docs/public/using-ai.md",
+      "target": "ai/using-ruxbase-with-ai.md"
     }
   ]
 }

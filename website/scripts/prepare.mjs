@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, join, relative, isAbsolute, sep } from 'node:path';
+import { SITE_BASE, absolute, markdownFor, routeFor } from './site-config.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const site = join(root, 'website');
@@ -47,6 +48,18 @@ export function stagePage(entry, raw) {
     '\n---\n\n> Development documentation. Review compatibility and operational limitations; this is not a release certification.\n\n' + raw.slice(match[0].length).trimStart();
 }
 
+export function addDiscovery(entry, staged) {
+  const match = staged.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  if (!match || /^(?:head|draft):/m.test(match[1])) throw new Error('Reserved generated frontmatter key: ' + entry.target);
+  const tags = [
+    { tag:'link', attrs:{ rel:'alternate', type:'text/markdown', href:absolute(markdownFor(entry.target)) } },
+    { tag:'link', attrs:{ rel:'describedby', href:absolute(SITE_BASE + 'llms.txt') } },
+  ];
+  return '---\n' + match[1] + '\nhead: ' + JSON.stringify(tags) + '\n---\n' +
+    staged.slice(match[0].length).trimEnd() +
+    '\n\n[View as Markdown](' + markdownFor(entry.target) + ') · [AI documentation index](' + SITE_BASE + 'llms.txt)\n';
+}
+
 export async function prepare() {
   const bm = JSON.parse(await readFile(join(brand, 'manifest.json'), 'utf8'));
   const pm = JSON.parse(await readFile(join(root, 'docs/public/manifest.json'), 'utf8'));
@@ -74,7 +87,7 @@ export async function prepare() {
     // Legacy root documents must resolve to the named file, not another source.
     if (!entry.source.startsWith('docs/public/') && source !== resolve(root, entry.source)) throw new Error('Legacy source symlink');
     const content = await readFile(source, 'utf8');
-    pages.set(entry.target, stagePage(entry, content));
+    pages.set(entry.target, addDiscovery(entry, stagePage(entry, content)));
   }
   if (!pages.has('index.md')) throw new Error('Missing homepage');
   // Only generated directories are replaced, regardless of manifest contents.

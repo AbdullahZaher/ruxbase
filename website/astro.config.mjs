@@ -2,12 +2,14 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
 import legacyLinks from './scripts/legacy-links.mjs';
+import { SITE_ORIGIN, SITE_BASE } from './scripts/site-config.mjs';
 
 export default defineConfig({
-  site: 'https://abdullahzaher.github.io',
-  base: '/ruxbase/',
+  site: SITE_ORIGIN,
+  base: SITE_BASE,
+  trailingSlash: 'always',
   output: 'static',
-  markdown: { processor: unified({ remarkPlugins: [[legacyLinks, { base: '/ruxbase/' }]] }) },
+  markdown: { processor: unified({ remarkPlugins: [[legacyLinks, { base: SITE_BASE }]] }) },
   integrations: [starlight({
     title: 'Ruxbase',
     description: 'PostgreSQL-native, self-hosted backend platform documentation.',

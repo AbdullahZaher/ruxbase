@@ -33,8 +33,10 @@ jobs:
         working-directory: website
         run: |
           npm run test:foundation
+          npm run test:ai
           npm run build
           node scripts/check-build.mjs
+          node scripts/check-ai.mjs
       - name: Retain development site artifact (not deployed)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

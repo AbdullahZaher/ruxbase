@@ -20,3 +20,7 @@ version. The registry-resolved lockfile is committed; run `npm --prefix website 
 `npm --prefix website run build`. Do not publish before the full gates pass.
 
 The public source manifest now includes ten existing root guides. The build stages derived Markdown, adds a development notice, and uses a remark AST transform to rewrite cross-guide links while keeping source files unchanged. The candidate workflow validates the committed lockfile, installs with npm ci, audits dependencies and builds without deployment permissions.
+
+## AI and static search outputs
+
+`npm run build` now generates Markdown siblings, `llms.txt`, `llms-full.txt`, `version.json` and `documentation-manifest.json` into dist after Astro. All exports use the staged allowlisted sources, exact checked-out commit/tree and development status. The full context is capped at 1 MiB. Run `npm run test:ai`, `node scripts/check-build.mjs` and `node scripts/check-ai.mjs` from website after npm ci/build. Direct dependency declarations promote existing locked transitive packages without changing versions or integrity; clean npm ci and audit verify the root-only lock update. No release tag is inferred; project Pages cannot configure origin-root robots.txt. Browser validation and public deployment remain pending.

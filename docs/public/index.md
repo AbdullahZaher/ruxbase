@@ -24,6 +24,8 @@ before choosing a deployment configuration.
 
 [Start with the quickstart](/ruxbase/getting-started/quickstart/).
 
+[Using Ruxbase with AI](/ruxbase/ai/using-ruxbase-with-ai/) — direct Markdown, AI context and version identity.
+
 ## Explore the guides
 
 - [Development mode](/ruxbase/getting-started/development/) — Run Ruxbase locally with embedded PostgreSQL.

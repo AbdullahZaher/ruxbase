@@ -57,3 +57,7 @@ Not complete: full brand export/review, npm lockfile and actual Astro build, sou
 ### Batch 00/01 increment 2
 
 Ten existing public guides are explicitly mapped without moving or copying their authoritative sources. Candidate SVG symbol variants and favicon are created; visual sign-off and complete lockup/wordmark exports remain open. The read-only candidate build workflow resolves an uncommitted lockfile and retains it, installs dependencies, and verifies static output. This is an interim build experiment, not the reproducibility or deployment gate.
+
+### Batch 02 increment — AI and SEO foundations
+
+The prior immutable build 73f569e4e963b45a86a22c87924f02fdba0ee6fa passed npm ci, audit, six tests, Astro build, 12 pages and Pagefind (Actions 44726574375). Added a bounded Markdown/AI export pipeline, per-page discovery metadata, version and documentation manifest, AI guide and AGENTS.md; static checks cover expected HTML/Markdown pairs, canonical, metadata and sitemap. No verified feature registry, OpenAPI/Scalar, crawler registration, external AI benchmark, visual approval or Pages deployment is claimed. The initial development root is the sole documentation candidate and remains explicitly development; when stable documentation is introduced, next/ indexing and retention will be decided explicitly. No origin-root crawler policy is set by this repository. Publication remains gated.
