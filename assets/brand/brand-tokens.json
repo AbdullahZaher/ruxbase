@@ -1,0 +1,313 @@
+{
+  "schemaVersion": "1.0",
+  "brandGuidelinesVersion": "1.1",
+  "language": "en",
+  "source": {
+    "path": "assets/brand/brand-guidelines.html",
+    "gitBlobSha": "7076d37e2c0a6362520148fe624be4d06bb3513f",
+    "sourceLastModified": "2026-11-20",
+    "svgMaster": "assets/brand/ruxbase-icon-black.svg",
+    "svgMasterBlobSha": "542cb9eceb8879dfefe42769d29d67cd7a0ceb34"
+  },
+  "brand": {
+    "name": "Ruxbase",
+    "wordmark": "RUXBASE",
+    "description": "Open-source, PostgreSQL-native, self-hosted backend platform.",
+    "designStyle": [
+      "Modular geometric lettermark",
+      "Neo-minimalism"
+    ],
+    "symbolDescription": "Abstract uppercase R formed by two geometric modules, a central negative-space counter and a diagonal leg."
+  },
+  "colors": {
+    "logo": {
+      "primary": {
+        "hex": "#000000",
+        "name": "Carbon / Primary"
+      },
+      "inverse": {
+        "hex": "#FFFFFF",
+        "name": "Pure White / Inverse"
+      }
+    },
+    "ui": {
+      "status": "proposed",
+      "surface": {
+        "hex": "#F5F5F5",
+        "name": "Soft Canvas / Neutral"
+      },
+      "muted": {
+        "hex": "#737373",
+        "name": "Muted / UI neutral"
+      }
+    },
+    "semanticStateColors": "Separate from brand identity.",
+    "outlinedRaster": {
+      "fill": "#FFFFFF",
+      "outline": "#000000",
+      "background": "transparent",
+      "note": "Describes intended treatment, not measured pixel values or a stroke specification."
+    }
+  },
+  "typography": {
+    "status": "proposed supporting specifications",
+    "wordmark": {
+      "family": "Inter Display",
+      "weight": 700,
+      "case": "uppercase",
+      "sourceTypefaceKnown": false,
+      "productionTreatment": "Use supplied vector outlines; reconstructed wordmark is a close approximation."
+    },
+    "englishInterface": {
+      "family": "Inter",
+      "weightRange": [
+        400,
+        700
+      ]
+    },
+    "arabicInterface": {
+      "family": "Noto Sans Arabic"
+    },
+    "runningTextName": "Ruxbase",
+    "illustrativeSample": "Build with control.",
+    "sampleIsApprovedTagline": false
+  },
+  "geometry": {
+    "units": "SVG user units",
+    "coordinateSpace": "Symbol-local unless specified. Icon canvas coordinates are obtained by adding iconOffset.",
+    "referenceUnit": 100,
+    "majorGrid": 100,
+    "fineGrid": 20,
+    "symbolBounds": {
+      "width": 700,
+      "height": 780
+    },
+    "iconCanvas": {
+      "width": 1000,
+      "height": 1000,
+      "viewBox": [
+        0,
+        0,
+        1000,
+        1000
+      ]
+    },
+    "iconOffset": {
+      "x": 150,
+      "y": 110
+    },
+    "firstModuleBounds": {
+      "width": 400,
+      "height": 430
+    },
+    "counterBounds": {
+      "width": 200,
+      "height": 210
+    },
+    "contactPoints": [
+      {
+        "x": 400,
+        "y": 220
+      },
+      {
+        "x": 200,
+        "y": 430
+      }
+    ],
+    "cornerRadii": {
+      "upperLeft": 75,
+      "upperRight": 30,
+      "middleLeft": 50,
+      "lowerLeft": 75
+    },
+    "diagonalLeg": {
+      "from": {
+        "x": 380,
+        "y": 530
+      },
+      "to": {
+        "x": 610,
+        "y": 780
+      },
+      "angleDegreesApprox": 47.4
+    },
+    "curveTypes": [
+      "Cubic Bézier",
+      "Circular arcs"
+    ],
+    "paths": [
+      "M75 0 H370 A30 30 0 0 1 400 30 V220 H200 V430 H50 A50 50 0 0 1 0 380 V75 A75 75 0 0 1 75 0 Z",
+      "M400 220 H560 C640 220 700 280 700 352 C700 450 626 530 550 530 H380 L610 780 H275 A75 75 0 0 1 200 705 V430 H300 C355.228 430 400 382.99 400 325 Z"
+    ],
+    "verticalLockup": {
+      "symbolWidth": 700,
+      "wordmarkWidth": 790,
+      "verticalGap": 120
+    },
+    "horizontalLockup": {
+      "symbolHeight": 280,
+      "wordmarkWidth": 711,
+      "gapApprox": 74
+    },
+    "note": "Reconstructed SVG master, not original source vector. Dimensions do not specify outlined PNG geometry."
+  },
+  "clearSpace": {
+    "status": "proposed",
+    "minimumUnits": 100,
+    "relativeToSymbolHeightPercentApprox": 12.82,
+    "scaleWithSymbol": true,
+    "measurement": "Around visible bounds"
+  },
+  "minimumSizes": {
+    "status": "recommended; test in context",
+    "digitalPx": {
+      "symbolHeight": 24,
+      "horizontalWidth": 120,
+      "verticalWidth": 100,
+      "dedicatedFavicon": 16
+    },
+    "printMm": {
+      "symbolHeight": 8,
+      "horizontalWidth": 30,
+      "verticalWidth": 25
+    }
+  },
+  "usageRules": {
+    "do": [
+      "Preserve proportions, module contact points and negative space.",
+      "Use the inverse symbol on dark backgrounds, or use the supplied outlined PNG variants for cross-theme use.",
+      "Test sizes on target screens before release."
+    ],
+    "doNot": [
+      "Add custom outlines, gradients, shadows or glows to master artwork.",
+      "Change corners or the diagonal leg.",
+      "Stretch, rotate or place the logo on low-contrast backgrounds."
+    ]
+  },
+  "assets": {
+    "pathBase": "Repository root",
+    "items": [
+      {
+        "path": "assets/brand/ruxbase.png",
+        "type": "Horizontal lockup",
+        "treatment": "White fill, black outline; transparent PNG"
+      },
+      {
+        "path": "assets/brand/ruxbase_logo.png",
+        "type": "Standalone symbol",
+        "treatment": "White fill, black outline; transparent PNG"
+      },
+      {
+        "path": "assets/brand/ruxbase_name.png",
+        "type": "Standalone wordmark",
+        "treatment": "White fill, black outline; transparent PNG"
+      },
+      {
+        "path": "assets/brand/ruxbase-symbol-black.svg",
+        "type": "symbol — black",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-symbol-white.svg",
+        "type": "symbol — white",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-icon-black.svg",
+        "type": "icon — black",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-icon-white.svg",
+        "type": "icon — white",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-stacked-black.svg",
+        "type": "stacked — black",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-stacked-white.svg",
+        "type": "stacked — white",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-horizontal-black.svg",
+        "type": "horizontal — black",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-horizontal-white.svg",
+        "type": "horizontal — white",
+        "treatment": "Transparent vector master"
+      },
+      {
+        "path": "assets/brand/ruxbase-icon-black.png",
+        "type": "Square icon — black",
+        "treatment": "1024 px transparent PNG"
+      },
+      {
+        "path": "assets/brand/ruxbase-icon-white.png",
+        "type": "Square icon — white",
+        "treatment": "1024 px transparent PNG"
+      },
+      {
+        "path": "assets/brand/favicon-16.png",
+        "type": "Favicon 16 px",
+        "treatment": "PNG"
+      },
+      {
+        "path": "assets/brand/favicon-24.png",
+        "type": "Favicon 24 px",
+        "treatment": "PNG"
+      },
+      {
+        "path": "assets/brand/favicon-32.png",
+        "type": "Favicon 32 px",
+        "treatment": "PNG"
+      },
+      {
+        "path": "assets/brand/favicon-48.png",
+        "type": "Favicon 48 px",
+        "treatment": "PNG"
+      },
+      {
+        "path": "assets/brand/ruxbase-construction-grid.svg",
+        "type": "Construction grid",
+        "treatment": "SVG diagram"
+      },
+      {
+        "path": "assets/brand/ruxbase-construction-grid.png",
+        "type": "Construction grid",
+        "treatment": "PNG diagram"
+      }
+    ],
+    "selection": {
+      "light": {
+        "symbol": "assets/brand/ruxbase-symbol-black.svg",
+        "horizontal": "assets/brand/ruxbase-horizontal-black.svg",
+        "vertical": "assets/brand/ruxbase-stacked-black.svg"
+      },
+      "dark": {
+        "symbol": "assets/brand/ruxbase-symbol-white.svg",
+        "horizontal": "assets/brand/ruxbase-horizontal-white.svg",
+        "vertical": "assets/brand/ruxbase-stacked-white.svg"
+      },
+      "crossTheme": {
+        "horizontal": "assets/brand/ruxbase.png",
+        "symbol": "assets/brand/ruxbase_logo.png",
+        "wordmark": "assets/brand/ruxbase_name.png"
+      }
+    }
+  },
+  "limitations": [
+    "The original reconstruction reported approximately 97.2% area overlap after normalizing dimensions; not independently remeasured here.",
+    "Supporting typography, colors and usage limits are proposed.",
+    "No trademark clearance or testing on every platform."
+  ],
+  "references": [
+    "https://developer.apple.com/design/human-interface-guidelines/app-icons/",
+    "https://www.ibm.com/design/language/ibm-logos/8-bar/"
+  ]
+}
