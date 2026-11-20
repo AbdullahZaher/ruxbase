@@ -32,6 +32,9 @@ jobs:
           npm run build
           node scripts/check-build.mjs
           node scripts/check-ai.mjs
+      - name: Evaluate 30 documentation retrieval queries
+        working-directory: website
+        run: npm run test:retrieval
       - name: Independent OpenAPI schema validation
         run: bash website/scripts/validate-openapi.sh
       - name: Stage verified test-only accessibility scanner

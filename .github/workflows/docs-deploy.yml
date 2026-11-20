@@ -48,6 +48,7 @@ jobs:
           npm run build
           node scripts/check-build.mjs
           node scripts/check-ai.mjs
+          npm run test:retrieval
           bash scripts/validate-openapi.sh
           node scripts/check-scalar-release-review.mjs
           node scripts/browser-smoke.mjs

@@ -41,7 +41,7 @@ before choosing a deployment configuration.
 
 ## Reference
 
-- [Health API](/ruxbase/reference/api/)
+- [API reference](/ruxbase/reference/api/)
 - [CLI](/ruxbase/reference/cli/)
 - [Configuration](/ruxbase/reference/configuration/)
 - [Feature availability](/ruxbase/reference/features/)

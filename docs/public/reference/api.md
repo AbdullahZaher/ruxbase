@@ -34,7 +34,7 @@ Without the `ready` query parameter, the handler reports liveness (HTTP 200 and 
 }
 ```
 
-See [operations](/ruxbase/operations/overview/). Other REST operations, including SSE, MCP and custom routes, remain outside this OpenAPI increment. Collection schemas and permissions are application-specific.
+See [operations](/ruxbase/operations/overview/). SSE is represented as a scoped HTTP transport contract; MCP and custom routes remain outside OpenAPI. Collection schemas and permissions are application-specific.
 
 ## Record operations
 

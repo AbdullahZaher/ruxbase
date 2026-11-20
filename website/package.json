@@ -11,7 +11,8 @@
     "build": "node scripts/prepare.mjs && astro build && node scripts/export-ai.mjs && node scripts/export-references.mjs && bash scripts/stage-scalar-candidate.sh && node scripts/release-artifact.mjs seal",
     "preview": "astro preview",
     "prepare:docs": "node scripts/prepare.mjs",
-    "test:ai": "node --test tests/ai.test.mjs"
+    "test:ai": "node --test tests/ai.test.mjs",
+    "test:retrieval": "node scripts/benchmark-retrieval.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "7.3.0",

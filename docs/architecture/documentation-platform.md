@@ -121,3 +121,7 @@ On 95216b6bf455c7c4cb10d84bf0672ddc30ef4dcf all four docs jobs passed. Full CI 4
 ### Development artifact sealing and rollback rehearsal
 
 All five workflows passed on f62281877e0044b014856054960a3f4413d59433; retry of earlier release snapshot also passed. Added development-only versions catalog, exact per-file artifact seal, negative tests and temporary activation fixture, pre-upload exact commit verification, retained snapshot and post-deploy manifest digest/representative hash checks. Independently downloaded CI artifacts 14640872698 / 14641811685, verified archive and 17 Markdown hashes each, exercised local A-B-A atomic activation with full file hashes (185/186/185), exact restoration. Local evidence recorded. No Pages deployment or remote rollback; stable and historical catalog empty. Scalar distribution and owner visual approval remain open. New CI required.
+
+### AI retrieval regression benchmark
+
+Added 30 authored queries across startup, migration, database, realtime, search, access boundaries, API scope and AI discovery. Verifies exported Markdown digests, ranks pages without answer labels, checks expected evidence, and gates >=27/30 with zero critical misses. Corrected stale SSE and OpenAPI scope language. CI proof required. This is a deterministic page retrieval proxy, not LLM-generated answer evaluation, search-engine indexing or independently held-out certification. Scalar distribution approval and final publication remain open.
