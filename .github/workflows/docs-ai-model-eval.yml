@@ -1,0 +1,56 @@
+name: docs-ai-model-eval
+# An explicitly invoked, possibly billable model evaluation, never on PR/push.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  model-plans:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '25.2.1'
+      - name: Verify allowlist and adversarial task contract
+        run: node --test scripts/test-ai-project-eval.mjs
+      - name: Invoke a real configured LLM (no credentials in downstream job)
+        env:
+          OPENAI_API_KEY: ${{ secrets.RUXBASE_AI_EVAL_API_KEY }}
+          RUXBASE_AI_EVAL_MODEL: ${{ vars.RUXBASE_AI_EVAL_MODEL }}
+        run: node scripts/eval-ai-projects.mjs run --output "$RUNNER_TEMP/ruxbase-ai-plans.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ai-ruxbase-plans
+          path: ${{ runner.temp }}/ruxbase-ai-plans.json
+          retention-days: 7
+          if-no-files-found: error
+  integration:
+    needs: model-plans
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '25.2.1'
+      - uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427
+        with:
+          name: ai-ruxbase-plans
+          path: ${{ runner.temp }}/ruxbase-ai-plan-evidence
+      - name: Reject malformed plan artifact before running any code
+        run: node scripts/eval-ai-projects.mjs verify --input "$RUNNER_TEMP/ruxbase-ai-plan-evidence/ruxbase-ai-plans.json"
+      - name: Build Ruxbase admin dashboard for disposable server
+        run: npm --prefix ui ci --no-audit --no-fund && npm --prefix ui run build
+      - name: Compile and test model-chosen projects with real Ruxbase PostgreSQL and Chromium
+        env:
+          RUXBASE_STARTER_E2E: '1'
+          RUXBASE_AI_PLAN_FILE: ${{ runner.temp }}/ruxbase-ai-plan-evidence/ruxbase-ai-plans.json
+          CHROME_BIN: google-chrome
+          DOCS_BROWSER_NO_SANDBOX: '1'
+        run: python3 scripts/test-starters-e2e.py

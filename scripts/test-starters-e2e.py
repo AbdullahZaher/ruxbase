@@ -121,8 +121,16 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
 
         # Exercise the exact deterministic generator, not a manually copied
         # frontend. The output directory is outside the repository.
-        for framework, port in [("react", 5173), ("nextjs", 3000)]:
-            project = base / ("generated-" + framework)
+        specs = [("react", "generated-react", 5173), ("nextjs", "generated-nextjs", 3000)]
+        if os.environ.get("RUXBASE_AI_PLAN_FILE"):
+            artifact = pathlib.Path(os.environ["RUXBASE_AI_PLAN_FILE"])
+            subprocess.run(["node", str(ROOT / "scripts/eval-ai-projects.mjs"), "verify",
+                            "--input", str(artifact)], check=True, cwd=ROOT)
+            data = json.loads(artifact.read_text())
+            specs = [(p["framework"], p["name"], 5173 if p["framework"] == "react" else 3000)
+                     for p in data["plans"]]
+        for framework, name, port in specs:
+            project = base / name
             subprocess.run([
                 "node", str(ROOT / "scripts/create-ruxbase-app.mjs"),
                 framework, project.name, "--output", str(base),

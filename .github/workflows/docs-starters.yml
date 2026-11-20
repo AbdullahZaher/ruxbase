@@ -19,6 +19,8 @@ jobs:
           node-version: '25.2.1'
       - name: Validate AI scaffolding contracts and safe inputs
         run: node --test scripts/test-create-ruxbase-app.mjs
+      - name: Test AI evaluation safety without external model credentials
+        run: node --test scripts/test-ai-project-eval.mjs
       - name: Compile browser acceptance and Python orchestration
         run: |
           node --check scripts/check-starter-browser.mjs
