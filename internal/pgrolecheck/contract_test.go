@@ -65,7 +65,7 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	identifier := pgx.Identifier{role}.Sanitize()
 	password := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	// Test-only role; generated password contains strictly alphanumeric bytes.
-	_, err = owner.ExecContext(ctx, "CREATE ROLE " + identifier +
+	_, err = owner.ExecContext(ctx, "CREATE ROLE "+identifier+
 		" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + password + "'")
 	if err != nil {
 		t.Fatal("unable to create disposable restricted role")
