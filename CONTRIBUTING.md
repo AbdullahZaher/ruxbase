@@ -39,7 +39,7 @@ git clone https://github.com/<your-username>/ruxbase.git
 cd ruxbase
 ```
 
-Create a branch from `main` for each change.
+Create a focused branch from the relevant integration target. Wave work targets the active `wave/*` branch; independent maintenance targets `main`. Follow [the branch strategy](docs/BRANCH-STRATEGY.md).
 
 ## Development database
 
