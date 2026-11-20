@@ -96,6 +96,10 @@ type DBConnectFunc func(dsn string) (*dbx.DB, error)
 type BaseAppConfig struct {
 	DBConnect DBConnectFunc
 
+	// PreparedRuntimeRole enables experimental metadata-only bootstrap using
+	// the declared restricted PostgreSQL identity. The profile cannot serve HTTP.
+	PreparedRuntimeRole string
+
 	// ruxbase: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
@@ -530,6 +534,10 @@ func (app *BaseApp) IsBootstrapped() bool {
 //
 // It calls ClearBootstrap() if the application was already bootstrapped.
 func (app *BaseApp) Bootstrap() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return app.bootstrapPrepared()
+	}
+
 	event := &BootstrapEvent{}
 	event.App = app
 
@@ -609,6 +617,10 @@ func (app *BaseApp) ResetBootstrapState() error {
 //
 // This method is no-op if the application is not bootstrapped yet.
 func (app *BaseApp) ClearBootstrap() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return app.clearPreparedBootstrap()
+	}
+
 	if !app.IsBootstrapped() {
 		return nil
 	}
@@ -1006,12 +1018,18 @@ func (app *BaseApp) Restart() error {
 
 // RunSystemMigrations applies all new migrations registered in the [core.SystemMigrations] list.
 func (app *BaseApp) RunSystemMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	_, err := NewMigrationsRunner(app, SystemMigrations).Up()
 	return err
 }
 
 // RunAppMigrations applies all new migrations registered in the [core.AppMigrations] list.
 func (app *BaseApp) RunAppMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	_, err := NewMigrationsRunner(app, AppMigrations).Up()
 	return err
 }
@@ -1019,6 +1037,9 @@ func (app *BaseApp) RunAppMigrations() error {
 // RunAllMigrations applies all system and app migrations
 // (aka. from both [core.SystemMigrations] and [core.AppMigrations]).
 func (app *BaseApp) RunAllMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	list := MigrationsList{}
 	list.Copy(SystemMigrations)
 	list.Copy(AppMigrations)
