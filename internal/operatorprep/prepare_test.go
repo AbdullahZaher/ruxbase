@@ -63,6 +63,16 @@ func TestPrepareDisposablePostgreSQL(t *testing.T) {
 	}
 
 	c.ExpectedRole = role
+	// The existing test owner is deliberately administrative. The separate
+	// migration mode must reject it before creating any migration ledger.
+	separate := c
+	separate.PreprovisionedRLSRoles = true
+	if err := Prepare(separate); err == nil {
+		t.Fatal("administrative owner admitted as separate migration principal")
+	}
+	if err := db.QueryRow("SELECT to_regclass('public._migrations') IS NULL").Scan(&absent); err != nil || !absent {
+		t.Fatal("separate migration rejection modified the database")
+	}
 	if err := Prepare(c); err != nil {
 		t.Fatal(err)
 	}
