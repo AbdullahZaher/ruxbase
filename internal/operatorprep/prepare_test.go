@@ -187,9 +187,21 @@ func verifySeparateMigration(t *testing.T) {
 	if status, err := CheckSystemHistory(ctx, u.String(), "", role); err != nil {
 		t.Fatalf("separate migration history invalid: %+v (%v)", status, err)
 	}
-	var active int
-	if err := owner.QueryRow("SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = current_database() AND usename = $1", role).Scan(&active); err != nil || active != 0 {
-		t.Fatalf("offline operator left migration sessions: %d (%v)", active, err)
+	// PostgreSQL may need a short interval to observe orderly connection
+	// closure. Do not force-terminate another principal's sessions.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var active int
+		if err := owner.QueryRow("SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = current_database() AND usename = $1", role).Scan(&active); err != nil {
+			t.Fatal(err)
+		}
+		if active == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("offline operator left %d migration sessions", active)
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 	var migrationOwned bool
 	if err := owner.QueryRow(`
