@@ -155,6 +155,9 @@ func resolveSlotName(ctx context.Context, db dbx.Builder, database string) (stri
 
 // ReplicationConfig defines the callbacks used by the replication leader.
 type ReplicationConfig struct {
+	// Dedicated selects an explicitly provisioned WAL login without fallback.
+	Dedicated DedicatedReplication
+
 	// PrepareTables ensures that the publication contains all collection
 	// tables (with REPLICA IDENTITY FULL). It is called by the leader before
 	// consuming the slot.
@@ -230,6 +233,17 @@ func (c *Cluster) CheckReplicationSupport(ctx context.Context) error {
 	return nil
 }
 
+// CheckConfiguredReplicationSupport preserves the legacy path unless a
+// dedicated identity is explicitly configured. Incomplete configuration
+// cannot fall back to the application login.
+func (c *Cluster) CheckConfiguredReplicationSupport(ctx context.Context, dedicated DedicatedReplication) error {
+	if dedicated.Enabled() {
+		_, err := dedicated.check(ctx, c.dsn())
+		return err
+	}
+	return c.CheckReplicationSupport(ctx)
+}
+
 // StartReplication starts competing for the replication leadership in the background.
 //
 // It is no-op if it is already started.
@@ -279,7 +293,7 @@ func (c *Cluster) runReplication(ctx context.Context, config ReplicationConfig) 
 		// the node falls back to the hooks source if the replication is not available
 		// (eg. a temporary database error on start) and it is checked again periodically
 		if c.RealtimeSource() != RealtimeSourceReplication {
-			if err := c.CheckReplicationSupport(ctx); err != nil {
+			if err := c.CheckConfiguredReplicationSupport(ctx, config.Dedicated); err != nil {
 				sleepCtx(ctx, replicationSupportRetryInterval)
 				continue
 			}
@@ -386,12 +400,16 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		return err
 	}
 
-	replDSN, err := replicationDSN(c.dsn())
-	if err != nil {
-		return err
+	var conn *pgconn.PgConn
+	if config.Dedicated.Enabled() {
+		conn, err = config.Dedicated.connect(ctx, c.dsn())
+	} else {
+		var replDSN string
+		replDSN, err = replicationDSN(c.dsn())
+		if err == nil {
+			conn, err = pgconn.Connect(ctx, replDSN)
+		}
 	}
-
-	conn, err := pgconn.Connect(ctx, replDSN)
 	if err != nil {
 		return err
 	}
