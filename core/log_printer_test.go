@@ -3,24 +3,17 @@ package core
 import (
 	"context"
 	"database/sql"
-	"io"
 	"log/slog"
-	"os"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/AbdullahZaher/ruxbase/tools/list"
 	"github.com/AbdullahZaher/ruxbase/tools/logger"
-	"github.com/fatih/color"
 	"github.com/pocketbase/dbx"
 )
 
 func TestBaseAppLoggerLevelDevPrint(t *testing.T) {
-	// temp unset to avoid littering the stdout if the test fails when in dev mode
-	colorOutput := color.Output
-	color.Output = io.Discard
-	defer func() { color.Output = colorOutput }()
-
 	testLogLevel := 4
 
 	scenarios := []struct {
@@ -48,13 +41,22 @@ func TestBaseAppLoggerLevelDevPrint(t *testing.T) {
 
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
-			const testDataDir = "./pb_base_app_test_data_dir/"
-			defer os.RemoveAll(testDataDir)
+			const message = "logger-level-dev-print-fixture"
+			var mu sync.Mutex
+			var printedLevels, persistedLevels []int
 
 			app := NewBaseApp(BaseAppConfig{
-				DataDir: testDataDir,
+				DataDir: t.TempDir(),
 				IsDev:   s.isDev,
 			})
+			// ruxbase: capture only this test\'s messages; cluster resync can log concurrently.
+			app.logPrinter = func(log *logger.Log) {
+				if log.Message == message {
+					mu.Lock()
+					printedLevels = append(printedLevels, int(log.Level))
+					mu.Unlock()
+				}
+			}
 			defer app.ClearBootstrap()
 
 			if err := app.Bootstrap(); err != nil {
@@ -72,32 +74,22 @@ func TestBaseAppLoggerLevelDevPrint(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var printedLevels []int
-			var persistedLevels []int
-
 			ctx := context.WithValue(context.Background(), logger.BlockKey, true)
-
-			// track printed logs
-			originalPrintLog := printLog
-			defer func() {
-				printLog = originalPrintLog
-			}()
-			printLog = func(log *logger.Log) {
-				printedLevels = append(printedLevels, int(log.Level))
-			}
 
 			// track persisted logs
 			app.OnModelAfterCreateSuccess("_logs").BindFunc(func(e *ModelEvent) error {
 				l, ok := e.Model.(*Log)
-				if ok {
+				if ok && l.Message == message {
+					mu.Lock()
 					persistedLevels = append(persistedLevels, l.Level)
+					mu.Unlock()
 				}
 				return e.Next()
 			})
 
 			// write and persist logs
 			for _, l := range s.levels {
-				app.Logger().Log(ctx, slog.Level(l), "test")
+				app.Logger().Log(ctx, slog.Level(l), message)
 			}
 			handler, ok := app.Logger().Handler().(*logger.BatchHandler)
 			if !ok {
@@ -107,24 +99,15 @@ func TestBaseAppLoggerLevelDevPrint(t *testing.T) {
 				t.Fatalf("Failed to write all logs: %v", err)
 			}
 
-			// check persisted log levels
-			if len(s.persistedLevels) != len(persistedLevels) {
-				t.Fatalf("Expected persisted levels \n%v\ngot\n%v", s.persistedLevels, persistedLevels)
+			mu.Lock()
+			defer mu.Unlock()
+			slices.Sort(persistedLevels)
+			slices.Sort(printedLevels)
+			if !slices.Equal(s.persistedLevels, persistedLevels) {
+				t.Fatalf("Expected persisted levels %v, got %v", s.persistedLevels, persistedLevels)
 			}
-			for _, l := range persistedLevels {
-				if !list.ExistInSlice(l, s.persistedLevels) {
-					t.Fatalf("Missing expected persisted level %v in %v", l, persistedLevels)
-				}
-			}
-
-			// check printed log levels
-			if len(s.printedLevels) != len(printedLevels) {
-				t.Fatalf("Expected printed levels \n%v\ngot\n%v", s.printedLevels, printedLevels)
-			}
-			for _, l := range printedLevels {
-				if !list.ExistInSlice(l, s.printedLevels) {
-					t.Fatalf("Missing expected printed level %v in %v", l, printedLevels)
-				}
+			if !slices.Equal(s.printedLevels, printedLevels) {
+				t.Fatalf("Expected printed levels %v, got %v", s.printedLevels, printedLevels)
 			}
 		})
 	}
