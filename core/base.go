@@ -1666,8 +1666,9 @@ func (app *BaseApp) initLogger() error {
 		// significant performance difference between small number
 		// of separate write queries vs 1 big INSERT
 		app.AuxRunInTransaction(func(txApp App) error {
-			model := &Log{}
 			for _, l := range logs {
+				// ruxbase: post-commit hooks must retain each saved log's identity.
+				model := &Log{}
 				model.MarkAsNew()
 				model.Id = GenerateDefaultRandomId()
 				model.Level = int(l.Level)
