@@ -28,9 +28,9 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 
 | Item | Current known status | Durable evidence / qualification |
 | --- | --- | --- |
-| Wave 00 / M00 | **OPEN** | [Issue #4](https://github.com/AbdullahZaher/ruxbase/issues/4). Official upstream verified; ancestry restoration still awaiting integration |
-| Shared ancestry on `main` | **NOT YET VERIFIED** | staged branch `foundation/pocketbase-ancestry`; [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33) open at authoring |
-| Branch governance | **PARTIAL** | ruleset `27761929` active for `main` and `wave/*`; inspect required approval count (was `0`) |
+| Wave 00 / M00 | **ISSUE CLOSED; MASTER GATES NOT FULLY ACCEPTED** | [Issue #4](https://github.com/AbdullahZaher/ruxbase/issues/4) closed after merged [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33) and successful main CI; positive independent GitHub approval enforcement and remaining roadmap-wide evidence are still outstanding |
+| Shared ancestry on `main` | **VERIFIED / MERGED** | [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33), merge `ea47d499519e7e017724881378213e626d7fa47d`; upstream v0.40.6 is real Git ancestor; unchanged merged tree `6d9505bc5fc4b702da1acebbf1580d95903160db` |
+| Branch governance | **PARTIAL** | ruleset `27761929` active with PR requirement and ten required checks, but `required_approving_review_count: 0` and no independent approval is enforced |
 | Wave 01 / M01 Scope A | **CLOSED / CERTIFIED RESTRICTED** | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9), [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30), [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) |
 | Wave 01 M02 | **NOT ACCEPTED** | Platform Kernel Contracts; verify authorizing issue/spec before implementation |
 | Wave 01 M03–M06 labels | **TO BE RECONCILED** | differing milestone nomenclature in historical reports; use accepted owner specification |
@@ -42,8 +42,8 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | Evidence ID | Scope | Verified artifact | Finding / limitation |
 | --- | --- | --- | --- |
 | EV-00-REF | Official PocketBase reference | `v0.40.6` / `9d281ccaba65f2686eb7b0b614ccda72d1116a1b`; `UPSTREAM.lock.json` | Historical baseline; ancestry on main must be verified separately |
-| EV-00-GIT | M00 ancestry | `foundation/pocketbase-ancestry` at `0c1853d7f1e26d6663e9fc77ca7dbaaf03ea854d`; [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33) | Not proof of final main integration |
-| EV-00-GOV | Repo rules | [Ruleset #27761929](https://github.com/AbdullahZaher/ruxbase/rules/27761929) | Active, but `required_approving_review_count` observed as 0; must validate owner policy |
+| EV-00-GIT | M00 ancestry | [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33) merged `ea47d499519e7e017724881378213e626d7fa47d`; tree `6d9505bc5fc4b702da1acebbf1580d95903160db`; main `e2ee0c2be543ce26450723e9c0c6cb789d6852bd` | GitHub compare establishes official `9d281cc...` ancestor; [post-merge CI #44826223333](https://github.com/AbdullahZaher/ruxbase/actions/runs/44826223333) and [main CI #44827025018](https://github.com/AbdullahZaher/ruxbase/actions/runs/44827025018) successful |
+| EV-00-GOV | Repo rules | [Ruleset #27761929](https://github.com/AbdullahZaher/ruxbase/rules/27761929); [PR #33 review](https://github.com/AbdullahZaher/ruxbase/pull/33) | Active PR rule and required checks; approval count 0. Certification text is a **COMMENTED** review submitted under owner account, not an independent GitHub **APPROVED** review |
 | EV-01-M01 | Restricted PostgreSQL kernel | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9) and [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30) | Certified **Scope A** only |
 | EV-01-CI | Post-integration reliability and M01 | Wave commit `2170cd951ef33efd7f1744adcda23df990e4b6d4`; [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) | 10/10 successful historical run; not a production certification |
 | EV-01-PARITY | PocketBase ref test mapping | 5,112 references; 5,097 direct passes; 10 renamed, 3 removed, 2 skipped, 0 unaccounted | The two skips are `TestBaseAppDBDualBuilder` and `TestBaseAppAuxDBDualBuilder` |
@@ -58,13 +58,13 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 - [x] **W00-03 / P1 / CORE** — Inventory existing code, architecture gaps, compatibility, operating constraints and ownership candidates. **Evidence:** `docs/architecture/WAVE00-BASELINE-ASSESSMENT.md`; audit remains a bounded assessment, not exhaustive security certification.
 - [x] **W00-04 / P1 / CORE** — Establish repository CI baseline and PostgreSQL 17/18 + SDK/dashboard/OS test workflows. **Evidence:** existing CI workflow and historical passing runs; this does not certify future commits.
 - [x] **W00-05 / P1 / CORE** — Stage a reviewed zero-source-diff history-reconstruction candidate preserving official upstream lineage. **Evidence:** EV-00-GIT; final main ancestry still outstanding.
-- [ ] **W00-06 / P0 / CORE** — Integrate the valid current-head ancestry candidate into `main` through authorized reviewed history-preserving process; verify real PocketBase ancestor, unchanged application tree, backup refs and post-merge CI. **Evidence needed:** merged SHA/tree and Git ancestor checks.
+- [x] **W00-06 / P0 / CORE** — Integrate the valid current-head ancestry candidate into `main` through an authorized history-preserving PR; verify official PocketBase ancestor, unchanged application tree, backup refs and post-merge CI. **Evidence:** EV-00-GIT, PR #33, exact merge/tree and post-merge CI. **Note:** this technical acceptance does not imply independent GitHub approval was enforced.
 - [ ] **W00-07 / P0 / CORE** — Enforce independent positive PR approval (not zero) and mandatory checks on `main` / `wave/*` with no force push or unauthorized bypass. **Evidence needed:** actual effective ruleset JSON and independent reviewer path. Existing `pull_request` rule alone is not sufficient when approval count is 0.
 - [ ] **W00-08 / P1 / CORE** — Publish reproducible resource/throughput baseline with matched, clearly scoped workloads; do not infer Supabase self-hosted superiority from earlier PocketBase measurements. **Evidence needed:** raw data and pinned test profiles.
 - [ ] **W00-09 / P1 / CORE** — Classify every source-level licensing/dependency/provenance risk with accepted disposition; ensure upstream inheritance annotations remain auditable. **Evidence needed:** inventory + reviewer finding register.
 - [ ] **W00-10 / P1 / CORE** — Demonstrate an authorized selective upstream update rehearsal if a newer applicable release exists; otherwise document why a real rehearsal is unavailable and obtain explicit gate disposition.
 - [ ] **W00-11 / P1 / CORE** — Approve master roadmap, ownership, release gates, acceptance criteria and phase dependencies through reviewed repository artifacts. **Evidence needed:** reviewed/merged roadmap PR.
-- [ ] **W00-12 / GATE / CORE** — Independent M00 closure against current immutable `main`, actual ruleset enforcement and post-merge CI; close Issue #4 only after all mandatory gates pass.
+- [ ] **W00-12 / GATE / CORE** — Reconcile the already-closed Issue #4 with the stricter master roadmap acceptance gate: enforce positive independent GitHub approval, complete applicable W00 outstanding evidence and obtain an independent acceptance decision on the exact `main` state. **Issue #4 was closed after PR #33**, but its administrative closure does not automatically complete this additional release-governance gate.
 
 ## 2. Wave 01 — Platform Kernel & Security
 
@@ -249,7 +249,7 @@ A wave may add relevant journeys earlier, but release readiness requires the ful
 
 ## 15. Next actions (non-authorizing guide)
 
-1. Complete M00 ancestry and enforce a positive PR approval requirement; track [Issue #4](https://github.com/AbdullahZaher/ruxbase/issues/4) and [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33). Do not reuse obsolete history integration commands.
+1. Preserve the verified, completed M00 upstream ancestry restoration on `main` ([merged PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33)); follow up on the still-unenforced **positive independent approval requirement** and any remaining master-roadmap Wave 00 evidence. Issue #4 is closed, but W00-07 and W00-12 remain unchecked.
 2. Confirm canonical Wave 01 milestone assignments with the project owner and existing specifications. Preserve completed M01 Scope A; do not claim general production authorization.
 3. Prepare a bounded, separately authorized M02 — Platform Kernel Contracts implementation with exact negative tests and accepted architecture boundaries.
 4. Update the evidence register after each reviewed merge. Never backfill hypothetical completion or edit the upstream/release status to match a desired narrative.
