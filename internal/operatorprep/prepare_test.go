@@ -207,7 +207,7 @@ func verifySeparateMigration(t *testing.T) {
 		ExpectedRole:           role,
 		DataDir:                t.TempDir(),
 		PreprovisionedRLSRoles: true,
-		IdentityContract:      &identities,
+		IdentityContract:       &identities,
 	}
 	if err := Prepare(config); err != nil {
 		t.Fatalf("preprovisioned migration failed: %v", err)
