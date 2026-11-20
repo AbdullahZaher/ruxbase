@@ -20,6 +20,16 @@ test_status=$?
 jq -r 'select(.Action == "output" and .Test == "TestRestrictedIdentityAdmissionPostgreSQL") | .Output' "$OUT" |
   grep 'M01_CHECKOUT samples=' || true
 
+# A declared dedicated WAL fixture must actually execute the combined
+# migration/HTTP/WAL journey. A skipped test cannot satisfy this gate.
+if [ -n "${RUXBASE_TEST_WAL_URL:-}" ]; then
+  if ! jq -r 'select(.Action == "output" and .Test == "TestPrepareDisposablePostgreSQL") | .Output' "$OUT" |
+    grep 'M01_COMBINED_WAL: restricted HTTP create decoded by dedicated WAL session and persisted'; then
+    echo "M01 combined WAL evidence missing"
+    test_status=1
+  fi
+fi
+
 # print the failed tests and their messages
 if [ "$test_status" -ne 0 ]; then
   echo "failed tests:"
