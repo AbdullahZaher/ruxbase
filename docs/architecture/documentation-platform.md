@@ -75,3 +75,7 @@ Prior scoped contract candidate 93d63f55ae2231e350ce40f192de5badcc89846b passed 
 ### REST reference expansion
 
 Expanded OpenAPI from health only to seven operations covering health, generic record CRUD and vector search. The explicit scoped inventory is checked against the OpenAPI operation table and evidence blobs. Authentication, files, administration, batch, realtime, MCP and custom routes still need contract review. Independent schema validator added to candidate CI; its dependency lock and Scalar integration remain open until verified.
+
+### Scalar candidate
+
+Added an isolated noindex self-hosted viewer experiment to candidate CI. Uses the exact release version shown in the upstream integration documentation, records npm archive integrity, disables test requests, credentials persistence and remote fonts, and restricts resource loading with CSP. Full dependency/provenance review and publication integration remain open. No external runtime CDN or proxy is configured.

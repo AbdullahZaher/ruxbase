@@ -42,11 +42,14 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/docs-openapi-validator"
           "$RUNNER_TEMP/docs-openapi-validator/bin/pip" install --disable-pip-version-check openapi-spec-validator==0.7.2
           "$RUNNER_TEMP/docs-openapi-validator/bin/openapi-spec-validator" website/dist/openapi.json
+      - name: Stage self-hosted Scalar candidate
+        run: bash website/scripts/stage-scalar-candidate.sh
       - name: Exercise built site in Chromium
         working-directory: website
         env:
           CHROME_BIN: google-chrome
           DOCS_BROWSER_NO_SANDBOX: '1'
+          DOCS_SCALAR_CANDIDATE: '1'
         run: node scripts/browser-smoke.mjs
       - name: Retain browser evidence
         if: always()

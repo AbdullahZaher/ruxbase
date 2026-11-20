@@ -100,6 +100,14 @@ try{
  assert(markdown.ok&&(await markdown.text()).includes('GET /api/health'),'Markdown retrieval');
  const spec=await(await fetch(origin+SITE_BASE+'openapi.json')).json();
  assert(spec.openapi==='3.1.0','OpenAPI retrieval');
+ if(process.env.DOCS_SCALAR_CANDIDATE==='1'){
+  await visit('api-viewer/');
+  await until(()=>evaluate('document.querySelector("#api-reference")?.innerText.includes("List records") && document.querySelector("#api-reference")?.innerText.includes("Search records by vector")'),'Scalar rendered operations',30000);
+  assert(await evaluate('!Array.from(document.querySelectorAll("button")).some(b=>/test request/i.test(b.innerText))'),'Scalar must not expose test request buttons');
+  await screenshot('scalar-candidate');
+  assert(failures.length===0,'Scalar browser exceptions or missing local assets: '+failures.join('; '));
+  console.log('Scalar candidate rendered scoped operations with test requests hidden.');
+ }
  await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
  console.log('Browser smoke passed: themes, search, mobile menu, static reference and machine-readable retrieval.');
 }finally{
