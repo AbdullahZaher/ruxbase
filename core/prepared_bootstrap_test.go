@@ -173,6 +173,29 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 		t.Fatal("unable to restore disposable fixture grant")
 	}
 
+	// Verify catalog coverage separately from privilege admission. An empty
+	// RLS marker cannot certify a database with registered collections.
+	var oldState string
+	if err := owner.QueryRow("SELECT value FROM public._params WHERE id = 'ruxbaseRLS'").Scan(&oldState); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := owner.Exec("UPDATE public._params SET value = $1 WHERE id = 'ruxbaseRLS'", "{}"); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Bootstrap(); err == nil ||
+		err.Error() != "prepared RLS collection catalog is inconsistent" || app.IsBootstrapped() {
+		t.Fatalf("incomplete RLS marker was not rejected: %v", err)
+	}
+	if _, err := owner.Exec("UPDATE public._params SET value = $1 WHERE id = 'ruxbaseRLS'", oldState); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Bootstrap(); err != nil {
+		t.Fatalf("prepared bootstrap failed after restoring fixture state: %v", err)
+	}
+	if err := app.ClearBootstrap(); err != nil {
+		t.Fatal(err)
+	}
+
 	// A privileged owner and even a valid restricted login against incomplete
 	// metadata must be rejected, and no bootstrap write may repair it.
 	privileged := core.NewBaseApp(core.BaseAppConfig{
