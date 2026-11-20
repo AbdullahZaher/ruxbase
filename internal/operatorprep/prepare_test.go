@@ -1,9 +1,11 @@
 package operatorprep
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/AbdullahZaher/ruxbase/tests"
 )
@@ -51,9 +53,24 @@ func TestPrepareDisposablePostgreSQL(t *testing.T) {
 		t.Fatal("identity mismatch did not prevent migration initialization")
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if status, err := CheckSystemHistory(ctx, fixture.URL, role); err == nil || len(status.Missing) == 0 {
+		t.Fatalf("empty database passed history check: %+v (%v)", status, err)
+	}
+	if err := db.QueryRow("SELECT to_regclass('public._migrations') IS NULL").Scan(&absent); err != nil || !absent {
+		t.Fatal("read-only history check created a migration table")
+	}
+
 	c.ExpectedRole = role
 	if err := Prepare(c); err != nil {
 		t.Fatal(err)
+	}
+	if status, err := CheckSystemHistory(ctx, fixture.URL, role); err != nil {
+		t.Fatalf("prepared system history rejected: %+v (%v)", status, err)
+	}
+	if _, err := CheckSystemHistory(ctx, fixture.URL, role+"_mismatch"); err == nil {
+		t.Fatal("wrong history inspection identity accepted")
 	}
 	var before, after int
 	if err := db.QueryRow("SELECT count(*) FROM public._migrations").Scan(&before); err != nil || before == 0 {
