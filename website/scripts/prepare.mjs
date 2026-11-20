@@ -117,7 +117,9 @@ export async function prepare() {
   await mkdir(publicDir, { recursive: true });
   // Original verified horizontal artwork, metadata-only social preview.
   await writeFile(join(publicDir, 'social-preview.png'), assets.get('ruxbase.png'));
-  await writeFile(join(publicDir, 'favicon.svg'), await readFile(join(brand, 'vector-review', 'favicon.svg')));
+  const favicon = await readFile(join(brand, 'vector-review', 'favicon.svg'));
+  if (vector.status !== 'approved-for-documentation' || createHash('sha256').update(favicon).digest('hex') !== vector.faviconSha256) throw new Error('Approved favicon identity mismatch');
+  await writeFile(join(publicDir, 'favicon.svg'), favicon);
   console.log('Validated ' + assets.size + ' originals and staged ' + pages.size + ' public pages.');
 }
 

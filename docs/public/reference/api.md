@@ -7,7 +7,7 @@ description: Explore scoped data, authentication, file and administrative API co
 
 The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **57 operations**: all direct built-in HTTP registrations outside the MCP transport, with scoped schemas. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
 
-[Open the Scalar API viewer](/ruxbase/api-viewer/) to explore the same contract. The viewer is for documentation only and does not provide a live API request console. Static text and Markdown remain the authoritative readable references.
+The static reference and downloadable OpenAPI contract are available in the initial public documentation profile. The optional Scalar viewer remains a local development preview pending separate review of its bundled notices and dependencies; it is not distributed by the public build.
 
 ## GET /api/health
 

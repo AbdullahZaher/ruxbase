@@ -16,7 +16,7 @@ export default defineConfig({
     expressiveCode: { defaultProps: { wrap: true } },
     title: 'Ruxbase',
     description: 'PostgreSQL-native, self-hosted backend platform documentation.',
-    // Source-derived, hash-verified vector candidate; final owner approval pending.
+    // Source-derived, hash-verified vector identity; approved by delegated review.
     logo: { light: './src/assets/brand/symbol-on-light.svg', dark: './src/assets/brand/symbol-on-dark.svg', alt: '' },
     favicon: '/favicon.svg',
     head: [

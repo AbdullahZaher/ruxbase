@@ -10,5 +10,7 @@
     "Advisory review of actual bundled versions",
     "Verified legal notices included in deployed artifact"
   ],
-  "evidence": "Verified corrected staging run 44760502180: declared MIT, zero actual legal notice files found, npm metadata gitHead not published. Prior six License.vue matches were UI code. Exact release license, bundled inventory and advisories remain unverified. No distribution approval."
+  "evidence": "Verified corrected staging run 44760502180: declared MIT, zero actual legal notice files found, npm metadata gitHead not published. Prior six License.vue matches were UI code. Exact release license, bundled inventory and advisories remain unverified. No distribution approval.",
+  "publicationProfile": "static-reference-only",
+  "disposition": "Excluded from initial public distribution; exact pinned optional local preview retained. Review remains pending. Reintroduction requires the existing approval gate, exact notices and bundled inventory/advisory evidence, explicit scope change and CI."
 }

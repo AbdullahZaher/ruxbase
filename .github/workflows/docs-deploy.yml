@@ -50,7 +50,7 @@ jobs:
           node scripts/check-ai.mjs
           npm run test:retrieval
           bash scripts/validate-openapi.sh
-          node scripts/check-scalar-release-review.mjs
+          node scripts/check-publication-scope.mjs
           node scripts/browser-smoke.mjs
           bash scripts/run-lighthouse.sh
       - name: Verify exact build before upload
@@ -107,7 +107,7 @@ jobs:
                   manifest = json.loads(raw)
                   assert manifest['sourceCommit'] == expected
                   files = {f['path']: f for f in manifest['files']}
-                  for name in ['index.html', 'version.json', 'versions.json', 'llms.txt', 'reference/api.md', 'openapi.json', 'api-viewer/index.html', 'pagefind/pagefind.js', 'sitemap-index.xml']:
+                  for name in ['index.html', 'version.json', 'versions.json', 'llms.txt', 'reference/api.md', 'openapi.json', 'pagefind/pagefind.js', 'sitemap-index.xml']:
                       data = get(name)
                       assert len(data) == files[name]['bytes'] and hashlib.sha256(data).hexdigest() == files[name]['sha256'], name
                   ver = json.loads(get('version.json'))
@@ -116,8 +116,7 @@ jobs:
                   assert b'Ruxbase' in get('llms.txt')
                   assert b'GET /api/health' in get('reference/api.md')
                   assert json.loads(get('openapi.json'))['openapi'] == '3.1.0'
-                  assert b'Ruxbase API viewer' in get('api-viewer/')
-                  assert get('api-viewer/vendor/standalone.js')
+                  assert all(not f.startswith('api-viewer/') for f in files)
                   assert get('pagefind/pagefind.js')
                   assert get('sitemap-index.xml')
                   break

@@ -103,7 +103,7 @@ try{
  assert(markdown.ok&&(await markdown.text()).includes('GET /api/health'),'Markdown retrieval');
  const spec=await(await fetch(origin+SITE_BASE+'openapi.json')).json();
  assert(spec.openapi==='3.1.0','OpenAPI retrieval');
- {
+ if(process.env.DOCS_SCALAR_PREVIEW==='1'){
   await viewport(1440,900,false);
   viewingScalar=true;
   await visit('api-viewer/');
@@ -141,7 +141,7 @@ try{
   assert(!blockers.length,'Accessibility blockers: '+JSON.stringify(blockers));
   console.log('Representative accessibility audit passed serious/critical gate: '+results.length+' configurations.');
  }
- await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),scalarViewer:'passed',checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
+ await writeFile(join(output,'report.json'),JSON.stringify({browser:await evaluate('navigator.userAgent'),scalarViewer:process.env.DOCS_SCALAR_PREVIEW==='1'?'passed':'excluded-from-public-profile',checks:['desktop light','desktop dark','reference navigation','Pagefind readiness result','mobile menu','mobile overflow','static reference','Markdown retrieval','OpenAPI retrieval','local asset and exception check']},null,2)+'\n');
  console.log('Browser smoke passed: themes, search, mobile menu, static reference and machine-readable retrieval.');
 }finally{
  if(ws)ws.close();

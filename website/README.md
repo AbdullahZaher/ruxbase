@@ -54,3 +54,7 @@ Development build now produces versions.json and artifact-manifest.json. Verify 
 `npm run test:retrieval` evaluates 30 authored English questions against actual exported Markdown, using a deterministic BM25-style page ranker, top-three expected-page hit and normalized evidence substrings. Gate: 27/30 and zero critical misses; result is retained with browser evidence. This is a retrieval proxy, not a model-answer quality score or independently authored held-out benchmark.
 
 `bash scripts/run-lighthouse.sh` runs Lighthouse 13.6.0 against the sealed development site on loopback, at three mobile pages with three trials each. Exact direct version and per-run lock/audit retained; transitive lock not yet pinned. Thresholds: medians performance/SEO/accessibility >=95, LCP <=2500ms, CLS <=0.1. This is lab evidence, not live Core Web Vitals. Reports are excluded from deployment. Original lockup social-preview.png is staged only for sharing metadata and validated against source.
+
+## Initial publication profile
+
+`npm run build` produces the approved-brand static documentation and OpenAPI only. It does not download or distribute Scalar. `npm run build:scalar-preview` is a separate local-only review build; `DOCS_SCALAR_PREVIEW=1 node scripts/browser-smoke.mjs` runs viewer checks on that profile. Never upload the preview as a Pages artifact. Existing Scalar distribution review remains pending and must be completed before changing public scope. Default CI verifies static publication scope; historical channel publication still requires an actual approved release.

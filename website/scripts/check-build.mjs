@@ -28,7 +28,12 @@ for (const [route, content] of html) {
   }
   if (/href="(?:\.\/)?[A-Z-]+\.md(?:#|")/.test(content)) throw new Error('Unrewritten guide link: ' + route);
 }
-const viewer = await readFile(join(site,'dist/api-viewer/index.html'),'utf8');
-if (!viewer.includes('content="noindex"') || !viewer.includes("connect-src 'self'")) throw new Error('Viewer indexing or resource policy changed');
-for (const asset of ['favicon.svg', 'pagefind/pagefind.js','api-viewer/vendor/standalone.js','api-viewer/provenance.json']) await stat(join(site, 'dist', asset));
+if(process.env.DOCS_SCALAR_PREVIEW==='1'){
+ const viewer=await readFile(join(site,'dist/api-viewer/index.html'),'utf8');
+ if(!viewer.includes('content="noindex"')||!viewer.includes("connect-src 'self'"))throw new Error('Viewer indexing or resource policy changed');
+ for(const asset of ['api-viewer/vendor/standalone.js','api-viewer/provenance.json'])await stat(join(site,'dist',asset));
+}else{
+ await import('./check-publication-scope.mjs');
+}
+for(const asset of ['favicon.svg','pagefind/pagefind.js','openapi.json'])await stat(join(site,'dist',asset));
 console.log('Verified static output for ' + routes.size + ' pages, mapped anchors, favicon and Pagefind entrypoint.');

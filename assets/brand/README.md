@@ -18,6 +18,6 @@ proposal, not a color extraction from the PNGs or a verified contrast audit.
 Production exports will live in svg/, icons/ and social/ once visually approved.
 Do not label raster wrappers as vector logos. Keep the original paths for existing users.
 
-## Vector candidates
+## Approved documentation identity — 2026-11-20
 
-`svg-candidates/` contains manually traced two-path geometry based on the original square symbol, with light/dark surface variants and favicon. These are genuine vector candidates, not certified exact reproductions. Original PNGs remain authoritative. The favicon is wired to the development build; the header retains the original PNG until visual review. Wordmark and full lockup vectorization, raster derivatives and small-size visual review remain open.
+The project owner delegated visual review and approval. The assistant reviewed the original/trace comparison and actual light/dark site screenshots and approved the flat face vector identity for documentation. See vector-review/manifest.json for exact artifact and SVG digests, scope and limits. Use the approved light/dark symbols in the header, the derived square favicon, and the unchanged original horizontal image for social metadata. Use the flat lockup and wordmark derivatives for appropriate additional contexts; recreate them with the review workflow and compare the approved hashes. Keep the original PNGs for compatibility and do not confuse the removed outline/texture with a faithful reproduction of those details. Historical svg-candidates/ files are superseded, not current usage. No global trademark or app redesign is implied.
