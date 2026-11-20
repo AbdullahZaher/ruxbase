@@ -161,7 +161,7 @@ SELECT EXISTS (
 		}
 	}
 	complete = true
-	return func(recordID string) {
+	verify = func(recordID string) {
 		t.Helper()
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -183,9 +183,11 @@ SELECT EXISTS (
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
-	}, func() {
+	}
+	stop = func() {
 		for i := len(cleanup) - 1; i >= 0; i-- {
 			cleanup[i]()
 		}
 	}
+	return verify, stop
 }
