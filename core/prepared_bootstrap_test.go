@@ -79,6 +79,17 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 	u.User = url.UserPassword(role, password)
 
 	manifest := preparedFixtureManifest(t, owner, role)
+	// Verify the expected fixture policy independently before exercising
+	// either bootstrap rejection. Keep drift evidence local to the test.
+	diagnostic, err := sql.Open("pgx", u.String())
+	if err != nil {
+		t.Fatal("unable to open fixture diagnostic connection")
+	}
+	defer diagnostic.Close()
+	drift, err := manifest.Check(context.Background(), diagnostic)
+	if err != nil {
+		t.Fatalf("fixture manifest policy mismatch: %+v (%v)", drift, err)
+	}
 	encode := func(main, aux pgrolecheck.GrantManifest) string {
 		t.Helper()
 		raw, err := json.Marshal(map[string]pgrolecheck.GrantManifest{"main": main, "auxiliary": aux})
@@ -149,14 +160,16 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 
 	// A later grant change must reject the next bootstrap despite an intact
 	// migration history. Restore only this disposable fixture's grant.
-	if _, err := owner.Exec("REVOKE SELECT ON public._params FROM "+identifier); err != nil {
+	revokeMetadata := "REVOKE SELECT ON public._params FROM " + identifier
+	if _, err := owner.Exec(revokeMetadata); err != nil {
 		t.Fatal("unable to prepare disposable grant drift")
 	}
 	if err := app.Bootstrap(); err == nil ||
 		err.Error() != "prepared main database grant manifest rejected" || app.IsBootstrapped() {
 		t.Fatalf("missing metadata grant was not rejected: %v", err)
 	}
-	if _, err := owner.Exec("GRANT SELECT ON public._params TO "+identifier); err != nil {
+	restoreMetadata := "GRANT SELECT ON public._params TO " + identifier
+	if _, err := owner.Exec(restoreMetadata); err != nil {
 		t.Fatal("unable to restore disposable fixture grant")
 	}
 
@@ -201,13 +214,17 @@ func preparedFixtureManifest(t *testing.T, owner *sql.DB, role string) pgroleche
 		"_params":     {"id", "value", "created", "updated"},
 		"_collections": {
 			"id", "system", "type", "name", "fields", "indexes",
-			`"listRule"`, `"viewRule"`, `"createRule"`, `"updateRule"`, `"deleteRule"`,
+			"listRule", "viewRule", "createRule", "updateRule", "deleteRule",
 			"options", "created", "updated",
 		},
 	} {
 		main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "relation", Object: table, Privilege: "SELECT"})
 		for _, column := range columns {
-			main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "column", Object: table + "." + column, Privilege: "SELECT"})
+			var object string
+			if err := owner.QueryRow("SELECT pg_catalog.quote_ident($1) || '.' || pg_catalog.quote_ident($2)", table, column).Scan(&object); err != nil {
+				t.Fatal("unable to canonicalize reviewed fixture column name")
+			}
+			main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "column", Object: object, Privilege: "SELECT"})
 		}
 	}
 	ctx := context.Background()
