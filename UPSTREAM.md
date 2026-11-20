@@ -32,6 +32,20 @@ No automatic upstream merge or deployment is permitted. Every integration
 must preserve PostgreSQL semantics, pass the compatibility tests and receive
 maintainer review.
 
+### Read-only upstream inventory
+
+Run `python3 scripts/upstream_inventory.py --output evidence/upstream-inventory.json`
+to verify the official reference tag and commit, compare tree entries with the
+current committed Ruxbase HEAD, and identify newer stable-shaped tags. The
+inventory workflow runs on relevant pull requests, manually and weekly once
+merged into the default branch. Its evidence artifact lists every path and
+comparison status. The script uses a temporary repository and never checks out
+or executes upstream code or publishes branches. It neither restores ancestry
+nor certifies compatibility. Candidate tags must be checked against official
+release notes and reviewed before any integration. Rename detection, source
+provenance and licensing remain manual review tasks.
+
+
 ```bash
 git remote add upstream https://github.com/pocketbase/pocketbase.git
 git remote set-url --push upstream no_push   # read only
