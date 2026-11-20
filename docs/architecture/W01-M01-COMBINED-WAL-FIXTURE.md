@@ -63,3 +63,30 @@ Initial PR #21 checkout p95 measured 2.127102/7.783905 ms
 (ordinary/guarded PG17), and 0.147122/1.110594 ms (PG18).
 These variable CI measurements are not a controlled workload benchmark.
 Exact final CI and independent review remain pending.
+
+## Verified combined journey and remaining CI remediation
+
+CI #44753207035 on bfe9b23c2fb4de96dade0832412b47a176ff7c8a
+emitted the mandatory M01_COMBINED_WAL evidence on both PG17 and PG18.
+Both normal full suites and their PocketBase parity checks succeeded;
+PG17 subsequently failed the strict-mode TestRecordCrudDelete because
+asynchronous storage removal had not completed when inspected. The
+overall result was 9/10, not a mergeable candidate. The test now
+waits for actual empty/missing storage within five seconds and fails on
+unexpected filesystem errors. It retains all delete and authorization
+assertions; fixing the race in observation is not proof that storage
+cleanup is universally reliable.
+
+The same checkout test is now repeated three times serially after the
+parallel full suite, preserving ordinary/guarded paired samples and
+authority checks. This reduces parallel test interference but does not
+eliminate environmental variability or establish workload performance.
+
+The standalone prepared executable requires the declared role identity
+contract in its manifest before opening its listener, using the existing
+parser; actual identity and grant checks still happen during bootstrap.
+Tests reject omitted, shared and malformed identity declarations. This
+aligns the explicit executable with the separate migration CLI without
+changing the older metadata-only library fixtures. The remaining
+production provisioning lifecycle and independent certification are
+not yet closed. No production role or database changes.
