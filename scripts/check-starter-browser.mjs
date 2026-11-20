@@ -30,11 +30,14 @@ try{
  const page=pages.find(x=>x.type==="page");assert.ok(page,"No browser page");
  ws=new WebSocket(page.webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{ws.addEventListener("open",resolve,{once:true});ws.addEventListener("error",reject,{once:true});});
- const pending=new Map();let seq=0;const failures=[];
+ const pending=new Map();let seq=0;const failures=[];const failedRequests=[];const consoleErrors=[];const apiStatuses=[];
  ws.addEventListener("message",e=>{
   const m=JSON.parse(e.data);
   if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}
   if(m.method==="Runtime.exceptionThrown")failures.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);
+  if(m.method==="Network.loadingFailed")failedRequests.push(m.params.errorText);
+  if(m.method==="Network.responseReceived"&&m.params.response.url.includes("/api/"))apiStatuses.push({url:m.params.response.url,status:m.params.response.status});
+  if(m.method==="Runtime.consoleAPICalled"&&m.params.type==="error")consoleErrors.push(m.params.args?.map(x=>x.value||x.description).join(" "));
  });
  async function send(method,params={}){
   return new Promise((resolve,reject)=>{
@@ -47,8 +50,8 @@ try{
   if(result.exceptionDetails)throw Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);
   return result.result.value;
  }
- diagnostics=()=>evaluate('document.body?.innerText.slice(0,1200) || document.documentElement.outerHTML.slice(0,1200)');
- await send("Page.enable");await send("Runtime.enable");
+ diagnostics=async()=>JSON.stringify({body:await evaluate('document.body?.innerText.slice(0,1200) || document.documentElement.outerHTML.slice(0,1200)'),exceptions:failures.slice(-6),failedRequests:failedRequests.slice(-8),consoleErrors:consoleErrors.slice(-8),apiStatuses:apiStatuses.slice(-10),scripts:await evaluate('performance.getEntriesByType("resource").filter(x=>x.name.includes("/_next/")).map(x=>x.name).slice(-12)')});
+ await send("Page.enable");await send("Runtime.enable");await send("Network.enable");
  await send("Page.navigate",{url:origin});
  await until(()=>evaluate('document.readyState === "complete" && !!document.querySelector("h1")'),"starter DOM");
  await until(()=>evaluate('document.body.textContent.includes("Backend connected")'),"backend proxy connectivity");
