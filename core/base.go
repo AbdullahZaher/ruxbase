@@ -108,6 +108,10 @@ type BaseAppConfig struct {
 	// offline migration process; the roles must have been provisioned separately.
 	PreprovisionedRLSRoles bool
 
+	// OfflineSystemPreparation disables background logging, cluster listeners
+	// and realtime startup for the explicit offline operator process.
+	OfflineSystemPreparation bool
+
 	// ruxbase: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
@@ -576,14 +580,14 @@ func (app *BaseApp) Bootstrap() error {
 			}
 		}
 
-		if err := app.initLogger(); err != nil {
-			return err
-		}
+		if !app.config.OfflineSystemPreparation {
+			if err := app.initLogger(); err != nil {
+				return err
+			}
 
-		// ruxbase: the cluster LISTEN, the RLS repair and the cluster state fingerprints
-		// listen for the messages of the other nodes before loading the
-		// collections and settings so that no change is missed
-		app.cluster.Start()
+			// ruxbase: listen before loading collections and settings.
+			app.cluster.Start()
+		}
 
 		if err := app.RunSystemMigrations(); err != nil {
 			return err
@@ -604,9 +608,10 @@ func (app *BaseApp) Bootstrap() error {
 		}
 
 		// ruxbase: the cluster state fingerprints and the realtime source
-		app.initClusterFingerprints(fingerprints)
-
-		app.initRealtimeSource()
+		if !app.config.OfflineSystemPreparation {
+			app.initClusterFingerprints(fingerprints)
+			app.initRealtimeSource()
+		}
 
 		// try to cleanup the pb_data temp directory (if any)
 		_ = os.RemoveAll(filepath.Join(app.DataDir(), LocalTempDirName))
