@@ -21,6 +21,8 @@ type Config struct {
 	ExpectedRole    string
 	DataDir         string
 	EncryptionEnv   string
+	// Require an independently preprovisioned, non-administrative migration role.
+	PreprovisionedRLSRoles bool
 }
 
 func (c Config) Validate() error {
@@ -71,12 +73,13 @@ func Prepare(c Config) error {
 	}
 
 	app := core.NewBaseApp(core.BaseAppConfig{
-		DBConnect:       connect,
-		DatabaseURL:     c.DatabaseURL,
-		LogsDatabaseURL: logsURL,
-		DataDir:         c.DataDir,
-		EncryptionEnv:   c.EncryptionEnv,
-		RealtimeSource:  "hooks",
+		DBConnect:              connect,
+		DatabaseURL:            c.DatabaseURL,
+		LogsDatabaseURL:        logsURL,
+		DataDir:                c.DataDir,
+		EncryptionEnv:          c.EncryptionEnv,
+		RealtimeSource:         "hooks",
+		PreprovisionedRLSRoles: c.PreprovisionedRLSRoles,
 	})
 	if err := app.Bootstrap(); err != nil {
 		_ = app.ClearBootstrap()
