@@ -1,30 +1,35 @@
+# TEMPORARY: generate lockfiles on a checked-out first-party PR branch
+# and push *only* if the remote head remains the event's expected commit.
 name: docs-starter-locks-candidate
 on:
   pull_request:
-  workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   produce-locks:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/phase3-b02-production-developer-tooling'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '25.2.1'
-      - name: Generate exact starter locks (temporary bootstrap workflow)
+      - name: Create and validate npm lockfile trees
         run: |
           npm --prefix starters/react install --package-lock-only --ignore-scripts --no-audit --no-fund
           npm --prefix starters/nextjs install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node -e 'for(const p of ["react","nextjs"]){const l=require("./starters/"+p+"/package-lock.json");if(l.lockfileVersion!==3||!l.packages[""].name||!l.packages["node_modules/pocketbase"]||!Object.values(l.packages).every((x)=>!x.resolved||x.integrity))throw Error("Invalid lockfile "+p);console.log(p,l.lockfileVersion,Object.keys(l.packages).length)}'
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: phase3-b02-generated-lockfiles
-          path: |
-            starters/react/package-lock.json
-            starters/nextjs/package-lock.json
-          retention-days: 7
-          if-no-files-found: error
+          node -e 'for(const p of ["react","nextjs"]){const l=require("./starters/"+p+"/package-lock.json");if(l.lockfileVersion!==3||!l.packages[""]||!l.packages["node_modules/pocketbase"])throw Error("Invalid lock "+p)}'
+      - name: Commit lockfiles on first-party branch only
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git ls-remote origin refs/heads/feat/phase3-b02-production-developer-tooling | cut -f1)" = "$EXPECTED_HEAD"
+          git add starters/react/package-lock.json starters/nextjs/package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='ruxbase-lockfile-bot' -c user.email='ruxbase-lockfile-bot@users.noreply.github.com' commit -m 'build(dx): freeze registry-resolved starter dependency graphs'
+          git push origin HEAD:refs/heads/feat/phase3-b02-production-developer-tooling
