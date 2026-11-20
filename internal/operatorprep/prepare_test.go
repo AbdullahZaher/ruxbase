@@ -3,11 +3,14 @@ package operatorprep
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/url"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/core"
+	"github.com/AbdullahZaher/ruxbase/internal/pgrolecheck"
 	"github.com/AbdullahZaher/ruxbase/tests"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/jackc/pgx/v5"
@@ -128,24 +131,55 @@ func verifySeparateMigration(t *testing.T) {
 	identifier := pgx.Identifier{role}.Sanitize()
 	password := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	created := false
+	runtimeRole := fixture.Name + "_runtime"
+	runtimeIdentifier := pgx.Identifier{runtimeRole}.Sanitize()
+	runtimeCreated := false
 	defer func() {
 		_ = owner.Close()
+		maintenance, err := url.Parse(fixture.URL)
+		if err != nil {
+			t.Error("invalid fixture maintenance URL")
+			return
+		}
+		maintenance.Path = "/postgres"
+		db, err := sql.Open("pgx", maintenance.String())
+		if err != nil {
+			t.Error("unable to open fixture cleanup connection")
+			return
+		}
+		defer db.Close()
+		// All app and runtime pools have been closed by earlier defers.
+		// Let PostgreSQL observe session departure before dropping the
+		// database; the fixture owner cannot terminate unrelated logins.
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		for {
+			var active int
+			if err := db.QueryRowContext(ctx, "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = $1", fixture.Name).Scan(&active); err != nil {
+				t.Errorf("unable to inspect disposable sessions: %v", err)
+				return
+			}
+			if active == 0 {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				t.Errorf("disposable database still has %d sessions", active)
+				return
+			case <-time.After(25 * time.Millisecond):
+			}
+		}
 		if err := tests.DropTestDatabase(fixture.Name); err != nil {
 			t.Errorf("unable to remove migration fixture database: %v", err)
+			return
+		}
+		if runtimeCreated {
+			dropRuntime := "DROP ROLE " + runtimeIdentifier
+			if _, err := db.Exec(dropRuntime); err != nil {
+				t.Errorf("unable to remove disposable runtime role: %v", err)
+			}
 		}
 		if created {
-			maintenance, err := url.Parse(fixture.URL)
-			if err != nil {
-				t.Error("invalid fixture maintenance URL")
-				return
-			}
-			maintenance.Path = "/postgres"
-			db, err := sql.Open("pgx", maintenance.String())
-			if err != nil {
-				t.Error("unable to open fixture cleanup connection")
-				return
-			}
-			defer db.Close()
 			drop := "DROP ROLE " + identifier
 			if _, err := db.Exec(drop); err != nil {
 				t.Errorf("unable to remove migration fixture role: %v", err)
@@ -157,6 +191,24 @@ func verifySeparateMigration(t *testing.T) {
 		t.Fatal("unable to create disposable migration role")
 	}
 	created = true
+	runtimePassword := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	createRuntime := "CREATE ROLE " + runtimeIdentifier + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + runtimePassword + "'"
+	if _, err := owner.Exec(createRuntime); err != nil {
+		t.Fatal("unable to create disposable runtime role")
+	}
+	runtimeCreated = true
+	var provisioner string
+	if err := owner.QueryRow("SELECT current_user").Scan(&provisioner); err != nil {
+		t.Fatal(err)
+	}
+	identities := pgrolecheck.IdentityContract{Runtime: runtimeRole, Migration: role, Provisioning: provisioner}
+	if raw := os.Getenv("RUXBASE_TEST_WAL_URL"); raw != "" {
+		wal, err := url.Parse(raw)
+		if err != nil || wal.User == nil || wal.User.Username() != "ruxbase_ci_wal" {
+			t.Fatal("invalid disposable WAL fixture identity")
+		}
+		identities.Replication = wal.User.Username()
+	}
 	// The provisioner grants schema preparation authority only on this
 	// new database, not cluster-wide role or database creation authority.
 	for _, statement := range []string{
@@ -178,6 +230,7 @@ func verifySeparateMigration(t *testing.T) {
 		ExpectedRole:           role,
 		DataDir:                t.TempDir(),
 		PreprovisionedRLSRoles: true,
+		IdentityContract:       &identities,
 	}
 	if err := Prepare(config); err != nil {
 		t.Fatalf("preprovisioned migration failed: %v", err)
@@ -215,4 +268,72 @@ WHERE n.nspname = 'public' AND c.relname = '_migrations'
 	if err := Prepare(config); err != nil {
 		t.Fatalf("separate migration replay failed: %v", err)
 	}
+
+	// Admit the restricted metadata runtime against the same prepared
+	// database. Grants are given by the respective fixture object owners,
+	// not by the runtime. No public serving is enabled.
+	migration, err := sql.Open("pgx", u.String())
+	if err != nil {
+		t.Fatal("unable to open disposable migration connection")
+	}
+	defer migration.Close()
+	for _, statement := range []string{
+		"GRANT USAGE ON SCHEMA _aux TO " + runtimeIdentifier,
+		"GRANT SELECT ON public._migrations, public._params, public._collections TO " + runtimeIdentifier,
+	} {
+		if _, err := migration.Exec(statement); err != nil {
+			t.Fatal("unable to prepare disposable runtime metadata grants")
+		}
+	}
+	runtimeURL := *u
+	runtimeURL.User = url.UserPassword(runtimeRole, runtimePassword)
+	runtime, err := sql.Open("pgx", runtimeURL.String())
+	if err != nil {
+		t.Fatal("unable to open disposable runtime connection")
+	}
+	defer runtime.Close()
+	checkCtx, stop := context.WithTimeout(context.Background(), 15*time.Second)
+	defer stop()
+	if err := identities.CheckSeparation(checkCtx, runtime, runtimeRole); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := identities.AdmitRuntime(checkCtx, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := identities.CheckSeparation(checkCtx, runtime, role); err == nil {
+		t.Fatal("runtime accepted as migration principal")
+	}
+	missing := identities
+	missing.Migration = fixture.Name + "_missing"
+	if err := missing.CheckSeparation(checkCtx, runtime, runtimeRole); err == nil {
+		t.Fatal("absent declared migration identity accepted")
+	}
+	manifest := tests.PreparedFixtureManifest(t, migration, runtimeRole)
+	raw, err := json.Marshal(struct {
+		Main       pgrolecheck.GrantManifest     `json:"main"`
+		Auxiliary  pgrolecheck.GrantManifest     `json:"auxiliary"`
+		Identities *pgrolecheck.IdentityContract `json:"identities"`
+	}{manifest, manifest, &identities})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeConfig := core.BaseAppConfig{
+		DatabaseURL:          runtimeURL.String(),
+		LogsDatabaseURL:      runtimeURL.String(),
+		DataDir:              t.TempDir(),
+		PreparedRuntimeRole:  runtimeRole,
+		PreparedManifestJSON: string(raw),
+		RealtimeSource:       "hooks",
+	}
+	app := core.NewBaseApp(runtimeConfig)
+	defer app.ClearBootstrap()
+	if err := app.Bootstrap(); err != nil {
+		t.Fatalf("runtime rejected separately migrated disposable database: %v", err)
+	}
+	if err := app.ClearBootstrap(); err != nil {
+		t.Fatal(err)
+	}
+	// Run the same actual TCP HTTP lifecycle with the reviewed identity
+	// contract on the database created by the separate migration login.
+	tests.ExercisePreparedHTTP(t, migration, u.String(), runtimeIdentifier, runtimeConfig, manifest, &identities)
 }

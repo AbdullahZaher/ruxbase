@@ -80,8 +80,11 @@ func Inspect(ctx context.Context, db *sql.DB) (Report, error) {
 	return report, nil
 }
 
-const authorityQuery = `
-SELECT session_user, current_user,
+const authorityQuery = `SELECT session_user, current_user,` + authorityColumns
+
+const guardedAuthorityQuery = `SELECT session_user, current_user, pg_catalog.current_database(), pg_catalog.current_setting('search_path'),` + authorityColumns
+
+const authorityColumns = `
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_roles r
            WHERE (r.rolname = session_user OR pg_catalog.pg_has_role(session_user, r.oid, 'MEMBER'))
