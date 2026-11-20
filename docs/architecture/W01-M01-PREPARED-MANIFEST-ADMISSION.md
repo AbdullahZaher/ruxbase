@@ -58,3 +58,38 @@ rejected and that restoration of the original fixture state permits
 initialization. This does not validate policy expressions, function bodies,
 policy roles, view execution privileges, forced RLS or tenant isolation.
 HTTP remains disabled; no change to production or legacy serving.
+
+## Integrated closure candidate — remaining M01 work
+
+The subsequent CI diagnostics on PG17/18 identified the original fixture
+mismatch: migration 1640988000_aux_init.go installs copies of
+dbutils.PostgresFunctionsSQL in _aux as well as public. The fixture policy
+now explicitly accounts for default PUBLIC EXECUTE in both schemas; routine
+identity enumeration does not read runtime ACLs. No checker relaxation.
+
+The offline preparation executable now accepts --preprovisioned-roles with
+--apply-system. This opt-in requires a non-administrative migration
+principal and previously provisioned RLS roles with SET but not effective
+inherited authority. The bootstrap checks before its migration and worker
+initialization; InstallRLS does not invoke the legacy role-creation/grant
+repair path in this mode. The existing administrative CI owner must be
+rejected without creating a ledger. This is a partial separation: a
+positive full migration on a separate database owner, explicit provisioning
+lifecycle/grants, and replication authority separation are not yet proven.
+
+The prepared fixture also exercises the original HTTP router and handlers
+in-process with an explicit test-local route allowlist, two disposable
+collections, a restricted runtime role, fixture-specific row policies,
+and a reviewed grants manifest. The test asserts password login/rejection,
+authenticated record create/read/update/delete, guest denial, persistence,
+and absence of administrative routes from the test-local allowlist. It
+does not start a public server or modify the legacy router. Fixture-specific
+policies do not establish generic native RLS semantics or a complete
+restricted serving boundary. No production credentials, role grants or
+deployment are changed. The original serving entrypoint remains blocked
+for the prepared profile.
+
+Acceptance remains open until the exact integrated candidate passes CI,
+the remaining operator/replication/serving responsibilities are separated,
+the compatibility and cost are measured, and independent review accepts
+the evidence. M01 must not be closed on a test-only HTTP fixture.
