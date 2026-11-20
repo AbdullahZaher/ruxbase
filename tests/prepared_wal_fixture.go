@@ -71,6 +71,22 @@ func StartPreparedWALFixture(t *testing.T, owner *sql.DB, runtimeURL string, ide
 		// is removed by the explicitly provisioned WAL principal.
 		dropCtx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
+		for {
+			var active bool
+			if err := wal.QueryRowContext(dropCtx, "SELECT active FROM pg_catalog.pg_replication_slots WHERE slot_name = $1 AND database = current_database()", slot).Scan(&active); err != nil {
+				t.Error("unable to inspect disposable slot cleanup state")
+				return
+			}
+			if !active {
+				break
+			}
+			select {
+			case <-dropCtx.Done():
+				t.Error("disposable WAL session failed to close")
+				return
+			case <-time.After(25 * time.Millisecond):
+			}
+		}
 		if _, err := wal.ExecContext(dropCtx, "SELECT pg_catalog.pg_drop_replication_slot($1)", slot); err != nil {
 			t.Error("unable to remove disposable logical slot")
 		}
