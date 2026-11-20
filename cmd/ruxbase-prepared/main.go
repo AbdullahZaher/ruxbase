@@ -56,6 +56,9 @@ func loadConfig(args []string, getenv func(string) string) (core.BaseAppConfig, 
 		return core.BaseAppConfig{}, apis.PreparedLoopbackConfig{}, 0, errors.New("invalid prepared manifest file size or unreadable file")
 	}
 	config.PreparedManifestJSON = string(raw)
+	if err := core.ValidatePreparedIdentityManifest(config.PreparedManifestJSON, config.PreparedRuntimeRole); err != nil {
+		return core.BaseAppConfig{}, apis.PreparedLoopbackConfig{}, 0, err
+	}
 	return config, routes, *port, nil
 }
 

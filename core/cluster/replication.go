@@ -158,6 +158,10 @@ type ReplicationConfig struct {
 	// Dedicated selects an explicitly provisioned WAL login without fallback.
 	Dedicated DedicatedReplication
 
+	// PreparedSlotOnly requires an existing operator-prepared slot and
+	// publication verification. No slot repair or metadata writes occur.
+	PreparedSlotOnly bool
+
 	// PrepareTables ensures that the publication contains all collection
 	// tables (with REPLICA IDENTITY FULL). It is called by the leader before
 	// consuming the slot.
@@ -385,6 +389,9 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		return err
 	}
 
+	if config.PreparedSlotOnly && (!config.Dedicated.Enabled() || config.PrepareTables == nil) {
+		return errors.New("prepared replication requires a dedicated identity and publication verification")
+	}
 	if config.PrepareTables != nil {
 		if err := config.PrepareTables(); err != nil {
 			return fmt.Errorf("failed to prepare the publication tables: %w", err)
@@ -395,9 +402,16 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 	if err := db.NewQuery("SELECT current_database()").WithContext(ctx).Row(&database); err != nil {
 		return err
 	}
-	slot, err := resolveSlotName(ctx, db, database)
-	if err != nil {
-		return err
+	slot := SlotName(database)
+	if config.PreparedSlotOnly {
+		if err := verifyPreparedSlot(ctx, db, slot); err != nil {
+			return err
+		}
+	} else {
+		slot, err = resolveSlotName(ctx, db, database)
+		if err != nil {
+			return err
+		}
 	}
 
 	var conn *pgconn.PgConn
@@ -419,8 +433,10 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		_ = conn.Close(closeCtx)
 	}()
 
-	if err := c.ensureSlot(ctx, db, conn, slot); err != nil {
-		return err
+	if !config.PreparedSlotOnly {
+		if err := c.ensureSlot(ctx, db, conn, slot); err != nil {
+			return err
+		}
 	}
 
 	err = pglogrepl.StartReplication(ctx, conn, slot, 0, pglogrepl.StartReplicationOptions{
@@ -587,6 +603,28 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 			}
 		}
 	}
+}
+
+// verifyPreparedSlot never creates, drops, repairs or advances a slot.
+// The canonical slot and recorded operator metadata must agree.
+func verifyPreparedSlot(ctx context.Context, db *dbx.DB, slot string) error {
+	var ready bool
+	err := db.NewQuery(`
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_replication_slots s
+    WHERE s.slot_name = {:slot} AND s.database = current_database()
+      AND s.plugin = 'pgoutput' AND s.slot_type = 'logical'
+      AND s.failover AND NOT s.temporary AND NOT s.active
+      AND s.wal_status IN ('reserved', 'extended')
+      AND s.confirmed_flush_lsn IS NOT NULL
+) AND EXISTS (
+    SELECT 1 FROM public._params WHERE id = {:marker} AND value = {:slot}
+)
+`).WithContext(ctx).Bind(dbx.Params{"slot": slot, "marker": slotParamKey}).Row(&ready)
+	if err != nil || !ready {
+		return errors.New("prepared replication slot missing, unavailable or inconsistent")
+	}
+	return nil
 }
 
 // ensureSlot creates the logical replication slot if missing

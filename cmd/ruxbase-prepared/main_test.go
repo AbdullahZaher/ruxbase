@@ -3,12 +3,14 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestLoadExplicitPreparedConfig(t *testing.T) {
+	const valid = `{"main":{"role":"runtime","schemas":[{"role":"runtime","schema":"public","extended":true,"grants":[]}]},"auxiliary":{"role":"runtime","schemas":[{"role":"runtime","schema":"_aux","extended":true,"grants":[]}]},"identities":{"runtime":"runtime","migration":"migration","provisioning":"provisioner"}}`
 	path := filepath.Join(t.TempDir(), "manifest.json")
-	if err := os.WriteFile(path, []byte("{}"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(valid), 0600); err != nil {
 		t.Fatal(err)
 	}
 	env := map[string]string{
@@ -22,7 +24,7 @@ func TestLoadExplicitPreparedConfig(t *testing.T) {
 	args := []string{"--port=8091", "--auth-collection=users", "--record-collections=items,notes"}
 	config, routes, port, err := loadConfig(args, get)
 	if err != nil || port != 8091 || config.PreparedRuntimeRole != "runtime" ||
-		config.PreparedManifestJSON != "{}" || config.RealtimeSource != "hooks" ||
+		config.PreparedManifestJSON != valid || config.RealtimeSource != "hooks" ||
 		routes.AuthCollection != "users" || len(routes.RecordCollections) != 2 {
 		t.Fatalf("explicit fixture configuration rejected: %v", err)
 	}
@@ -39,6 +41,21 @@ func TestLoadExplicitPreparedConfig(t *testing.T) {
 			t.Fatal("missing explicit configuration accepted")
 		}
 		env[key] = value
+	}
+	for _, raw := range []string{
+		"{}",
+		strings.Replace(valid, `,"identities":{"runtime":"runtime","migration":"migration","provisioning":"provisioner"}`, "", 1),
+		strings.Replace(valid, `"migration":"migration"`, `"migration":"runtime"`, 1),
+	} {
+		if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, _, err := loadConfig(args, get); err == nil {
+			t.Fatal("invalid or absent identity manifest accepted")
+		}
+	}
+	if err := os.WriteFile(path, []byte(valid), 0600); err != nil {
+		t.Fatal(err)
 	}
 	if _, _, _, err := loadConfig([]string{"--port=0", "--auth-collection=users", "--record-collections=items"}, get); err == nil {
 		t.Fatal("implicit port accepted")
