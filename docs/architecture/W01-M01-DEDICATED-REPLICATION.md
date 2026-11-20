@@ -35,3 +35,31 @@ publication column inventory, ongoing authority changes and isolated worker
 processes remain to be reviewed. The metadata-only prepared profile still
 does not start HTTP or replication. Full restricted serving, actual WAL
 integration, performance and independent review remain open.
+
+## Experimental prepared loopback HTTP lifecycle
+
+The separate Go entrypoint apis.ServePreparedLoopback owns a fresh prepared
+BaseApp and a caller-supplied TCP loopback listener. It requires explicit
+main/auxiliary connection URLs, runtime role, a reviewed manifest, data
+directory, hooks-only configuration and non-system auth/base collection
+names. It verifies metadata and the manifest before accepting requests,
+then binds the existing API middleware and handlers behind a restrictive
+method/path allowlist. Password login and base record CRUD are the only
+admitted route families. Other auth collections, system collections,
+administrative endpoints, query parameters, non-JSON writes, file fields,
+MFA and auth-alert-enabled auth collections are outside this experiment.
+The code never calls the normal Serve or migration paths. Context
+cancellation drains the listener and closes the app pools; a bounded
+shutdown error is reported rather than ignored.
+
+The previously in-process prepared HTTP fixture now makes actual TCP HTTP
+requests to this entrypoint. It exercises authentication and CRUD, guest
+denial, persistence, administrative route exclusion and server shutdown.
+Additional unit tests cover route admission and absent manifest rejection.
+These tests are awaiting CI, not a production certification. A loopback
+listener is not a sandbox; never expose it via a proxy or tunnel. The
+profile is not a full compatible PocketBase server, excludes replication
+and clustered operation, and uses fixture-specific row policies rather
+than a certified generalized RLS authorization engine. It does not
+satisfy the remaining complete provisioning, dedicated WAL, performance,
+compatibility and independent certification gates.
