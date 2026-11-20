@@ -28,6 +28,11 @@ if [ -n "${RUXBASE_TEST_WAL_URL:-}" ]; then
     echo "M01 combined WAL evidence missing"
     test_status=1
   fi
+  if ! jq -r 'select(.Action == "output" and .Test == "TestPrepareDisposablePostgreSQL") | .Output' "$OUT" |
+    grep -F 'M01_PREPARED_READINESS: reviewed fixture admitted without listener; absent collection rejected'; then
+    echo "M01 prepared readiness evidence missing"
+    test_status=1
+  fi
 fi
 
 # print the failed tests and their messages
