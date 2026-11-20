@@ -10,7 +10,10 @@
 <p align="center">
   <a href="https://github.com/AbdullahZaher/ruxbase/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdullahZaher/ruxbase/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
   <a href="LICENSE.md"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue" /></a>
-  <a href="https://github.com/AbdullahZaher/ruxbase/releases">Releases</a>
+  <a href="https://abdullahzaher.github.io/ruxbase/">Documentation</a>
+  · <a href="https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/">Quickstart</a>
+  · <a href="https://abdullahzaher.github.io/ruxbase/reference/api/">API Reference</a>
+  · <a href="https://github.com/AbdullahZaher/ruxbase/releases">Releases</a>
   · <a href="UPSTREAM.md">Upstream policy</a>
   · <a href="docs/COMPATIBILITY.md">Compatibility</a>
 </p>
@@ -29,6 +32,16 @@ official PocketBase repository is the **sole ongoing upstream** for inherited
 application code. PostgreSQL integration and Ruxbase-specific features are
 maintained independently. No third-party fork is required as a runtime
 dependency or synchronization source.
+
+## Documentation
+
+The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes the published development snapshot; it is not a stable release. Check [build identity](https://abdullahzaher.github.io/ruxbase/version.json) against your checkout before relying on version-specific behavior.
+
+- [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) and [API reference](https://abdullahzaher.github.io/ruxbase/reference/api/)
+- [Using Ruxbase with AI](https://abdullahzaher.github.io/ruxbase/ai/using-ruxbase-with-ai/) — [llms.txt](https://abdullahzaher.github.io/ruxbase/llms.txt) and [full Markdown context](https://abdullahzaher.github.io/ruxbase/llms-full.txt)
+- [OpenAPI](https://abdullahzaher.github.io/ruxbase/openapi.json), [API coverage](https://abdullahzaher.github.io/ruxbase/api-coverage.json), [feature manifest](https://abdullahzaher.github.io/ruxbase/feature-manifest.json), [CLI reference](https://abdullahzaher.github.io/ruxbase/cli-reference.json), and [configuration reference](https://abdullahzaher.github.io/ruxbase/configuration-reference.json)
+
+The checked-out sources and tests remain authoritative when they differ from a previously published snapshot. API contracts are scoped, and MCP is documented separately.
 
 ## Current capabilities
 
