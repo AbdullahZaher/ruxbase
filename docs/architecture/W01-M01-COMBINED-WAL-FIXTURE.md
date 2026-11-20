@@ -36,3 +36,30 @@ tenant isolation, full SDK/HTTP compatibility or a production
 provisioning contract. The replication role inherently has high data
 access; it remains separate from runtime. All new evidence is pending
 exact candidate CI and independent review; M01 remains open.
+
+## CI and operator contract closure increment
+
+Post-merge CI #44751003194 on PR #20 succeeded. Initial PR #21 CI
+#44751615582 passed both PostgreSQL jobs and seven other non-lint
+checks (9/10 jobs successful); lint rejected formatting in
+the WAL fixture callback. Named callbacks fix the formatting without
+altering the verification behavior. The CI script now expressly
+requires the combined journey evidence marker when the dedicated WAL
+fixture environment is present, so a skipped or silently omitted
+combined test cannot satisfy the test jobs.
+
+The offline preparation command in explicit --preprovisioned-roles
+mode now requires distinct declared runtime and provisioning role
+names in addition to the existing migration role; the WAL role is
+optional for a hooks-only deployment. These declarations are passed
+to the existing reviewed identity contract and actual catalog checks.
+RUXBASE_PREPARE_RUNTIME_ROLE, RUXBASE_PREPARE_PROVISIONING_ROLE and
+RUXBASE_PREPARE_REPLICATION_ROLE specify names only, not credentials.
+The legacy operator mode refuses to silently ignore those declarations.
+This does not create roles or apply a generalized provisioning policy;
+actual provisioning remains an authorized offline operator activity.
+
+Initial PR #21 checkout p95 measured 2.127102/7.783905 ms
+(ordinary/guarded PG17), and 0.147122/1.110594 ms (PG18).
+These variable CI measurements are not a controlled workload benchmark.
+Exact final CI and independent review remain pending.
