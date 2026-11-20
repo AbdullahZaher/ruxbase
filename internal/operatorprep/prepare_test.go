@@ -3,6 +3,7 @@ package operatorprep
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/url"
 	"os"
 	"testing"
@@ -285,13 +286,24 @@ WHERE n.nspname = 'public' AND c.relname = '_migrations'
 	if err := missing.CheckSeparation(checkCtx, runtime, runtimeRole); err == nil {
 		t.Fatal("absent declared migration identity accepted")
 	}
-	app := core.NewBaseApp(core.BaseAppConfig{
-		DatabaseURL:         runtimeURL.String(),
-		LogsDatabaseURL:     runtimeURL.String(),
-		DataDir:             t.TempDir(),
-		PreparedRuntimeRole: runtimeRole,
-		RealtimeSource:      "hooks",
-	})
+	manifest := tests.PreparedFixtureManifest(t, migration, runtimeRole)
+	raw, err := json.Marshal(struct {
+		Main       pgrolecheck.GrantManifest     `json:"main"`
+		Auxiliary  pgrolecheck.GrantManifest     `json:"auxiliary"`
+		Identities *pgrolecheck.IdentityContract `json:"identities"`
+	}{manifest, manifest, &identities})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeConfig := core.BaseAppConfig{
+		DatabaseURL:          runtimeURL.String(),
+		LogsDatabaseURL:      runtimeURL.String(),
+		DataDir:              t.TempDir(),
+		PreparedRuntimeRole:  runtimeRole,
+		PreparedManifestJSON: string(raw),
+		RealtimeSource:       "hooks",
+	}
+	app := core.NewBaseApp(runtimeConfig)
 	defer app.ClearBootstrap()
 	if err := app.Bootstrap(); err != nil {
 		t.Fatalf("runtime rejected separately migrated disposable database: %v", err)
@@ -299,4 +311,7 @@ WHERE n.nspname = 'public' AND c.relname = '_migrations'
 	if err := app.ClearBootstrap(); err != nil {
 		t.Fatal(err)
 	}
+	// Run the same actual TCP HTTP lifecycle with the reviewed identity
+	// contract on the database created by the separate migration login.
+	tests.ExercisePreparedHTTP(t, migration, u.String(), runtimeIdentifier, runtimeConfig, manifest, &identities)
 }
