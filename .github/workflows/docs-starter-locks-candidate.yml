@@ -1,0 +1,30 @@
+name: docs-starter-locks-candidate
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  produce-locks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '25.2.1'
+      - name: Generate exact starter locks (temporary bootstrap workflow)
+        run: |
+          npm --prefix starters/react install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm --prefix starters/nextjs install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node -e 'for(const p of ["react","nextjs"]){const l=require("./starters/"+p+"/package-lock.json");if(l.lockfileVersion!==3||!l.packages[""].name||!l.packages["node_modules/pocketbase"]||!Object.values(l.packages).every((x)=>!x.resolved||x.integrity))throw Error("Invalid lockfile "+p);console.log(p,l.lockfileVersion,Object.keys(l.packages).length)}'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: phase3-b02-generated-lockfiles
+          path: |
+            starters/react/package-lock.json
+            starters/nextjs/package-lock.json
+          retention-days: 7
+          if-no-files-found: error
