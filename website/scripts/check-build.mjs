@@ -37,3 +37,21 @@ if(process.env.DOCS_SCALAR_PREVIEW==='1'){
 }
 for(const asset of ['favicon-16.png','favicon-32.png','pagefind/pagefind.js','openapi.json'])await stat(join(site,'dist',asset));
 console.log('Verified static output for ' + routes.size + ' pages, mapped anchors, favicon and Pagefind entrypoint.');
+
+// Ensure repository entry points link only to files actually emitted by the public profile.
+const origin='https://abdullahzaher.github.io/ruxbase/';
+for (const name of ['README.md','AGENTS.md']) {
+  const source=await readFile(join(site,'..',name),'utf8');
+  for(const required of ['', 'llms.txt', 'llms-full.txt', 'openapi.json', 'version.json']) {
+    if(!source.includes(origin+required))throw new Error('Missing documentation discovery link in '+name+': '+required);
+  }
+  const links=[...source.matchAll(/https:\/\/abdullahzaher\.github\.io\/ruxbase\/[^\s"<>\])`]+|https:\/\/abdullahzaher\.github\.io\/ruxbase\//g)].map(m=>m[0]);
+  for(const link of new Set(links)) {
+    const path=new URL(link).pathname.slice('/ruxbase/'.length);
+    if(path.split('/').includes('..'))throw new Error('Invalid discovery link: '+link);
+    const target=join(site,'dist',path.endsWith('/')||!path?path+'index.html':path);
+    const st=await stat(target).catch(()=>{throw new Error('Missing discovery target: '+name+' → '+link);});
+    if(!st.isFile())throw new Error('Discovery target is not a file: '+link);
+  }
+}
+console.log('Verified README and AGENTS public discovery links against built output.');

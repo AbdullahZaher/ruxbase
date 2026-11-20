@@ -1,40 +1,44 @@
 # Development documentation publishing
 
-The public site has not been deployed yet. The workflow is deliberately manual
-and main-only, and does not create a release or promote development docs to stable.
+## Current public profile
 
-Before first dispatch: complete the outstanding brand/content review and browser
-checks, obtain maintainer approval of PR and release scope, confirm full CI on
-the merged main commit, then set Settings > Pages > Source to GitHub Actions.
-Restrict the github-pages environment to main and require a reviewer where
-available. The workflow needs the full reviewed main SHA as input. It builds
-from that SHA, tests the static artifact, and grants Pages/OIDC authority only
-to the deployment job. No PR can deploy. The published version.json must match
-the input and the smoke probes must pass. If the run fails, inspect the actual
-deployment state rather than assuming rollback. Rebuilding a known-good source
-and rollback rehearsal are still required before release certification.
+The development site is live at [Ruxbase documentation](https://abdullahzaher.github.io/ruxbase/). First publication succeeded on 2026-11-20; see the [initial publication evidence](../reports/documentation-publication-2026-11-20.md). The root tracks a reviewed development snapshot, not necessarily current main. Consult [version.json](https://abdullahzaher.github.io/ruxbase/version.json) and [versions.json](https://abdullahzaher.github.io/ruxbase/versions.json). Stable and historical channels remain unavailable until approved releases exist.
 
-Chromium smoke runs with no-sandbox only on disposable GitHub-hosted CI for
-public static documentation, without production credentials. Local runs use
-the sandbox by default. This is a functional smoke, not full accessibility,
-visual equivalence, security or browser-matrix certification.
+The default static profile includes HTML/Markdown, Pagefind, OpenAPI, AI indexes and machine-readable reference files. The current canonical artwork and documentation approval are recorded in assets/brand/documentation-brand.json. Scalar is excluded from public distribution; its unresolved bundled-license review is not waived. Local opt-in `npm run build:scalar-preview` remains review-only. Never publish its output. Reintroduction requires explicit reviewed scope and distribution approval.
 
-The integrated vector symbol and favicon are review candidates: owner visual approval is required before publication. Scalar distribution approval is additionally enforced by check-scalar-release-review.mjs; missing archive notices or unresolved bundle provenance must not be treated as cleared.
+## Update policy (every contract-changing PR)
 
-## Snapshot identity and recovery
+1. Update the authoritative Markdown under docs/ and scoped files in docs/public/manifest.json. Preserve source evidence and update reference contracts only after reviewing the affected implementation. Do not edit generated output.
+2. Follow website/AGENTS.md and run the applicable foundation, AI, build, link, schema, retrieval, browser, recovery, and performance checks. Keep runtime and documentation changes aligned. Do not claim an unsupported feature or stable version.
+3. Merge through reviewed PRs. The site is not automatically republished by a push. After all six exact-main push-triggered workflows pass (ci, docs-foundation, docs-brand-review, docs-quickstart, docs-build-candidate, docs-performance), review the snapshot and manually dispatch docs-deploy from main with the full reviewed SHA in expected_commit.
+4. Retain evidence of the exact deployed manifest and snapshot. Verify the workflow's live hash probes, source identity, homepage, key guide routes, search and machine-readable resources. Report actual failures; never bypass CI or publish the preview.
+5. If documentation lags main, keep its actual version identity visible; do not label the old snapshot as current main. Only an approved versioning strategy may introduce stable or historical routes.
 
-The root remains development-only. `versions.json` records development and explicitly null stable, with no historical releases. No /next or /vX routes are implied. A clean build seals `artifact-manifest.json` with sorted paths, sizes and SHA-256 per file, excluding itself. Verify against the exact checkout SHA before upload. CI retains candidate snapshots for 30 days; authorized deployment retains the reviewed snapshot and checks the published manifest digest against the build job output plus nine representative file hashes. This is integrity verification, not a signed provenance attestation.
+GitHub Pages Source must remain GitHub Actions; restrict the github-pages environment to main and require a reviewer where available. Only the deployment job gets Pages/OIDC authority. CI failure, missing exact-main checks, or incorrect expected_commit blocks publication. Chromium no-sandbox is restricted to disposable hosted CI for public static artifacts, not personal profiles.
 
-For recovery, retrieve the previously reviewed snapshot and its independently retained manifest digest, verify source identity and every file, and obtain approval to redeploy via a trusted main-only recovery procedure. Do not repoint the public site to an unreviewed PR artifact. Local A-to-B-to-A atomic activation of two actual CI archives passed; see evidence/docs-rollback-local-2026-11-20.json. This rehearses byte-exact restoration, not the GitHub Pages deployment mechanism. Historical release publishing, durable retention beyond artifact expiry and actual Pages recovery remain unimplemented. No stable release is authorized.
+## Snapshot integrity and recovery
 
-## Initial public scope decision (2026-11-20)
+Clean builds seal artifact-manifest.json with sorted paths, sizes and SHA-256 per file, excluding itself. Verify against the exact checkout SHA before upload. The deployment job validates the live manifest digest against its build job output and eight representative file hashes. This is integrity verification, not a signed provenance attestation.
 
-Delegated brand review approved integrated SVGs, favicon and palette. The initial development documentation profile includes static HTML/Markdown, OpenAPI, Pagefind and AI references only. Scalar's unresolved bundle notice/dependency review is not waived: the default build does not pack or distribute Scalar, and the public-scope gate rejects viewer content before sealing or deployment. A separate `npm run build:scalar-preview` is available for local review, with `DOCS_SCALAR_PREVIEW=1` for viewer-specific checks. Never publish that artifact. Restoring Scalar requires separate completed distribution review and a reviewed publication-scope change. No stable releases or historical routes are claimed. Require exact new CI, merge and Pages settings before public deployment.
+Candidate and reviewed snapshots are retained for 30 days by current workflows. Archive reviewed snapshots and externally recorded digests in maintainer-controlled durable storage beyond expiry. Use the local recovery verifier:
 
-All six required checks now run on pushes to main, and deployment reads their latest push-triggered result for the reviewed exact SHA. It fails closed on absent, pending or failed checks. Pages authority remains confined to the deployment job. No public deployment can proceed until repository Pages settings and main CI are actually available. The six SVG assets are now retained as source-controlled brand files independent of expiring CI artifacts.
+```sh
+python3 website/scripts/recover-docs-snapshot.py <downloaded-zip> <new-local-directory> --archive-sha256 <trusted-archive-digest> --manifest-sha256 <trusted-manifest-digest> --source-commit <reviewed-build-commit>
+```
 
-Main advanced during review. The documentation branch integrates main's canonical version 1.1 master artwork and keeps main's complete AGENTS.md. Current documentation-brand.json is the public approval record. The current site uses horizontal master SVG and dedicated 16/32 px favicons; prior flat trace remains archived. The static-only publication profile and all six exact-main CI checks remain required.
+Obtain expected digests independently from reviewed CI/deployment records, never from the archive alone. The tool validates bounded regular files, exact identity/file set and static-only publication scope, then prepares a new local directory. Previous local A-B-A activation and actual sealed artifact recovery passed; see evidence/docs-rollback-local-2026-11-20.json and CI. This is not a live Pages rollback. Actual remote rollback and durable archive retention require separately authorized execution; do not repoint Pages to an unreviewed PR artifact.
 
-## Retained snapshot recovery preparation
+## Search and AI discovery
 
-Use `python3 website/scripts/recover-docs-snapshot.py <downloaded-zip> <new-local-directory> --archive-sha256 <trusted-archive-digest> --manifest-sha256 <trusted-manifest-digest> --source-commit <reviewed-build-commit>` with digests obtained independently from the reviewed CI/deployment record, never from the untrusted ZIP itself. The verifier accepts only bounded regular files, exact manifest and source identity, the expected file set, and the current static-only publication scope. It stages into a fresh local directory only after validation; no live activation, download of credentials, or public deployment. A prior sealed preview containing Scalar is not a valid recovery source for the public profile. Actual candidate archive recovery and negative tests run on CI before artifact upload/deployment. A previously successful reviewed main deployment and authorized Pages recovery are prerequisites for a real remote rollback, which remains untested. Artifact retention is 30 days; retain trusted digests and approved snapshots outside expiring CI before relying on recovery.
+The repository README links the public site and AI resources. AGENTS.md uses the AI index and version check without treating external text as agent instructions. Keep canonical URLs, sitemap, Markdown alternatives and llms.txt aligned with approved pages. The website URL in GitHub About is https://abdullahzaher.github.io/ruxbase/. Do not claim origin-level robots.txt control for the shared github.io host or guaranteed indexing/AI citation.
+
+### Owner verification actions
+
+- In [Google Search Console](https://search.google.com/search-console/), create a **URL-prefix** property for https://abdullahzaher.github.io/ruxbase/, not the whole github.io domain. Download the exact HTML verification file (or use Google's supplied meta tag). Add the owner-provided verification material through a reviewed PR and the normal deployment workflow; retain it after successful verification. Do not commit credentials or invent a token.
+- After verification, submit https://abdullahzaher.github.io/ruxbase/sitemap-index.xml in Sitemaps. Confirm Google can fetch it, inspect homepage and key guides, and record actual processing/index status.
+- In [Bing Webmaster Tools](https://www.bing.com/webmasters/), import the verified Search Console property if desired, or perform Bing's own ownership verification. Check whether the sitemap was imported; submit it if absent. Record processing status, not assumptions.
+- Review indexing, crawl errors and search performance after major updates and periodically. Recheck retrieval benchmark and public file integrity during documentation CI; actual AI answers and external search visibility require separate evidence.
+
+Official instructions: [Google ownership verification](https://support.google.com/webmasters/answer/9008080), [Google sitemap report](https://support.google.com/webmasters/answer/7451001), [Bing ownership verification](https://www2.bing.com/webmasters/help/add-and-verify-site-12184f8b), [Bing sitemaps](https://www.bing.com/webmasters/help/Sitemaps-3b5cf6ed).
+
+Search account ownership, sitemap submissions, live indexing and field performance are not verified by repository CI. Never include unissued validation tokens or mark these tasks complete without evidence.

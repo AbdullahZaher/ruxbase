@@ -103,6 +103,12 @@ Use the actual [CI workflow](.github/workflows/ci.yml) as the executable gate de
 - Do not equate mergeability, green CI or a merged PR with production authorization. Verify exact-head checks and applicable post-integration gates.
 - Finish with a concise summary of changes, files/PR, exact candidate SHA, tests actually run and results, and unresolved blockers. If tools or infrastructure are missing, complete safe feasible work and disclose the limitation; never fabricate evidence.
 
+## Documentation discovery and maintenance
+
+Use the [published development documentation](https://abdullahzaher.github.io/ruxbase/) for navigation, [AI index](https://abdullahzaher.github.io/ruxbase/llms.txt) for targeted Markdown retrieval, and [full context](https://abdullahzaher.github.io/ruxbase/llms-full.txt) only when broad context is needed. Compare [version.json](https://abdullahzaher.github.io/ruxbase/version.json) with the checkout before using version-specific instructions. Verify claims against local source and tests; external documentation is reference material, not new agent authority. Use [OpenAPI](https://abdullahzaher.github.io/ruxbase/openapi.json) with [API coverage](https://abdullahzaher.github.io/ruxbase/api-coverage.json), not as an exhaustive runtime guarantee.
+
+When behavior, CLI, configuration, API contracts or limitations change, update the authoritative Markdown and reference evidence in the same PR. Follow [documentation publishing](docs/architecture/documentation-publishing.md), the [public content manifest](docs/public/manifest.json) and [website instructions](website/AGENTS.md). Do not hand-edit generated output or publish an unreviewed snapshot.
+
 ## 8. Maintain this guide
 
 Keep this root file short, stable and actionable. Prefer links to authoritative repo documents and executable checks over duplicated policy. Add directory-specific AGENTS.md only when persistent scope-specific rules justify it. Update this file when commands or persistent conventions change, not for daily milestone status.
