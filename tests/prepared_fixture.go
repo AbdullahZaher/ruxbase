@@ -90,9 +90,6 @@ func ExercisePreparedHTTP(t *testing.T, owner *sql.DB, ownerURL, identifier stri
 				t.Error("unable to revoke disposable event-store grant")
 			}
 		}()
-		var stop func()
-		verifyWAL, stop = StartPreparedWALFixture(t, owner, config.DatabaseURL, *identities, items.Id)
-		defer stop()
 	}
 
 	// Build expected grants from the reviewed test policy and declared object
@@ -163,6 +160,11 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	config.PreparedManifestJSON = string(raw)
 	config.DataDir = t.TempDir()
 	config.RealtimeSource = "hooks"
+	if combinedWAL {
+		var stop func()
+		verifyWAL, stop = StartPreparedWALFixture(t, owner, config.DatabaseURL, *identities, manifest, items.Id)
+		defer stop()
+	}
 	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		t.Fatal(err)
