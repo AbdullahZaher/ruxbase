@@ -21,5 +21,6 @@ LICENSE.html
 
 # ruxbase
 .env
+.env.quickstart
 ruxbase_data/
 test-output.jsonl
