@@ -28,6 +28,13 @@ func TestLoadExplicitPreparedConfig(t *testing.T) {
 		routes.AuthCollection != "users" || len(routes.RecordCollections) != 2 {
 		t.Fatalf("explicit fixture configuration rejected: %v", err)
 	}
+	checkArgs := []string{"--check-only", "--auth-collection=users", "--record-collections=items"}
+	if _, _, port, err := loadConfig(checkArgs, get); err != nil || port != 0 {
+		t.Fatalf("listener-free readiness configuration rejected: %v", err)
+	}
+	if _, _, _, err := loadConfig(append(checkArgs, "--port=8091"), get); err == nil {
+		t.Fatal("check-only accepted a serving port")
+	}
 	for _, key := range []string{
 		"RUXBASE_PREPARED_DATABASE_URL",
 		"RUXBASE_PREPARED_LOGS_URL",

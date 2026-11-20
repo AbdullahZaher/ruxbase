@@ -160,6 +160,23 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	config.PreparedManifestJSON = string(raw)
 	config.DataDir = t.TempDir()
 	config.RealtimeSource = "hooks"
+	if identities != nil {
+		checkCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		routes := apis.PreparedLoopbackConfig{
+			AuthCollection:    "m01_fixture_users",
+			RecordCollections: []string{"m01_fixture_items"},
+		}
+		if err := apis.CheckPreparedLoopback(checkCtx, config, routes); err != nil {
+			t.Fatalf("prepared runtime readiness rejected: %v", err)
+		}
+		wrong := routes
+		wrong.RecordCollections = []string{"m01_fixture_missing"}
+		if err := apis.CheckPreparedLoopback(checkCtx, config, wrong); err == nil {
+			t.Fatal("readiness admitted absent collection")
+		}
+		t.Log("M01_PREPARED_READINESS: reviewed fixture admitted without listener; absent collection rejected")
+	}
 	if combinedWAL {
 		var stop func()
 		verifyWAL, stop = StartPreparedWALFixture(t, owner, config.DatabaseURL, *identities, manifest, items.Id)

@@ -51,43 +51,11 @@ func ServePreparedLoopback(ctx context.Context, listener *net.TCPListener, confi
 	if !listener.Addr().(*net.TCPAddr).IP.IsLoopback() {
 		return errors.New("prepared HTTP requires a loopback listener")
 	}
-	strictEnv, _ := strconv.ParseBool(os.Getenv(core.RLSStrictEnv))
-	if strictEnv || config.PreparedRuntimeRole == "" || config.PreparedManifestJSON == "" ||
-		config.DatabaseURL == "" || config.LogsDatabaseURL == "" || config.DataDir == "" ||
-		config.ClusterMode || config.IsDev || config.OfflineSystemPreparation ||
-		config.PreprovisionedRLSRoles || config.RLSStrict || config.ReplicationIdentity.Enabled() ||
-		config.RealtimeSource != "hooks" || config.DBConnect != nil {
-		return errors.New("prepared HTTP requires explicit isolated runtime configuration and manifest")
-	}
-	if err := routes.validate(); err != nil {
+	app, auth, err := prepareLoopbackApp(ctx, config, routes)
+	if err != nil {
 		return err
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	app := core.NewBaseApp(config)
 	defer func() { err = errors.Join(err, app.ClearBootstrap()) }()
-	if err := app.Bootstrap(); err != nil {
-		return err
-	}
-
-	auth, err := app.FindCachedCollectionByNameOrId(routes.AuthCollection)
-	if err != nil || auth == nil || auth.Name != routes.AuthCollection || auth.System ||
-		!auth.IsAuth() || !auth.PasswordAuth.Enabled || auth.MFA.Enabled || auth.AuthAlert.Enabled {
-		return errors.New("prepared HTTP auth collection must be a non-system password collection without MFA or mail alerts")
-	}
-	for _, name := range routes.RecordCollections {
-		collection, err := app.FindCachedCollectionByNameOrId(name)
-		if err != nil || collection == nil || collection.Name != name || collection.System || !collection.IsBase() {
-			return errors.New("prepared HTTP record collection must be a non-system base collection")
-		}
-		for _, field := range collection.Fields {
-			if _, ok := field.(*core.FileField); ok {
-				return errors.New("prepared HTTP file fields are unsupported")
-			}
-		}
-	}
 
 	pbRouter, err := NewRouter(app)
 	if err != nil {
@@ -135,6 +103,66 @@ func ServePreparedLoopback(ctx context.Context, listener *net.TCPListener, confi
 		return errors.Join(err, shutdownServer())
 	}
 	return errors.Join(err, <-done)
+}
+
+// CheckPreparedLoopback checks the same database and collection admission as
+// serving without opening a listener or starting any HTTP or background worker.
+// Success is a point-in-time readiness result, not a production authorization.
+func CheckPreparedLoopback(ctx context.Context, config core.BaseAppConfig, routes PreparedLoopbackConfig) error {
+	app, _, err := prepareLoopbackApp(ctx, config, routes)
+	if err != nil {
+		return err
+	}
+	return app.ClearBootstrap()
+}
+
+func prepareLoopbackApp(ctx context.Context, config core.BaseAppConfig, routes PreparedLoopbackConfig) (_ *core.BaseApp, _ *core.Collection, err error) {
+	strictEnv, _ := strconv.ParseBool(os.Getenv(core.RLSStrictEnv))
+	if strictEnv || config.PreparedRuntimeRole == "" || config.PreparedManifestJSON == "" ||
+		config.DatabaseURL == "" || config.LogsDatabaseURL == "" || config.DataDir == "" ||
+		config.ClusterMode || config.IsDev || config.OfflineSystemPreparation ||
+		config.PreprovisionedRLSRoles || config.RLSStrict || config.ReplicationIdentity.Enabled() ||
+		config.RealtimeSource != "hooks" || config.DBConnect != nil {
+		return nil, nil, errors.New("prepared HTTP requires explicit isolated runtime configuration and manifest")
+	}
+	if err := routes.validate(); err != nil {
+		return nil, nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	app := core.NewBaseApp(config)
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, app.ClearBootstrap())
+		}
+	}()
+	if err := app.Bootstrap(); err != nil {
+		return nil, nil, err
+	}
+
+	auth, err := app.FindCachedCollectionByNameOrId(routes.AuthCollection)
+	if err != nil || auth == nil || auth.Name != routes.AuthCollection || auth.System ||
+		!auth.IsAuth() || !auth.PasswordAuth.Enabled || auth.MFA.Enabled || auth.AuthAlert.Enabled {
+		return nil, nil, errors.New("prepared HTTP auth collection must be a non-system password collection without MFA or mail alerts")
+	}
+	for _, name := range routes.RecordCollections {
+		collection, err := app.FindCachedCollectionByNameOrId(name)
+		if err != nil || collection == nil || collection.Name != name || collection.System || !collection.IsBase() {
+			return nil, nil, errors.New("prepared HTTP record collection must be a non-system base collection")
+		}
+		for _, field := range collection.Fields {
+			if _, ok := field.(*core.FileField); ok {
+				return nil, nil, errors.New("prepared HTTP file fields are unsupported")
+			}
+		}
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	return app, auth, nil
 }
 
 func normalizePreparedServeError(err error) error {
