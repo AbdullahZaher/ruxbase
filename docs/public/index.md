@@ -22,6 +22,8 @@ before choosing a deployment configuration.
 [Source code](https://github.com/AbdullahZaher/ruxbase) ·
 [Releases](https://github.com/AbdullahZaher/ruxbase/releases)
 
+[Start with the quickstart](/ruxbase/getting-started/quickstart/).
+
 ## Explore the guides
 
 - [Development mode](/ruxbase/getting-started/development/) — Run Ruxbase locally with embedded PostgreSQL.

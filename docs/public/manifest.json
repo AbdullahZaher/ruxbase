@@ -6,6 +6,10 @@
       "target": "index.md"
     },
     {
+      "source": "docs/public/quickstart.md",
+      "target": "getting-started/quickstart.md"
+    },
+    {
       "source": "docs/DEV.md",
       "target": "getting-started/development.md",
       "title": "Development mode",

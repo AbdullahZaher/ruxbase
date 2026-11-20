@@ -16,7 +16,12 @@ for (const [route, content] of html) {
   for (const match of content.matchAll(/\bhref="(\/ruxbase\/[^"?#]*)(?:#([^"]*))?"/g)) {
     let [, target, fragment] = match;
     target = target.endsWith('/') ? target : target + '/';
-    if (!html.has(target)) continue; // non-page assets checked separately
+    if (!html.has(target)) {
+      const asset = match[1].slice('/ruxbase/'.length);
+      if (!asset || asset.split('/').includes('..')) throw new Error('Invalid internal href: ' + match[0]);
+      await stat(join(site, 'dist', asset)).catch(() => { throw new Error('Missing internal href: ' + route + ' → ' + match[0]); });
+      continue;
+    }
     if (fragment && !html.get(target).includes('id="' + decodeURIComponent(fragment) + '"')) {
       throw new Error('Missing guide anchor: ' + route + ' → ' + match[0]);
     }
