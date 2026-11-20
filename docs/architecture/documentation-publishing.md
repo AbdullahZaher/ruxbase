@@ -10,7 +10,7 @@ The default static profile includes HTML/Markdown, Pagefind, OpenAPI, AI indexes
 
 1. Update the authoritative Markdown under docs/ and scoped files in docs/public/manifest.json. Preserve source evidence and update reference contracts only after reviewing the affected implementation. Do not edit generated output.
 2. Follow website/AGENTS.md and run the applicable foundation, AI, build, link, schema, retrieval, browser, recovery, and performance checks. Keep runtime and documentation changes aligned. Do not claim an unsupported feature or stable version.
-3. Merge through reviewed PRs. The site is not automatically republished by a push. After all six exact-main push-triggered workflows pass (ci, docs-foundation, docs-brand-review, docs-quickstart, docs-build-candidate, docs-performance), review the snapshot and manually dispatch docs-deploy from main with the full reviewed SHA in expected_commit.
+3. Merge through reviewed PRs. The site is not automatically republished by a push. After all seven exact-main push-triggered workflows pass (ci, docs-foundation, docs-brand-review, docs-quickstart, docs-build-candidate, docs-performance, docs-starters), review the snapshot and manually dispatch docs-deploy from main with the full reviewed SHA in expected_commit.
 4. Retain evidence of the exact deployed manifest and snapshot. Verify the workflow's live hash probes, source identity, homepage, key guide routes, search and machine-readable resources. Report actual failures; never bypass CI or publish the preview.
 5. If documentation lags main, keep its actual version identity visible; do not label the old snapshot as current main. Only an approved versioning strategy may introduce stable or historical routes.
 

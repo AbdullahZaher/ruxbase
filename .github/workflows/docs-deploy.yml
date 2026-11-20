@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '25.2.1'
-      - name: Confirm all six exact-main CI workflows passed
+      - name: Confirm all seven exact-main CI workflows passed
         env:
           GH_TOKEN: ${{ github.token }}
         run: node website/scripts/check-main-ci.mjs

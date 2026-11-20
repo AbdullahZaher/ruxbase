@@ -1,10 +1,12 @@
-/* Initial documentation palette; final contrast and visual review pending. */
+/* Documentation UI neutrals; approved logo masters remain pure #000/#fff.
+   Brand-tokens.json retains approval boundaries for supporting UI colors. */
 :root {
-  --rux-carbon: #09090b;
-  --rux-graphite: #18181b;
-  --rux-slate: #71717a;
-  --rux-silver: #d4d4d8;
-  --rux-white: #fafafa;
-  --rux-accent-light: #1d4ed8;
-  --rux-accent-dark: #93c5fd;
+  --rux-carbon: #000000;
+  --rux-graphite: #161616;
+  --rux-slate: #737373;
+  --rux-silver: #d4d4d4;
+  --rux-white: #ffffff;
+  --rux-canvas: #f5f5f5;
+  --rux-accent-light: #171717;
+  --rux-accent-dark: #f5f5f5;
 }

@@ -72,6 +72,11 @@ try{
   await until(()=>evaluate('document.documentElement.dataset.theme === '+JSON.stringify(theme)),'theme '+theme);
   const expectedLogo='ruxbase-horizontal-'+(theme==='light'?'black':'white');
   await until(()=>evaluate('Array.from(document.querySelectorAll(".site-title img")).some(i=>i.complete&&i.naturalWidth>0&&i.getClientRects().length>0&&i.currentSrc.includes('+JSON.stringify(expectedLogo)+'))'),'theme logo '+theme);
+  const palette=await evaluate('({background:getComputedStyle(document.documentElement).getPropertyValue("--sl-color-bg").trim(),accent:getComputedStyle(document.documentElement).getPropertyValue("--sl-color-accent").trim(),nav:getComputedStyle(document.documentElement).getPropertyValue("--sl-color-bg-nav").trim()})');
+  const expectedNeutral = theme === 'dark' ? ['#000000', '#000'] : ['#ffffff', '#fff'];
+  assert(expectedNeutral.includes(palette.background.toLowerCase()),'Wrong monochrome documentation background '+theme+': '+JSON.stringify(palette));
+  assert(expectedNeutral.includes(palette.nav.toLowerCase()),'Nav surface is not monochrome '+theme);
+  assert(palette.accent === (theme === 'dark' ? '#f5f5f5' : '#171717'),'Non-monochrome accent '+theme);
   await screenshot('desktop-'+theme);
  }
  await visit('integrations/javascript/');
