@@ -95,6 +95,11 @@ func (c GrantContract) Check(ctx context.Context, db *sql.DB) (GrantDrift, error
 }
 
 func (c GrantContract) checkTx(ctx context.Context, tx *sql.Tx) (GrantDrift, error) {
+	// Routine argument formatting must be independent of the caller's pool
+	// search path, especially when the signature references an extension type.
+	if _, err := tx.ExecContext(ctx, "SET LOCAL search_path = pg_catalog"); err != nil {
+		return GrantDrift{}, errors.New("unable to normalize grant inspection context")
+	}
 	var session, current string
 	var exists bool
 	err := tx.QueryRowContext(ctx, `
