@@ -45,6 +45,10 @@ try{
    const report=JSON.parse(await readFile(file,'utf8'));
    if(report.runtimeError||report.lighthouseVersion!=='13.6.0'||report.finalDisplayedUrl!==origin+SITE_BASE+path)throw Error('Invalid Lighthouse report for '+name);
    const a=report.audits;
+   const requests=a['network-requests']?.details?.items;
+   if(!Array.isArray(requests))throw Error('Missing cold-navigation request evidence');
+   const eager=requests.filter(item=>/\/pagefind\/|\/ui-core\.|\/Search\.astro/i.test(new URL(item.url,origin).pathname));
+   if(eager.length)throw Error('Search assets downloaded before interaction: '+eager.map(x=>x.url).join(', '));
    const m={trial,performance:report.categories.performance.score,accessibility:report.categories.accessibility.score,seo:report.categories.seo.score,bestPractices:report.categories['best-practices'].score,lcpMs:a['largest-contentful-paint'].numericValue,cls:a['cumulative-layout-shift'].numericValue,tbtMs:a['total-blocking-time'].numericValue};
    if(Object.values(m).some(x=>typeof x!=='number'||!Number.isFinite(x)))throw Error('Missing numeric metrics');
    trials.push(m);
