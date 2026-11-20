@@ -45,13 +45,38 @@ func run() error {
 	}
 
 	findings := report.Findings()
+	var drift *pgrolecheck.GrantDrift
+	var scopeErr error
+	if path := os.Getenv("RUXBASE_ROLE_CHECK_GRANTS_FILE"); path != "" {
+		if contract.Runtime == "" {
+			return errors.New("scoped grants require an explicit runtime identity contract")
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return errors.New("unable to read scoped grant contract")
+		}
+		var grants pgrolecheck.GrantContract
+		if err := json.Unmarshal(raw, &grants); err != nil {
+			return errors.New("invalid scoped grant contract")
+		}
+		if grants.Role != contract.Runtime {
+			return errors.New("scoped grant role does not match runtime contract")
+		}
+		result, err := grants.Check(ctx, db)
+		drift = &result
+		scopeErr = err
+	}
 	output := struct {
-		Authority pgrolecheck.Report `json:"authority"`
-		Findings  []string           `json:"findings"`
-		ScreenOK  bool               `json:"screenOK"`
-	}{report, findings, len(findings) == 0}
+		Authority  pgrolecheck.Report      `json:"authority"`
+		Findings   []string                `json:"findings"`
+		GrantDrift *pgrolecheck.GrantDrift `json:"grantDrift,omitempty"`
+		ScreenOK   bool                    `json:"screenOK"`
+	}{report, findings, drift, len(findings) == 0 && scopeErr == nil}
 	if err := json.NewEncoder(os.Stdout).Encode(output); err != nil {
 		return err
+	}
+	if scopeErr != nil {
+		return scopeErr
 	}
 	if !output.ScreenOK {
 		return errors.New("proposed runtime identity failed initial authority screen")
