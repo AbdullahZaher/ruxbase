@@ -113,6 +113,10 @@ export async function prepare() {
     if (createHash('sha256').update(data).digest('hex') !== vector.symbols[name]) throw new Error('Vector candidate digest mismatch: '+name);
     await writeFile(join(brandDest, name), data);
   }
+  for (const [name,digest] of Object.entries(vector.approval.derivedAssets)) {
+    const data = await readFile(join(brand, 'vector-review', name));
+    if (createHash('sha256').update(data).digest('hex') !== digest) throw new Error('Approved brand derivative mismatch: '+name);
+  }
   const publicDir = join(site, 'public');
   await mkdir(publicDir, { recursive: true });
   // Original verified horizontal artwork, metadata-only social preview.
