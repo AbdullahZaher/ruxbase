@@ -69,7 +69,12 @@ export async function exportAI() {
     '\n\n## Optional\n\n- [Full context](' + absolute(SITE_BASE+'llms-full.txt') + ')\n- [Build identity](' + absolute(SITE_BASE+'version.json') + ')\n';
   const full = intro + pages.map(p => outputs.get(p.target)).join('\n---\n\n');
   if (Buffer.byteLength(full)>1048576) throw new Error('Full context exceeds 1 MiB; introduce topic bundles before increasing the limit');
-  outputs.set('llms.txt',index+'\n## Machine-readable references (scoped)\n\n'+['versions.json','artifact-manifest.json','openapi.json','api-coverage.json','feature-manifest.json','cli-reference.json','configuration-reference.json'].map(name=>'- ['+name+']('+absolute(SITE_BASE+name)+')').join('\n')+'\n');
+  const integrations = pages.filter(p=>p.target.startsWith('integrations/'));
+  if (!integrations.length) throw new Error('Missing integration guides');
+  const integrationBundle = intro + '## SDK and integration guides\n\n' + integrations.map(p=>outputs.get(p.target)).join('\n---\n\n');
+  if (Buffer.byteLength(integrationBundle)>262144) throw new Error('Integration context exceeds 256 KiB');
+  outputs.set('llms-integrations.txt',integrationBundle);
+  outputs.set('llms.txt',index+'\n## Topic context\n\n- [SDK and integration guides]('+absolute(SITE_BASE+'llms-integrations.txt')+')\n'+'\n## Machine-readable references (scoped)\n\n'+['versions.json','artifact-manifest.json','openapi.json','api-coverage.json','feature-manifest.json','cli-reference.json','configuration-reference.json'].map(name=>'- ['+name+']('+absolute(SITE_BASE+name)+')').join('\n')+'\n');
   outputs.set('llms-full.txt',full);
   outputs.set('version.json',JSON.stringify({...identity,pageCount:pages.length},null,2)+'\n');
   outputs.set('documentation-manifest.json',JSON.stringify({...identity,pages},null,2)+'\n');

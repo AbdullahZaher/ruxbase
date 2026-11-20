@@ -88,6 +88,30 @@
     {
       "source": "docs/public/reference/features.md",
       "target": "reference/features.md"
+    },
+    {
+      "source": "docs/public/integrations/overview.md",
+      "target": "integrations/overview.md"
+    },
+    {
+      "source": "docs/public/integrations/example-app.md",
+      "target": "integrations/example-app.md"
+    },
+    {
+      "source": "docs/public/integrations/javascript.md",
+      "target": "integrations/javascript.md"
+    },
+    {
+      "source": "docs/public/integrations/server-side.md",
+      "target": "integrations/server-side.md"
+    },
+    {
+      "source": "docs/public/integrations/rest.md",
+      "target": "integrations/rest.md"
+    },
+    {
+      "source": "docs/public/integrations/mobile.md",
+      "target": "integrations/mobile.md"
     }
   ]
 }

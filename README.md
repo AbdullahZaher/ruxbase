@@ -35,6 +35,8 @@ dependency or synchronization source.
 
 ## Documentation
 
+[SDKs and integrations](https://abdullahzaher.github.io/ruxbase/integrations/overview/) — [JavaScript](https://abdullahzaher.github.io/ruxbase/integrations/javascript/), [REST](https://abdullahzaher.github.io/ruxbase/integrations/rest/), [integration context for AI](https://abdullahzaher.github.io/ruxbase/llms-integrations.txt).
+
 The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes the published development snapshot; it is not a stable release. Check [build identity](https://abdullahzaher.github.io/ruxbase/version.json) against your checkout before relying on version-specific behavior.
 
 - [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) and [API reference](https://abdullahzaher.github.io/ruxbase/reference/api/)

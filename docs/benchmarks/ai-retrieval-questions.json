@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "30 authored English queries; 17 public Markdown pages. Page-level lexical retrieval top 3 and exact normalized evidence substrings. Not an LLM answer or human-independent benchmark.",
+  "scope": "30 original authored English queries; ranked against all current public Markdown pages. Page-level lexical retrieval top 3 and exact normalized evidence substrings. Not an LLM answer or human-independent benchmark.",
   "questions": [
     {
       "id": "upstream",

@@ -29,6 +29,8 @@ platforms, restrictions and database behavior, see [Development mode](/ruxbase/g
 
 ## Next steps
 
+[Choose your SDK or HTTP client](/ruxbase/integrations/overview/) and [configure the example posts collection](/ruxbase/integrations/example-app/) before connecting a frontend.
+
 Review [PocketBase compatibility](/ruxbase/migration/compatibility/),
 [operations](/ruxbase/operations/overview/), and
 [row-level security](/ruxbase/authorization/row-level-security/) before deploying.

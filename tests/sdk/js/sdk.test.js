@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { EventSource } from "eventsource";
 import PocketBase from "pocketbase";
+import { readFile } from "node:fs/promises";
+import { listPosts, listVisiblePosts } from "./documentation-examples.mjs";
 
 // the SDK realtime service uses the browser EventSource
 globalThis.EventSource = EventSource;
@@ -215,10 +217,7 @@ describe("records", () => {
         assert.equal(all.length, 6);
         assert.equal(all[0].views, 15);
 
-        const filtered = await alice.pb.collection(postsName).getList(1, 2, {
-            filter: alice.pb.filter("title ~ {:q} && views >= {:min}", { q: "post", min: 2 }),
-            sort: "views",
-        });
+        const filtered = await listPosts(alice.pb, postsName, "post", 2);
         assert.equal(filtered.totalItems, 3);
         assert.equal(filtered.totalPages, 2);
         assert.deepEqual(filtered.items.map((r) => r.views), [2, 3]);
@@ -229,6 +228,15 @@ describe("records", () => {
         const fields = await alice.pb.collection(postsName).getList(1, 1, { fields: "id,title", skipTotal: true });
         assert.deepEqual(Object.keys(fields.items[0]).sort(), ["id", "title"]);
         assert.equal(fields.totalItems, -1);
+    });
+
+    test("documented raw HTTP list respects guest and user rules", async () => {
+        const guest = await listVisiblePosts(url, postsName);
+        const own = await listVisiblePosts(url, postsName, alice.pb.authStore.token);
+        assert.equal(guest.totalItems, 4);
+        assert.ok(guest.items.every((record) => record.published));
+        assert.equal(own.totalItems, 6);
+        assert.ok(own.items.some((record) => !record.published));
     });
 
     test("delete", async () => {
@@ -284,4 +292,16 @@ describe("health", () => {
         const health = await newClient().health.check();
         assert.equal(health.code, 200);
     });
+});
+
+// Ensure the examples executed above are exactly the functions shown in documentation.
+test("integration documentation contains the tested functions", async () => {
+    const source = await readFile(new URL("./documentation-examples.mjs", import.meta.url), "utf8");
+    for (const [name, guide] of [["listPosts", "javascript"], ["listVisiblePosts", "rest"]]) {
+        const doc = await readFile(new URL("../../../docs/public/integrations/" + guide + ".md", import.meta.url), "utf8");
+        const blocks = [...doc.matchAll(/\x60\x60\x60js\n([\s\S]*?)\n\x60\x60\x60/g)].map(m => m[1]);
+        const example = blocks.find(block => block.startsWith("export async function " + name + "("));
+        assert.ok(example, "Missing documented example: " + name);
+        assert.ok(source.includes(example + "\n"), "Documentation example drift: " + name);
+    }
 });

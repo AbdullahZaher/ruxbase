@@ -74,6 +74,14 @@ for(const match of index.matchAll(/\]\((https?:\/\/[^)]+)\)/g)) {
   assert(url.origin===SITE_ORIGIN && url.pathname.startsWith(SITE_BASE),'Unexpected index origin');
   await stat(join(dist,url.pathname.slice(SITE_BASE.length)));
 }
+const integrationPages=output.pages.filter(p=>p.target.startsWith('integrations/'));
+assert(integrationPages.length>0,'Missing integration pages');
+const topic=await read('llms-integrations.txt');
+const topicIntro='# Ruxbase documentation\n\n> PostgreSQL-native self-hosted backend platform. Development documentation, not a certified production release.\n\nSource commit: '+version.sourceCommit+'\n\n';
+const expectedTopic=topicIntro+'## SDK and integration guides\n\n'+(await Promise.all(integrationPages.map(p=>read(p.target)))).join('\n---\n\n');
+assert(topic===expectedTopic && Buffer.byteLength(topic)<=262144,'Integration topic context mismatch');
+assert(index.includes(']('+absolute(SITE_BASE+'llms-integrations.txt')+')'),'Missing integration topic discovery');
+console.log('Verified integration context: '+integrationPages.length+' exact Markdown pages.');
 const preview=await readFile(join(dist,'social-preview.png'));
 const original=await readFile(join(root,'assets/brand/ruxbase.png'));
 assert(preview.equals(original),'Social preview does not match verified original');

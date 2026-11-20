@@ -26,6 +26,13 @@ before choosing a deployment configuration.
 
 [Using Ruxbase with AI](/ruxbase/ai/using-ruxbase-with-ai/) — direct Markdown, AI context and version identity.
 
+## Build an application
+
+- [Choose an integration](/ruxbase/integrations/overview/)
+- [Set up the example app](/ruxbase/integrations/example-app/)
+- [JavaScript SDK](/ruxbase/integrations/javascript/) and [REST](/ruxbase/integrations/rest/)
+- [Server-side integration](/ruxbase/integrations/server-side/) and [mobile integration](/ruxbase/integrations/mobile/)
+
 ## Explore the guides
 
 - [Development mode](/ruxbase/getting-started/development/) — Run Ruxbase locally with embedded PostgreSQL.
