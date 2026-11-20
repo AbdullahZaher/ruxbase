@@ -31,17 +31,17 @@ func OpenGuardedPool(dsn, role, schema string) (*sql.DB, error) {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		var report Report
-		err := conn.QueryRow(ctx, authorityQuery).Scan(
-			&report.SessionRole, &report.CurrentRole, &report.PrivilegedMember,
+		var database, path string
+		err := conn.QueryRow(ctx, guardedAuthorityQuery).Scan(
+			&report.SessionRole, &report.CurrentRole, &database, &path, &report.PrivilegedMember,
 			&report.DatabaseOwner, &report.DatabaseCreate, &report.SchemaOwner,
 			&report.SchemaCreate, &report.RelationOwner, &report.RoutineOwner,
 		)
 		if err != nil || report.SessionRole != role || report.CurrentRole != role || len(report.Findings()) != 0 {
 			return errors.New("guarded connection authority rejected")
 		}
-		var path string
-		if err := conn.QueryRow(ctx, "SELECT pg_catalog.current_setting('search_path')").Scan(&path); err != nil || path != schema {
-			return errors.New("guarded connection schema context rejected")
+		if database != config.Database || path != schema {
+			return errors.New("guarded connection database or schema context rejected")
 		}
 		return nil
 	}
