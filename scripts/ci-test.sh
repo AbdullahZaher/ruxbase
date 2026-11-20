@@ -16,6 +16,10 @@ OUT="test-output.jsonl"
 go test -count=1 -p 4 -timeout 20m -json ./... > "$OUT"
 test_status=$?
 
+# Publish the bounded same-role checkout measurement, not connection data.
+jq -r 'select(.Action == "output" and .Test == "TestRestrictedIdentityAdmissionPostgreSQL") | .Output' "$OUT" |
+  grep 'M01_CHECKOUT samples=' || true
+
 # print the failed tests and their messages
 if [ "$test_status" -ne 0 ]; then
   echo "failed tests:"
