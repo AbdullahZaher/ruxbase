@@ -25,7 +25,7 @@ func run(args []string) error {
 	if *check {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		status, err := operatorprep.CheckSystemHistory(ctx, os.Getenv("RUXBASE_PREPARE_DATABASE_URL"), os.Getenv("RUXBASE_PREPARE_ROLE"))
+		status, err := operatorprep.CheckSystemHistory(ctx, os.Getenv("RUXBASE_PREPARE_DATABASE_URL"), os.Getenv("RUXBASE_PREPARE_LOGS_URL"), os.Getenv("RUXBASE_PREPARE_ROLE"))
 		if writeErr := json.NewEncoder(os.Stdout).Encode(status); writeErr != nil {
 			return writeErr
 		}
