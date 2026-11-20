@@ -3,11 +3,14 @@ package operatorprep
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/tests"
+	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestExplicitOperatorConfig(t *testing.T) {
@@ -103,5 +106,97 @@ func TestPrepareDisposablePostgreSQL(t *testing.T) {
 	}
 	if err := db.QueryRow("SELECT count(*) FROM public._migrations").Scan(&after); err != nil || before != after {
 		t.Fatalf("unexpected migration history change: %d -> %d (%v)", before, after, err)
+	}
+	verifySeparateMigration(t)
+}
+
+// verifySeparateMigration uses a new disposable database and generated
+// migration login. The first fixture has already provisioned the shared
+// RLS roles. No production database or persistent role is modified.
+func verifySeparateMigration(t *testing.T) {
+	t.Helper()
+	fixture, err := tests.NewTestDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, err := sql.Open("pgx", fixture.URL)
+	if err != nil {
+		_ = tests.DropTestDatabase(fixture.Name)
+		t.Fatal("unable to open disposable provisioner")
+	}
+	role := fixture.Name + "_migration"
+	identifier := pgx.Identifier{role}.Sanitize()
+	password := security.RandomStringWithAlphabet(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	created := false
+	defer func() {
+		_ = owner.Close()
+		if err := tests.DropTestDatabase(fixture.Name); err != nil {
+			t.Error("unable to remove migration fixture database")
+		}
+		if created {
+			maintenance, err := url.Parse(fixture.URL)
+			if err != nil {
+				t.Error("invalid fixture maintenance URL")
+				return
+			}
+			maintenance.Path = "/postgres"
+			db, err := sql.Open("pgx", maintenance.String())
+			if err != nil {
+				t.Error("unable to open fixture cleanup connection")
+				return
+			}
+			defer db.Close()
+			drop := "DROP ROLE " + identifier
+			if _, err := db.Exec(drop); err != nil {
+				t.Error("unable to remove migration fixture role")
+			}
+		}
+	}()
+	create := "CREATE ROLE " + identifier + " LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '" + password + "'"
+	if _, err := owner.Exec(create); err != nil {
+		t.Fatal("unable to create disposable migration role")
+	}
+	created = true
+	// The provisioner grants schema preparation authority only on this
+	// new database, not cluster-wide role or database creation authority.
+	for _, statement := range []string{
+		"GRANT CONNECT, CREATE ON DATABASE " + pgx.Identifier{fixture.Name}.Sanitize() + " TO " + identifier,
+		"GRANT USAGE, CREATE ON SCHEMA public TO " + identifier,
+		"GRANT ruxbase_anon, ruxbase_authenticated, ruxbase_api TO " + identifier + " WITH INHERIT FALSE, SET TRUE",
+	} {
+		if _, err := owner.Exec(statement); err != nil {
+			t.Fatal("unable to provision disposable migration role")
+		}
+	}
+	u, err := url.Parse(fixture.URL)
+	if err != nil {
+		t.Fatal("invalid migration fixture URL")
+	}
+	u.User = url.UserPassword(role, password)
+	config := Config{
+		DatabaseURL:            u.String(),
+		ExpectedRole:           role,
+		DataDir:                t.TempDir(),
+		PreprovisionedRLSRoles: true,
+	}
+	if err := Prepare(config); err != nil {
+		t.Fatalf("preprovisioned migration failed: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if status, err := CheckSystemHistory(ctx, u.String(), "", role); err != nil {
+		t.Fatalf("separate migration history invalid: %+v (%v)", status, err)
+	}
+	var migrationOwned bool
+	if err := owner.QueryRow(`
+SELECT pg_catalog.pg_get_userbyid(c.relowner) = $1
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = '_migrations'
+`, role).Scan(&migrationOwned); err != nil || !migrationOwned {
+		t.Fatal("migration history was not created by the separate identity")
+	}
+	if err := Prepare(config); err != nil {
+		t.Fatalf("separate migration replay failed: %v", err)
 	}
 }
