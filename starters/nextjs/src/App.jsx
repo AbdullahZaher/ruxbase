@@ -73,10 +73,7 @@ export default function App() {
 
   return <main className="shell">
     <header className="topbar">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcSet="/ruxbase-horizontal-white.svg" />
-        <img className={dark ? "logo show-dark" : "logo show-light"} src={dark ? "/ruxbase-horizontal-white.svg" : "/ruxbase-horizontal-black.svg"} alt="Ruxbase" />
-      </picture>
+      <img className="logo" src={dark ? "/ruxbase-horizontal-white.svg" : "/ruxbase-horizontal-black.svg"} alt="Ruxbase" />
       <button className="theme" type="button" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>{dark ? "Light mode" : "Dark mode"}</button>
     </header>
     <section className="hero">

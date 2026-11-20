@@ -6,7 +6,7 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "test:foundation": "node --test tests/foundation.test.mjs tests/legacy-links.test.mjs tests/release-artifact.test.mjs",
+    "test:foundation": "node --test tests/foundation.test.mjs tests/legacy-links.test.mjs tests/release-artifact.test.mjs tests/brand-theme.test.mjs",
     "dev": "node scripts/prepare.mjs && astro dev",
     "build": "npm run build:base && node scripts/check-publication-scope.mjs && node scripts/release-artifact.mjs seal",
     "preview": "astro preview",
