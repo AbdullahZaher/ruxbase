@@ -21,3 +21,5 @@ pending: in a network-enabled approved checkout, run
 `npm --prefix website install --package-lock-only`, review and commit the
 lockfile, then `npm --prefix website ci` and
 `npm --prefix website run build`. Do not publish before the full gates pass.
+
+The public source manifest now includes ten existing root guides. The build stages derived Markdown, adds a development notice, and uses a remark AST transform to rewrite cross-guide links while keeping source files unchanged. The candidate workflow resolves a temporary lockfile if missing, retains it as an artifact, runs npm ci and builds without deployment permissions. The lockfile still must be independently reviewed and committed before publication.

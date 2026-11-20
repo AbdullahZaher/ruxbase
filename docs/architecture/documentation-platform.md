@@ -53,3 +53,7 @@ Zero broken internal links, missing required metadata, critical accessibility fi
 
 Initial changes: source inventory, brand manifest, original-asset validation and staging, Starlight candidate scaffold, development homepage and dependency-free foundation tests.
 Not complete: full brand export/review, npm lockfile and actual Astro build, source migration/link validation, AI/SEO, API coverage, Pages configuration/deployment, full CI and review. No claim of production readiness. Never promote a foundation check to a full docs release gate.
+
+### Batch 00/01 increment 2
+
+Ten existing public guides are explicitly mapped without moving or copying their authoritative sources. Candidate SVG symbol variants and favicon are created; visual sign-off and complete lockup/wordmark exports remain open. The read-only candidate build workflow resolves an uncommitted lockfile and retains it, installs dependencies, and verifies static output. This is an interim build experiment, not the reproducibility or deployment gate.

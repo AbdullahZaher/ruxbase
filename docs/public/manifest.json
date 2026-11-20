@@ -4,6 +4,66 @@
     {
       "source": "docs/public/index.md",
       "target": "index.md"
+    },
+    {
+      "source": "docs/DEV.md",
+      "target": "getting-started/development.md",
+      "title": "Development mode",
+      "description": "Run Ruxbase locally with embedded PostgreSQL."
+    },
+    {
+      "source": "docs/COMPATIBILITY.md",
+      "target": "migration/compatibility.md",
+      "title": "PocketBase compatibility",
+      "description": "Review compatibility targets and documented differences."
+    },
+    {
+      "source": "docs/CLUSTER.md",
+      "target": "operations/clustering.md",
+      "title": "Running multiple instances",
+      "description": "Understand multi-instance coordination and operational constraints."
+    },
+    {
+      "source": "docs/RLS.md",
+      "target": "authorization/row-level-security.md",
+      "title": "Row-level security",
+      "description": "Understand supported PostgreSQL RLS rules, roles and limitations."
+    },
+    {
+      "source": "docs/REALTIME.md",
+      "target": "guides/realtime.md",
+      "title": "Realtime events",
+      "description": "Understand realtime event sources and deployment constraints."
+    },
+    {
+      "source": "docs/SEARCH.md",
+      "target": "data/full-text-search.md",
+      "title": "Full-text search",
+      "description": "Use and understand PostgreSQL text search."
+    },
+    {
+      "source": "docs/VECTOR.md",
+      "target": "data/vector-search.md",
+      "title": "Vector search",
+      "description": "Understand pgvector search and supported behavior."
+    },
+    {
+      "source": "docs/MCP.md",
+      "target": "ai/mcp.md",
+      "title": "MCP server",
+      "description": "Understand the optional Model Context Protocol integration."
+    },
+    {
+      "source": "docs/OPERATIONS.md",
+      "target": "operations/overview.md",
+      "title": "Operations",
+      "description": "Review health checks, database connectivity and operations."
+    },
+    {
+      "source": "docs/MIGRATING.md",
+      "target": "migration/from-pocketbase.md",
+      "title": "Migrating from PocketBase",
+      "description": "Review supported import and migration requirements."
     }
   ]
 }

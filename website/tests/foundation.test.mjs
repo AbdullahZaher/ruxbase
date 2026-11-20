@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { validatePng, validatePage, assertWithin } from '../scripts/prepare.mjs';
+import { validatePng, validatePage, assertWithin, stagePage } from '../scripts/prepare.mjs';
 
 test('PNG provenance accepts matching header and blob; rejects tampering', () => {
   const data = Buffer.alloc(33);
@@ -22,7 +22,7 @@ test('PNG provenance accepts matching header and blob; rejects tampering', () =>
 
 test('public manifest only permits approved Markdown paths', () => {
   assert.doesNotThrow(() => validatePage({source:'docs/public/index.md',target:'index.md'}));
-  for (const source of ['docs/RLS.md','docs/public/../RLS.md','docs/public/a//b.md','/tmp/index.md']) {
+  for (const source of ['docs/BRANCH-STRATEGY.md','docs/public/../RLS.md','docs/public/a//b.md','/tmp/index.md']) {
     assert.throws(() => validatePage({source,target:'index.md'}));
   }
   for (const target of ['../index.md','/index.md','a//b.md','index.html']) {
@@ -35,4 +35,16 @@ test('containment rejects parent and sibling paths', () => {
   for (const path of ['/a/docs','/a/docs2/index.md','/a/index.md']) {
     assert.throws(() => assertWithin('/a/docs',path));
   }
+});
+
+test('only explicitly allowlisted root guides are staged with source text intact', () => {
+  const entry = {source:'docs/RLS.md',target:'authorization/row-level-security.md',title:'RLS',description:'Scope'};
+  const raw = '# Original title\n\n## Details\n\nOriginal **content**.\n';
+  assert.doesNotThrow(() => validatePage(entry));
+  const staged = stagePage(entry, raw);
+  assert.match(staged, /title: "RLS"/);
+  assert.match(staged, /Development documentation/);
+  assert.ok(staged.endsWith('## Details\n\nOriginal **content**.\n'));
+  assert.throws(() => stagePage(entry, 'no title'));
+  assert.throws(() => stagePage({...entry,description:''}, raw));
 });

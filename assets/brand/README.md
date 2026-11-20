@@ -17,3 +17,7 @@ and negative space when optimizing for small sizes.
 proposal, not a color extraction from the PNGs or a verified contrast audit.
 Production exports will live in svg/, icons/ and social/ once visually approved.
 Do not label raster wrappers as vector logos. Keep the original paths for existing users.
+
+## Vector candidates
+
+`svg-candidates/` contains manually traced two-path geometry based on the original square symbol, with light/dark surface variants and favicon. These are genuine vector candidates, not certified exact reproductions. Original PNGs remain authoritative. The favicon is wired to the development build; the header retains the original PNG until visual review. Wordmark and full lockup vectorization, raster derivatives and small-size visual review remain open.

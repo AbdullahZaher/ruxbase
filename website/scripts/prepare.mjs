@@ -6,6 +6,7 @@ import { resolve, join, relative, isAbsolute, sep } from 'node:path';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const site = join(root, 'website');
 const brand = join(root, 'assets/brand');
+const legacy = new Set(["DEV.md","COMPATIBILITY.md","CLUSTER.md","RLS.md","REALTIME.md","SEARCH.md","VECTOR.md","MCP.md","OPERATIONS.md","MIGRATING.md"]);
 
 export function assertWithin(parent, child) {
   const rel = relative(parent, child);
@@ -27,11 +28,23 @@ export function validatePng(data, spec) {
 }
 
 export function validatePage(entry) {
-  if (!/^docs\/public\/[a-z0-9][a-z0-9/-]*\.md$/.test(entry.source) ||
+  if (!( /^docs\/public\/[a-z0-9][a-z0-9/-]*\.md$/.test(entry.source) || legacy.has(entry.source.replace(/^docs\//, '')) && entry.source.startsWith('docs/') ) ||
       !/^[a-z0-9][a-z0-9/-]*\.md$/.test(entry.target) ||
       entry.source.includes('//') || entry.target.includes('//')) {
     throw new Error('Invalid public content mapping');
   }
+}
+
+export function stagePage(entry, raw) {
+  if (entry.source.startsWith('docs/public/')) {
+    if (!raw.startsWith('---\n')) throw new Error('Missing page frontmatter');
+    return raw;
+  }
+  if (typeof entry.title !== 'string' || !entry.title.trim() || typeof entry.description !== 'string' || !entry.description.trim()) throw new Error('Missing legacy metadata');
+  const match = raw.match(/^# [^\r\n]+\r?\n/);
+  if (!match) throw new Error('Missing legacy document title: ' + entry.source);
+  return '---\ntitle: ' + JSON.stringify(entry.title) + '\ndescription: ' + JSON.stringify(entry.description) +
+    '\n---\n\n> Development documentation. Review compatibility and operational limitations; this is not a release certification.\n\n' + raw.slice(match[0].length).trimStart();
 }
 
 export async function prepare() {
@@ -57,10 +70,11 @@ export async function prepare() {
     validatePage(entry);
     if (pages.has(entry.target)) throw new Error('Duplicate documentation target');
     const source = await realpath(resolve(root, entry.source));
-    assertWithin(await realpath(join(root, 'docs/public')), source);
+    assertWithin(await realpath(join(root, entry.source.startsWith('docs/public/') ? 'docs/public' : 'docs')), source);
+    // Legacy root documents must resolve to the named file, not another source.
+    if (!entry.source.startsWith('docs/public/') && source !== resolve(root, entry.source)) throw new Error('Legacy source symlink');
     const content = await readFile(source, 'utf8');
-    if (!content.startsWith('---\n')) throw new Error('Missing page frontmatter');
-    pages.set(entry.target, content);
+    pages.set(entry.target, stagePage(entry, content));
   }
   if (!pages.has('index.md')) throw new Error('Missing homepage');
   // Only generated directories are replaced, regardless of manifest contents.
@@ -79,6 +93,12 @@ export async function prepare() {
   // Only the symbol is consumed by this candidate; do not copy large unused PNGs.
   await writeFile(join(brandDest, 'ruxbase_logo.png'), assets.get('ruxbase_logo.png'));
   await writeFile(join(brandDest, 'tokens.css'), await readFile(join(brand, 'tokens.css')));
+  for (const name of ['symbol-on-light.svg', 'symbol-on-dark.svg']) {
+    await writeFile(join(brandDest, name), await readFile(join(brand, 'svg-candidates', name)));
+  }
+  const publicDir = join(site, 'public');
+  await mkdir(publicDir, { recursive: true });
+  await writeFile(join(publicDir, 'favicon.svg'), await readFile(join(brand, 'svg-candidates', 'favicon.svg')));
   console.log('Validated ' + assets.size + ' originals and staged ' + pages.size + ' public pages.');
 }
 
