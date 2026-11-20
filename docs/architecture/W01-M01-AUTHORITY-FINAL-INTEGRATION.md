@@ -34,3 +34,31 @@ compatibility/performance checks and independent review still remain.
 
 The earlier loopback and dedicated WAL tests retain their restricted
 experimental scope. No production deployment or M01 closure is claimed.
+
+## Combined fixture continuation
+
+Post-merge CI #44747346563 on PR #19 failed a Linux embedded Postgres
+download with HTTP 429. The failed job was rerun without source changes
+and attempt 2 succeeded. PR #20 initial CI #44747808258 reported a Go
+formatting failure and PG18 fixture cleanup failure (permission denied
+to terminate process, followed by role dependency errors). The PG18
+checkout measurement was ordinary p50/p95 128.692/588.443 microseconds
+and guarded p50/p95 1.098664/2.382706 milliseconds. These are preliminary
+measurements on a failed candidate, not acceptance evidence or a controlled
+performance improvement claim.
+
+The existing reviewed manifest and real loopback HTTP fixture are now
+shared test helpers. The separate migration test requires the complete
+fixture grant manifest with declared role identities during bootstrap
+and runs the same TCP password-authentication and CRUD lifecycle after
+migration. The fixture collection preparation uses the separate migration
+identity with offline worker-free configuration. The original core
+fixture continues using the same shared test assertions. Cleanup waits
+for database sessions to depart before dropping the disposable database;
+no additional termination authority is granted. CI must validate these
+changes before merging.
+
+The WAL identity remains checked in this combined fixture when configured;
+the actual WAL streaming test is still separate. General serving and
+replication together with all four principals, production provisioning,
+workload compatibility/performance and independent review remain open.
