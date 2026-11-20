@@ -19,7 +19,7 @@ type SystemStatus struct {
 
 // CheckSystemHistory reads the existing ledger without bootstrapping the app,
 // running migration callbacks, or creating any database objects.
-func CheckSystemHistory(ctx context.Context, dsn, expectedRole string) (SystemStatus, error) {
+func CheckSystemHistory(ctx context.Context, dsn, logsDSN, expectedRole string) (SystemStatus, error) {
 	if dsn == "" || expectedRole == "" {
 		return SystemStatus{}, errors.New("explicit database URL and role required")
 	}
@@ -72,7 +72,20 @@ func CheckSystemHistory(ctx context.Context, dsn, expectedRole string) (SystemSt
 			status.Missing = append(status.Missing, migration.File)
 		}
 		if migration.ReapplyCondition != nil {
-			// A condition is arbitrary code. Do not execute it in the reader.
+			// Only the reviewed built-in auxiliary condition has an equivalent
+			// read-only catalog check. Never invoke arbitrary migration code.
+			if migration.File == "1640988000_aux_init.go" {
+				if logsDSN == "" {
+					logsDSN = dsn
+				}
+				ready, err := checkAuxHistory(ctx, logsDSN, expectedRole)
+				if err != nil {
+					return status, err
+				}
+				if ready {
+					continue
+				}
+			}
 			status.Conditional = append(status.Conditional, migration.File)
 		}
 	}
@@ -86,4 +99,38 @@ func CheckSystemHistory(ctx context.Context, dsn, expectedRole string) (SystemSt
 		return status, errors.New("system history requires operator review")
 	}
 	return status, nil
+}
+
+func checkAuxHistory(ctx context.Context, dsn, expectedRole string) (bool, error) {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return false, errors.New("unable to open auxiliary history connection")
+	}
+	defer db.Close()
+
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return false, errors.New("unable to begin read-only auxiliary inspection")
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var session, current string
+	var ready bool
+	err = tx.QueryRowContext(ctx, `
+SELECT session_user, current_user,
+       EXISTS (
+           SELECT 1 FROM pg_catalog.pg_class c
+           JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = '_aux' AND c.relname = '_logs'
+             AND c.relkind IN ('r', 'p')
+             AND pg_catalog.has_schema_privilege(current_user, n.oid, 'USAGE')
+       )
+`).Scan(&session, &current, &ready)
+	if err != nil || session != expectedRole || current != expectedRole {
+		return false, errors.New("auxiliary history identity mismatch or unavailable")
+	}
+	if err := tx.Commit(); err != nil {
+		return false, errors.New("unable to finish auxiliary history inspection")
+	}
+	return ready, nil
 }
