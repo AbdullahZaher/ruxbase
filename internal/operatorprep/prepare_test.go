@@ -131,7 +131,7 @@ func verifySeparateMigration(t *testing.T) {
 	defer func() {
 		_ = owner.Close()
 		if err := tests.DropTestDatabase(fixture.Name); err != nil {
-			t.Error("unable to remove migration fixture database")
+			t.Errorf("unable to remove migration fixture database: %v", err)
 		}
 		if created {
 			maintenance, err := url.Parse(fixture.URL)
@@ -148,7 +148,7 @@ func verifySeparateMigration(t *testing.T) {
 			defer db.Close()
 			drop := "DROP ROLE " + identifier
 			if _, err := db.Exec(drop); err != nil {
-				t.Error("unable to remove migration fixture role")
+				t.Errorf("unable to remove migration fixture role: %v", err)
 			}
 		}
 	}()
@@ -186,6 +186,10 @@ func verifySeparateMigration(t *testing.T) {
 	defer cancel()
 	if status, err := CheckSystemHistory(ctx, u.String(), "", role); err != nil {
 		t.Fatalf("separate migration history invalid: %+v (%v)", status, err)
+	}
+	var active int
+	if err := owner.QueryRow("SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = current_database() AND usename = $1", role).Scan(&active); err != nil || active != 0 {
+		t.Fatalf("offline operator left migration sessions: %d (%v)", active, err)
 	}
 	var migrationOwned bool
 	if err := owner.QueryRow(`
