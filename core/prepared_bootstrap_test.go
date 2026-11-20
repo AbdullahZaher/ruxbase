@@ -78,7 +78,7 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 	}
 	u.User = url.UserPassword(role, password)
 
-	manifest := preparedFixtureManifest(t, owner, role)
+	manifest := tests.PreparedFixtureManifest(t, owner, role)
 	// Verify the expected fixture policy independently before exercising
 	// either bootstrap rejection. Keep drift evidence local to the test.
 	diagnostic, err := sql.Open("pgx", u.String())
@@ -197,7 +197,7 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 	}
 
 	// Exercise the existing HTTP handlers only inside this disposable fixture.
-	exercisePreparedHTTP(t, owner, fixture.URL, identifier, config, manifest)
+	tests.ExercisePreparedHTTP(t, owner, fixture.URL, identifier, config, manifest, nil)
 
 	// A privileged owner and even a valid restricted login against incomplete
 	// metadata must be rejected, and no bootstrap write may repair it.
@@ -220,87 +220,5 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 	var exists bool
 	if err := owner.QueryRow("SELECT EXISTS (SELECT 1 FROM public._params WHERE id = 'settings')").Scan(&exists); err != nil || exists {
 		t.Fatal("prepared bootstrap recreated missing settings")
-	}
-}
-
-// preparedFixtureManifest derives object names only for extension and built-in
-// public routines in this controlled CI fixture; it never reads the runtime
-// ACLs to decide what to approve. The fixture policy explicitly expects
-// default PUBLIC EXECUTE on public and auxiliary routines, no rights on ruxbase_rls,
-// and only the three metadata table reads plus schema usage. This is not a
-// production manifest generator or a serving-role grant recommendation.
-func preparedFixtureManifest(t *testing.T, owner *sql.DB, role string) pgrolecheck.GrantManifest {
-	t.Helper()
-	main := pgrolecheck.GrantContract{
-		Role: role, Schema: "public", Extended: true,
-		Grants: []pgrolecheck.Grant{{Kind: "schema", Object: "public", Privilege: "USAGE"}},
-	}
-	for table, columns := range map[string][]string{
-		"_migrations": {"file", "applied"},
-		"_params":     {"id", "value", "created", "updated"},
-		"_collections": {
-			"id", "system", "type", "name", "fields", "indexes",
-			"listRule", "viewRule", "createRule", "updateRule", "deleteRule",
-			"options", "created", "updated",
-		},
-	} {
-		main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "relation", Object: table, Privilege: "SELECT"})
-		for _, column := range columns {
-			var object string
-			if err := owner.QueryRow("SELECT pg_catalog.quote_ident($1) || '.' || pg_catalog.quote_ident($2)", table, column).Scan(&object); err != nil {
-				t.Fatal("unable to canonicalize reviewed fixture column name")
-			}
-			main.Grants = append(main.Grants, pgrolecheck.Grant{Kind: "column", Object: object, Privilege: "SELECT"})
-		}
-	}
-	aux := pgrolecheck.GrantContract{
-		Role: role, Schema: "_aux", Extended: true,
-		Grants: []pgrolecheck.Grant{{Kind: "schema", Object: "_aux", Privilege: "USAGE"}},
-	}
-	ctx := context.Background()
-	tx, err := owner.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	if _, err := tx.ExecContext(ctx, "SET LOCAL search_path = pg_catalog"); err != nil {
-		t.Fatal(err)
-	}
-	rows, err := tx.QueryContext(ctx, `
-SELECT n.nspname, pg_catalog.quote_ident(p.proname) || '(' ||
-       pg_catalog.pg_get_function_identity_arguments(p.oid) || ')'
-FROM pg_catalog.pg_proc p
-JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname IN ('public', '_aux')
-`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var schema, signature string
-		if err := rows.Scan(&schema, &signature); err != nil {
-			t.Fatal(err)
-		}
-		grant := pgrolecheck.Grant{Kind: "routine", Object: signature, Privilege: "EXECUTE"}
-		if schema == "_aux" {
-			aux.Grants = append(aux.Grants, grant)
-		} else {
-			main.Grants = append(main.Grants, grant)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	if err := tx.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	return pgrolecheck.GrantManifest{
-		Role: role,
-		Schemas: []pgrolecheck.GrantContract{
-			main,
-			aux,
-			{Role: role, Schema: "ruxbase_rls", Extended: true, Grants: []pgrolecheck.Grant{}},
-		},
 	}
 }
