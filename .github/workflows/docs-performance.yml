@@ -1,0 +1,38 @@
+name: docs-performance
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '25.2.1'
+      - name: Build sealed development artifact
+        working-directory: website
+        run: |
+          node scripts/inspect-lock.mjs
+          npm ci --no-audit --no-fund
+          npm run build
+          node scripts/check-build.mjs
+          node scripts/check-ai.mjs
+          node scripts/release-artifact.mjs verify "$GITHUB_SHA"
+      - name: Measure Lighthouse mobile quality
+        env:
+          CHROME_BIN: google-chrome
+          DOCS_BROWSER_NO_SANDBOX: '1'
+        run: bash website/scripts/run-lighthouse.sh
+      - name: Retain Lighthouse reports and resolved test dependency lock
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: docs-performance-evidence
+          path: website/performance-evidence
+          if-no-files-found: warn

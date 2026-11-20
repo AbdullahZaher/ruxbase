@@ -125,3 +125,7 @@ All five workflows passed on f62281877e0044b014856054960a3f4413d59433; retry of 
 ### AI retrieval regression benchmark
 
 Added 30 authored queries across startup, migration, database, realtime, search, access boundaries, API scope and AI discovery. Verifies exported Markdown digests, ranks pages without answer labels, checks expected evidence, and gates >=27/30 with zero critical misses. Corrected stale SSE and OpenAPI scope language. CI proof required. This is a deterministic page retrieval proxy, not LLM-generated answer evaluation, search-engine indexing or independently held-out certification. Scalar distribution approval and final publication remain open.
+
+### Performance and social discovery increment
+
+All five CI workflows passed on aff2744c301a322573f41c28bcd93a7981cf5aaf. Added Lighthouse 13.6.0 in an isolated test-only package directory (exact direct version, resolved transitive lock retained as evidence but not yet committed). Three cold mobile simulated runs per home/Quickstart/static API page; median performance, accessibility and SEO >=95, LCP <=2500ms, CLS <=0.1. Best practices/TBT reported. Local static server uses actual project base; no public production network/field INP evidence or crawler claim. Added original lockup social image with metadata and validation for all public HTML pages. No fabricated origin-level robots policy. New CI evidence required; Scalar review gate unchanged, no publication.

@@ -19,6 +19,13 @@ export default defineConfig({
     // Source-derived, hash-verified vector candidate; final owner approval pending.
     logo: { light: './src/assets/brand/symbol-on-light.svg', dark: './src/assets/brand/symbol-on-dark.svg', alt: '' },
     favicon: '/favicon.svg',
+    head: [
+      { tag: 'meta', attrs: { property: 'og:image', content: SITE_ORIGIN + SITE_BASE + 'social-preview.png' } },
+      { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Ruxbase logo and wordmark' } },
+      { tag: 'meta', attrs: { property: 'og:image:width', content: '2172' } },
+      { tag: 'meta', attrs: { property: 'og:image:height', content: '724' } },
+      { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+    ],
     social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/AbdullahZaher/ruxbase' }],
     sidebar: [
       { label: 'Getting started', items: [{ autogenerate: { directory: 'getting-started' } }] },

@@ -51,6 +51,9 @@ for (const e of sourceManifest.pages) {
   const title=nodes.find(n=>n.tagName==='title');
   const description=nodes.find(n=>n.tagName==='meta' && n.properties.name==='description');
   const links=nodes.filter(n=>n.tagName==='link');
+  const ogImage=nodes.filter(n=>n.tagName==='meta'&&n.properties.property==='og:image');
+  assert(ogImage.length===1&&ogImage[0].properties.content===absolute(SITE_BASE+'social-preview.png'),'Missing/duplicate social image: '+route);
+  assert(nodes.some(n=>n.tagName==='meta'&&n.properties.property==='og:image:alt'&&n.properties.content),'Missing social image description: '+route);
   const rel=(n,v)=>Array.isArray(n.properties.rel)?n.properties.rel.includes(v):n.properties.rel===v;
   assert(title && textOf(title).trim() && !titles.has(textOf(title)),'Missing/duplicate HTML title: '+route);
   titles.add(textOf(title));
@@ -71,4 +74,8 @@ for(const match of index.matchAll(/\]\((https?:\/\/[^)]+)\)/g)) {
   assert(url.origin===SITE_ORIGIN && url.pathname.startsWith(SITE_BASE),'Unexpected index origin');
   await stat(join(dist,url.pathname.slice(SITE_BASE.length)));
 }
+const preview=await readFile(join(dist,'social-preview.png'));
+const original=await readFile(join(root,'assets/brand/ruxbase.png'));
+assert(preview.equals(original),'Social preview does not match verified original');
+console.log('Verified social image metadata for '+output.pages.length+' pages.');
 console.log('Verified ' + output.pages.length + ' Markdown/HTML pairs, unique metadata, canonical URLs, sitemap, AI discovery and source identity.');

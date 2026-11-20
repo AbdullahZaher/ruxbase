@@ -115,6 +115,8 @@ export async function prepare() {
   }
   const publicDir = join(site, 'public');
   await mkdir(publicDir, { recursive: true });
+  // Original verified horizontal artwork, metadata-only social preview.
+  await writeFile(join(publicDir, 'social-preview.png'), assets.get('ruxbase.png'));
   await writeFile(join(publicDir, 'favicon.svg'), await readFile(join(brand, 'vector-review', 'favicon.svg')));
   console.log('Validated ' + assets.size + ' originals and staged ' + pages.size + ' public pages.');
 }
