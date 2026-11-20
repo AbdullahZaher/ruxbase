@@ -25,6 +25,7 @@ const manifestLimit = 4 << 20
 func loadConfig(args []string, getenv func(string) string) (core.BaseAppConfig, apis.PreparedLoopbackConfig, int, error) {
 	flags := flag.NewFlagSet("ruxbase-prepared", flag.ContinueOnError)
 	port := flags.Int("port", 0, "explicit loopback TCP port")
+	checkOnly := flags.Bool("check-only", false, "check prepared runtime readiness without opening a listener")
 	auth := flags.String("auth-collection", "", "reviewed password auth collection name")
 	collections := flags.String("record-collections", "", "comma-separated reviewed base collection names")
 	if err := flags.Parse(args); err != nil {
@@ -40,11 +41,11 @@ func loadConfig(args []string, getenv func(string) string) (core.BaseAppConfig, 
 	}
 	routes := apis.PreparedLoopbackConfig{AuthCollection: *auth, RecordCollections: strings.Split(*collections, ",")}
 	path := getenv("RUXBASE_PREPARED_MANIFEST_FILE")
-	if flags.NArg() != 0 || *port <= 0 || *port > 65535 ||
+	if flags.NArg() != 0 || (!*checkOnly && (*port <= 0 || *port > 65535)) || (*checkOnly && *port != 0) ||
 		*auth == "" || *collections == "" || path == "" ||
 		config.DatabaseURL == "" || config.LogsDatabaseURL == "" ||
 		config.PreparedRuntimeRole == "" || config.DataDir == "" {
-		return core.BaseAppConfig{}, apis.PreparedLoopbackConfig{}, 0, errors.New("explicit port, collections, prepared role, database URLs, data directory and manifest file required")
+		return core.BaseAppConfig{}, apis.PreparedLoopbackConfig{}, 0, errors.New("select --check-only without a port or an explicit serving port; collections, role, database URLs, data directory and manifest file required")
 	}
 	file, err := os.Open(path)
 	if err != nil {
@@ -69,6 +70,13 @@ func run(ctx context.Context, args []string) error {
 	}
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if port == 0 {
+		if err := apis.CheckPreparedLoopback(ctx, config, routes); err != nil {
+			return err
+		}
+		fmt.Println("Prepared loopback readiness checks passed; no listener started.")
+		return nil
 	}
 	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port})
 	if err != nil {
