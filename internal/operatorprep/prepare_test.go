@@ -136,28 +136,50 @@ func verifySeparateMigration(t *testing.T) {
 	runtimeCreated := false
 	defer func() {
 		_ = owner.Close()
+		maintenance, err := url.Parse(fixture.URL)
+		if err != nil {
+			t.Error("invalid fixture maintenance URL")
+			return
+		}
+		maintenance.Path = "/postgres"
+		db, err := sql.Open("pgx", maintenance.String())
+		if err != nil {
+			t.Error("unable to open fixture cleanup connection")
+			return
+		}
+		defer db.Close()
+		// All app and runtime pools have been closed by earlier defers.
+		// Let PostgreSQL observe session departure before dropping the
+		// database; the fixture owner cannot terminate unrelated logins.
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		for {
+			var active int
+			if err := db.QueryRowContext(ctx, "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname = $1", fixture.Name).Scan(&active); err != nil {
+				t.Errorf("unable to inspect disposable sessions: %v", err)
+				return
+			}
+			if active == 0 {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				t.Errorf("disposable database still has %d sessions", active)
+				return
+			case <-time.After(25 * time.Millisecond):
+			}
+		}
 		if err := tests.DropTestDatabase(fixture.Name); err != nil {
 			t.Errorf("unable to remove migration fixture database: %v", err)
+			return
+		}
+		if runtimeCreated {
+			dropRuntime := "DROP ROLE " + runtimeIdentifier
+			if _, err := db.Exec(dropRuntime); err != nil {
+				t.Errorf("unable to remove disposable runtime role: %v", err)
+			}
 		}
 		if created {
-			maintenance, err := url.Parse(fixture.URL)
-			if err != nil {
-				t.Error("invalid fixture maintenance URL")
-				return
-			}
-			maintenance.Path = "/postgres"
-			db, err := sql.Open("pgx", maintenance.String())
-			if err != nil {
-				t.Error("unable to open fixture cleanup connection")
-				return
-			}
-			defer db.Close()
-			if runtimeCreated {
-				dropRuntime := "DROP ROLE " + runtimeIdentifier
-				if _, err := db.Exec(dropRuntime); err != nil {
-					t.Errorf("unable to remove disposable runtime role: %v", err)
-				}
-			}
 			drop := "DROP ROLE " + identifier
 			if _, err := db.Exec(drop); err != nil {
 				t.Errorf("unable to remove migration fixture role: %v", err)
