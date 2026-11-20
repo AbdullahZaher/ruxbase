@@ -152,6 +152,66 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 		t.Fatalf("expected exact grant drift, got %+v (%v)", drift, err)
 	}
 
+	// The guarded pool admits each distinct physical connection and its
+	// reused sessions. Only the disposable database is involved.
+	guarded, err := pgrolecheck.OpenGuardedPool(u.String(), role, "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer guarded.Close()
+	guarded.SetMaxOpenConns(3)
+	guarded.SetMaxIdleConns(3)
+	pids := map[int]bool{}
+	connections := make([]*sql.Conn, 0, 3)
+	defer func() {
+		for _, conn := range connections {
+			_ = conn.Close()
+		}
+	}()
+	for range 3 {
+		conn, err := guarded.Conn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		connections = append(connections, conn)
+		var pid int
+		var actualRole, schema string
+		if err := conn.QueryRowContext(ctx, "SELECT pg_backend_pid(), current_user, current_setting('search_path')").Scan(&pid, &actualRole, &schema); err != nil {
+			t.Fatal(err)
+		}
+		if pids[pid] || actualRole != role || schema != "public" {
+			t.Fatal("unexpected guarded connection identity or schema")
+		}
+		pids[pid] = true
+	}
+	for _, conn := range connections {
+		if err := conn.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	connections = nil
+
+	// Repeated checkout of the existing pool must continue to admit the role.
+	if err := guarded.PingContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Reject the disposable database owner even when explicitly named.
+	var ownerRole string
+	if err := owner.QueryRowContext(ctx, "SELECT current_user").Scan(&ownerRole); err != nil {
+		t.Fatal(err)
+	}
+	ownerPool, err := pgrolecheck.OpenGuardedPool(fixture.URL, ownerRole, "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ownerPool.Close()
+	if err := ownerPool.PingContext(ctx); err == nil {
+		t.Fatal("privileged owner admitted by guarded connector")
+	}
+	if _, err := pgrolecheck.OpenGuardedPool(u.String(), ownerRole, "public"); err == nil {
+		t.Fatal("mismatched connection configuration admitted")
+	}
+
 	contract.Runtime = fixture.Name + "_different"
 	if _, err := contract.AdmitRuntime(ctx, runtime); err == nil {
 		t.Fatal("mismatched restricted identity admitted")
