@@ -6,11 +6,11 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "prepare": "node scripts/prepare.mjs",
     "test:foundation": "node --test tests/*.test.mjs",
     "dev": "node scripts/prepare.mjs && astro dev",
     "build": "node scripts/prepare.mjs && astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "prepare:docs": "node scripts/prepare.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "0.43.1",
