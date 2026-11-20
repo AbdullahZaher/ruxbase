@@ -147,6 +147,19 @@ func TestPreparedBootstrapPostgreSQL(t *testing.T) {
 		t.Fatal("prepared bootstrap altered migration ledger")
 	}
 
+	// A later grant change must reject the next bootstrap despite an intact
+	// migration history. Restore only this disposable fixture's grant.
+	if _, err := owner.Exec("REVOKE SELECT ON public._params FROM "+identifier); err != nil {
+		t.Fatal("unable to prepare disposable grant drift")
+	}
+	if err := app.Bootstrap(); err == nil ||
+		err.Error() != "prepared main database grant manifest rejected" || app.IsBootstrapped() {
+		t.Fatalf("missing metadata grant was not rejected: %v", err)
+	}
+	if _, err := owner.Exec("GRANT SELECT ON public._params TO "+identifier); err != nil {
+		t.Fatal("unable to restore disposable fixture grant")
+	}
+
 	// A privileged owner and even a valid restricted login against incomplete
 	// metadata must be rejected, and no bootstrap write may repair it.
 	privileged := core.NewBaseApp(core.BaseAppConfig{
