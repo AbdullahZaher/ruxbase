@@ -56,6 +56,31 @@ contract is reusable but not a complete runtime admission boundary until
 pool identity, authority drift, allowed grants and startup isolation are
 established. No production access or authorization.
 
+## Increment 3 — scoped effective grant contract
+
+The optional `RUXBASE_ROLE_CHECK_GRANTS_FILE` points to a JSON contract
+containing `role`, `schema`, and an explicit `grants` array. Each entry
+declares `kind` (schema, relation or sequence), `object`, and
+`privilege`. This mode also requires an explicit runtime identity contract.
+
+The checker compares effective privileges in that named non-system schema,
+including grant options, with the provided set. Missing entries and excess
+privileges are reported separately. A mismatched identity, missing schema,
+incomplete inspection or grant drift fails the diagnostic. All catalog
+queries use a read-only repeatable-read transaction. The CLI does not issue
+any GRANT, REVOKE or migration.
+
+Unit tests verify set comparison. The disposable PostgreSQL fixture exercises
+an approved schema, table and sequence contract and rejects missing and
+unexpected permissions; it does not widen production authority.
+
+This is not the final application-wide grant manifest. Column ACLs, routine
+execution, other schemas, role switching, administrative privileges,
+default privileges, RLS and future DDL remain outside this check. The initial
+identity screen and grant check use separate transactions, so this is not a
+serving admission boundary or protection against concurrent authority drift.
+A single successful sample does not prove pool-wide identity consistency.
+
 ## M01 remaining
 
 - Separate runtime, provisioning/migration and replication identity contracts.
