@@ -134,8 +134,11 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
                 "RUXBASE_INTERNAL_URL": SERVER,
                 "NEXT_TELEMETRY_DISABLED": "1",
             }
+            # Next.js production start exercises the built App Router bundle
+            # without on-demand Turbopack recompilation during browser tests.
+            # React stays on its Vite development proxy for SPA coverage.
             process = subprocess.Popen(
-                ["npm", "run", "dev"], cwd=project, env=server_env,
+                ["npm", "run", "start" if framework == "nextjs" else "dev"], cwd=project, env=server_env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
