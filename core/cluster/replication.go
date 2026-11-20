@@ -777,19 +777,35 @@ func (c *Cluster) storeAndPublishEvents(ctx context.Context, db *dbx.DB, events 
 			ids = append(ids, e.Id)
 		}
 
-		// note: the already stored events (eg. decoded again after a leader change)
-		// are still published because the previous leader could have stopped before publishing them
-		_, err := db.NewQuery(
-			"INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]], [[snapshot]]) VALUES " +
-				strings.Join(values, ",") +
-				" ON CONFLICT DO NOTHING",
-		).WithContext(ctx).Bind(params).Execute()
-		if err != nil {
-			return fmt.Errorf("failed to store the realtime events: %w", err)
+		// Resolve the notification key before entering the write transaction.
+		// The general Publish helper may treat an unprepared cluster as a
+		// no-op; replication must not acknowledge such a batch.
+		if _, err := c.loadKey(); err != nil {
+			return fmt.Errorf("realtime notification key unavailable: %w", err)
 		}
 
-		if err := c.Publish(db, TopicRealtimeEvents, strings.Join(ids, ",")); err != nil {
-			return fmt.Errorf("failed to publish the realtime events: %w", err)
+		// Store and notify in one transaction. A cancelled leader cannot
+		// leave a committed batch without its corresponding notification.
+		// Replayed batches still publish their stable IDs for deduplication.
+		err := db.Transactional(func(tx *dbx.Tx) error {
+			_, err := tx.NewQuery(
+				"INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]], [[snapshot]]) VALUES " +
+					strings.Join(values, ",") +
+					" ON CONFLICT DO NOTHING",
+			).WithContext(ctx).Bind(params).Execute()
+			if err != nil {
+				return fmt.Errorf("failed to store the realtime events: %w", err)
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := c.Publish(tx, TopicRealtimeEvents, strings.Join(ids, ",")); err != nil {
+				return fmt.Errorf("failed to publish the realtime events: %w", err)
+			}
+			return ctx.Err()
+		})
+		if err != nil {
+			return err
 		}
 	}
 
