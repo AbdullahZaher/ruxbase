@@ -28,6 +28,7 @@ func exercisePreparedHTTP(t *testing.T, owner *sql.DB, ownerURL, identifier stri
 		t.Fatal(err)
 	}
 	users := core.NewAuthCollection("m01_fixture_users")
+	users.AuthAlert.Enabled = false // no outbound notifications in the disposable fixture
 	if err := admin.Save(users); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +165,13 @@ WHERE n.nspname = 'public' AND c.relname = $1
 		return res
 	}
 	request(http.MethodGet, "/api/settings", "", "", http.StatusNotFound)
-	request(http.MethodGet, records, "", "", http.StatusOK)
+	guest := request(http.MethodGet, records, "", "", http.StatusOK)
+	var guestList struct {
+		TotalItems int `json:"totalItems"`
+	}
+	if err := json.Unmarshal(guest.Body.Bytes(), &guestList); err != nil || guestList.TotalItems != 0 {
+		t.Fatal("guest list exposed authenticated fixture records")
+	}
 	request(http.MethodPost, login, `{"identity":"fixture@example.test","password":"incorrect"}`, "", http.StatusBadRequest)
 	res := request(http.MethodPost, login, `{"identity":"fixture@example.test","password":"fixture-password-123"}`, "", http.StatusOK)
 	var session struct {
@@ -182,7 +189,12 @@ WHERE n.nspname = 'public' AND c.relname = $1
 	}
 	path := records + "/" + item.ID
 	request(http.MethodGet, path, "", session.Token, http.StatusOK)
+	request(http.MethodGet, path, "", "", http.StatusNotFound)
 	request(http.MethodPatch, path, `{"title":"fixture-updated"}`, session.Token, http.StatusOK)
+	var storedTitle string
+	if err := owner.QueryRow("SELECT title FROM public.m01_fixture_items WHERE id = $1", item.ID).Scan(&storedTitle); err != nil || storedTitle != "fixture-updated" {
+		t.Fatal("fixture update was not persisted")
+	}
 	request(http.MethodDelete, path, "", session.Token, http.StatusNoContent)
 	request(http.MethodGet, path, "", session.Token, http.StatusNotFound)
 	var remaining int
