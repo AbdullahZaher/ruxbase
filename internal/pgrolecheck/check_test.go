@@ -1,4 +1,4 @@
-package pgrolecheck
+package pgrolecheck_test
 
 import (
 	"context"
@@ -8,17 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/internal/pgrolecheck"
 	"github.com/AbdullahZaher/ruxbase/tests"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func TestReportFindings(t *testing.T) {
-	clean := Report{SessionRole: "runtime", CurrentRole: "runtime"}
+	clean := pgrolecheck.Report{SessionRole: "runtime", CurrentRole: "runtime"}
 	if got := clean.Findings(); len(got) != 0 {
 		t.Fatalf("unexpected findings: %v", got)
 	}
 
-	report := Report{
+	report := pgrolecheck.Report{
 		SessionRole:      "login",
 		CurrentRole:      "other",
 		PrivilegedMember: true,
@@ -37,13 +38,13 @@ func TestReportFindings(t *testing.T) {
 	if got := report.Findings(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("findings = %v, want %v", got, want)
 	}
-	if got := (Report{}).Findings(); len(got) != 1 || got[0] != "session_identity_mismatch" {
+	if got := (pgrolecheck.Report{}).Findings(); len(got) != 1 || got[0] != "session_identity_mismatch" {
 		t.Fatalf("empty report must not pass: %v", got)
 	}
 }
 
 func TestInspectRejectsMissingConnection(t *testing.T) {
-	if _, err := Inspect(context.Background(), nil); err == nil {
+	if _, err := pgrolecheck.Inspect(context.Background(), nil); err == nil {
 		t.Fatal("missing connection accepted")
 	}
 }
@@ -68,7 +69,7 @@ func TestInspectPostgreSQL(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	report, err := Inspect(ctx, db)
+	report, err := pgrolecheck.Inspect(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +85,7 @@ func TestInspectPostgreSQL(t *testing.T) {
 
 	cancelled, stop := context.WithCancel(context.Background())
 	stop()
-	if _, err := Inspect(cancelled, db); err == nil {
+	if _, err := pgrolecheck.Inspect(cancelled, db); err == nil {
 		t.Fatal("cancelled inspection unexpectedly succeeded")
 	}
 }
