@@ -16,11 +16,15 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("ruxbase-prepare", flag.ContinueOnError)
 	apply := flags.Bool("apply-system", false, "confirm authorized offline system preparation")
 	check := flags.Bool("check-system", false, "inspect system migration history without bootstrap")
+	separate := flags.Bool("preprovisioned-roles", false, "require a separate preprovisioned migration principal")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 || *apply == *check {
 		return errors.New("select exactly one of --apply-system or --check-system")
+	}
+	if *check && *separate {
+		return errors.New("--preprovisioned-roles requires --apply-system")
 	}
 	if *check {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -33,11 +37,12 @@ func run(args []string) error {
 	}
 
 	err := operatorprep.Prepare(operatorprep.Config{
-		DatabaseURL:     os.Getenv("RUXBASE_PREPARE_DATABASE_URL"),
-		LogsDatabaseURL: os.Getenv("RUXBASE_PREPARE_LOGS_URL"),
-		ExpectedRole:    os.Getenv("RUXBASE_PREPARE_ROLE"),
-		DataDir:         os.Getenv("RUXBASE_PREPARE_DATA_DIR"),
-		EncryptionEnv:   os.Getenv("RUXBASE_PREPARE_ENCRYPTION_ENV"),
+		DatabaseURL:            os.Getenv("RUXBASE_PREPARE_DATABASE_URL"),
+		LogsDatabaseURL:        os.Getenv("RUXBASE_PREPARE_LOGS_URL"),
+		ExpectedRole:           os.Getenv("RUXBASE_PREPARE_ROLE"),
+		DataDir:                os.Getenv("RUXBASE_PREPARE_DATA_DIR"),
+		EncryptionEnv:          os.Getenv("RUXBASE_PREPARE_ENCRYPTION_ENV"),
+		PreprovisionedRLSRoles: *separate,
 	})
 	if err == nil {
 		fmt.Println("System preparation completed; serving and user migrations not started.")

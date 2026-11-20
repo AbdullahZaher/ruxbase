@@ -159,6 +159,7 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 		"CREATE TABLE ruxbase_grant_contract.details (id integer, note text)",
 		"GRANT SELECT (note) ON ruxbase_grant_contract.details TO " + identifier,
 		"CREATE FUNCTION ruxbase_grant_contract.fixture_value(integer) RETURNS integer LANGUAGE sql AS 'SELECT $1'",
+		"CREATE FUNCTION ruxbase_grant_contract.fixture_long_signature(first_argument_with_long_name text, second_argument_with_long_name integer) RETURNS text LANGUAGE sql AS 'SELECT $1'",
 	} {
 		if _, err := owner.ExecContext(ctx, query); err != nil {
 			t.Fatal("unable to prepare extended grant fixture")
@@ -171,6 +172,7 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 		{Kind: "sequence", Object: "item_seq", Privilege: "USAGE"},
 		{Kind: "column", Object: "items.id", Privilege: "SELECT"},
 		{Kind: "column", Object: "details.note", Privilege: "SELECT"},
+		{Kind: "routine", Object: "fixture_long_signature(first_argument_with_long_name text, second_argument_with_long_name integer)", Privilege: "EXECUTE"},
 		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
 	}
 	if drift, err := grants.Check(ctx, runtime); err != nil {

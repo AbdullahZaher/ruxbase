@@ -95,6 +95,11 @@ func (c GrantContract) Check(ctx context.Context, db *sql.DB) (GrantDrift, error
 }
 
 func (c GrantContract) checkTx(ctx context.Context, tx *sql.Tx) (GrantDrift, error) {
+	// Routine argument formatting must be independent of the caller's pool
+	// search path, especially when the signature references an extension type.
+	if _, err := tx.ExecContext(ctx, "SET LOCAL search_path = pg_catalog"); err != nil {
+		return GrantDrift{}, errors.New("unable to normalize grant inspection context")
+	}
 	var session, current string
 	var exists bool
 	err := tx.QueryRowContext(ctx, `
@@ -108,18 +113,19 @@ SELECT session_user, current_user,
 	}
 
 	const query = `
+-- Keep the UNION object type text, not name (63-byte identifier limit).
 WITH target AS (
     SELECT oid, nspname FROM pg_catalog.pg_namespace WHERE nspname = $1
 ), privileges AS (
-    SELECT 'schema' AS kind, n.nspname AS object, p.name AS privilege
+    SELECT 'schema' AS kind, n.nspname::text AS object, p.name AS privilege
     FROM target n CROSS JOIN (VALUES ('USAGE'), ('CREATE')) p(name)
     WHERE pg_catalog.has_schema_privilege(current_user, n.oid, p.name)
     UNION ALL
-    SELECT 'schema', n.nspname, p.name || ' WITH GRANT OPTION'
+    SELECT 'schema', n.nspname::text, p.name || ' WITH GRANT OPTION'
     FROM target n CROSS JOIN (VALUES ('USAGE'), ('CREATE')) p(name)
     WHERE pg_catalog.has_schema_privilege(current_user, n.oid, p.name || ' WITH GRANT OPTION')
     UNION ALL
-    SELECT 'relation', c.relname, p.name || o.suffix
+    SELECT 'relation', c.relname::text, p.name || o.suffix
     FROM pg_catalog.pg_class c JOIN target n ON n.oid = c.relnamespace
     CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
                        ('TRUNCATE'), ('REFERENCES'), ('TRIGGER'), ('MAINTAIN')) p(name)
@@ -127,7 +133,7 @@ WITH target AS (
     WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f')
       AND pg_catalog.has_table_privilege(current_user, c.oid, p.name || o.suffix)
     UNION ALL
-    SELECT 'sequence', c.relname, p.name || o.suffix
+    SELECT 'sequence', c.relname::text, p.name || o.suffix
     FROM pg_catalog.pg_class c JOIN target n ON n.oid = c.relnamespace
     CROSS JOIN (VALUES ('USAGE'), ('SELECT'), ('UPDATE')) p(name)
     CROSS JOIN (VALUES (''), (' WITH GRANT OPTION')) o(suffix)

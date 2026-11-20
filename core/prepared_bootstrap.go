@@ -36,6 +36,14 @@ func (app *BaseApp) bootstrapPrepared() (err error) {
 		}
 	}()
 
+	var manifest preparedManifest
+	if app.config.PreparedManifestJSON != "" {
+		manifest, err = parsePreparedManifest(app.config.PreparedManifestJSON, app.config.PreparedRuntimeRole)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Prepared metadata always uses the guarded connector, not an arbitrary
 	// application DBConnect override. Keep the legacy connector unchanged.
 	logsURL := app.config.LogsDatabaseURL
@@ -76,6 +84,12 @@ func (app *BaseApp) bootstrapPrepared() (err error) {
 		if err != nil || report.SessionRole != app.config.PreparedRuntimeRole ||
 			report.CurrentRole != app.config.PreparedRuntimeRole || len(report.Findings()) != 0 {
 			return errors.New("prepared bootstrap runtime authority rejected")
+		}
+	}
+
+	if app.config.PreparedManifestJSON != "" {
+		if err := checkPreparedManifest(ctx, main, aux, manifest); err != nil {
+			return err
 		}
 	}
 
@@ -139,6 +153,29 @@ func readPreparedMetadata(ctx context.Context, main, aux *sql.DB, role string) (
 		if hash == "" || strings.HasPrefix(hash, rlsStateErrorPrefix) {
 			return "", errors.New("prepared RLS state requires operator repair")
 		}
+	}
+	// The marker alone is insufficient: each registered collection must have
+	// a state entry and an existing relation of the expected kind. For
+	// non-view collections the compiler always enables row level security.
+	// This is a structural check, not a certification of policy expressions.
+	var consistent bool
+	if err := tx.QueryRowContext(ctx, `
+SELECT NOT EXISTS (
+    SELECT 1 FROM public._collections m
+    LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = 'public'
+    LEFT JOIN pg_catalog.pg_class c ON c.relnamespace = n.oid AND c.relname = m.name
+    WHERE NOT ($1::jsonb ? m.id)
+       OR c.oid IS NULL
+       OR NOT (
+           (m.type = 'view' AND c.relkind = 'v')
+           OR (m.type IN ('base', 'auth') AND c.relkind IN ('r', 'p') AND c.relrowsecurity)
+       )
+) AND NOT EXISTS (
+    SELECT 1 FROM pg_catalog.jsonb_object_keys($1::jsonb) k(id)
+    WHERE NOT EXISTS (SELECT 1 FROM public._collections m WHERE m.id = k.id)
+)
+`, state).Scan(&consistent); err != nil || !consistent {
+		return "", errors.New("prepared RLS collection catalog is inconsistent")
 	}
 	var installed bool
 	if err := tx.QueryRowContext(ctx, `
