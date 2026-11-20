@@ -66,7 +66,6 @@ func Inspect(ctx context.Context, db *sql.DB) (Report, error) {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	const query = `
 SELECT session_user, current_user,
        EXISTS (
            SELECT 1 FROM pg_catalog.pg_roles r
@@ -102,7 +101,7 @@ FROM pg_catalog.pg_database d
 WHERE d.datname = pg_catalog.current_database()
 `
 	var report Report
-	err = tx.QueryRowContext(ctx, query).Scan(
+	err = tx.QueryRowContext(ctx, authorityQuery).Scan(
 		&report.SessionRole, &report.CurrentRole, &report.PrivilegedMember,
 		&report.DatabaseOwner, &report.DatabaseCreate, &report.SchemaOwner,
 		&report.SchemaCreate, &report.RelationOwner, &report.RoutineOwner,
@@ -115,3 +114,5 @@ WHERE d.datname = pg_catalog.current_database()
 	}
 	return report, nil
 }
+
+const authorityQuery = `
