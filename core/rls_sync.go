@@ -75,9 +75,14 @@ func rlsRolesError(err error) error {
 // It is executed by the ruxbase RLS system migration (and again after a backup
 // restore, see [BaseApp.repairRLS]). It is idempotent.
 func InstallRLS(txApp App) error {
-	_, err := txApp.DB().NewQuery(rlsRolesSQL).Execute()
-	if err != nil {
-		return rlsRolesError(err)
+	if app, ok := txApp.(*BaseApp); ok && app.config.PreprovisionedRLSRoles {
+		if err := CheckPreprovisionedRLSRoles(txApp); err != nil {
+			return err
+		}
+	} else {
+		if _, err := txApp.DB().NewQuery(rlsRolesSQL).Execute(); err != nil {
+			return rlsRolesError(err)
+		}
 	}
 
 	schema, err := currentSchema(txApp)
@@ -551,4 +556,31 @@ func RLSApplyStatus(app App, compiled *RLSCollection) (string, error) {
 	default:
 		return RLSApplyPending, nil
 	}
+}
+
+// CheckPreprovisionedRLSRoles verifies the offline migration principal and
+// previously provisioned RLS roles without creating roles or changing grants.
+// Database ownership and schema DDL are still permitted for this principal.
+func CheckPreprovisionedRLSRoles(app App) error {
+	var ready bool
+	err := app.DB().NewQuery(`
+SELECT session_user = current_user
+   AND NOT EXISTS (
+       SELECT 1 FROM pg_catalog.pg_roles r
+       WHERE (r.rolname = current_user OR pg_catalog.pg_has_role(current_user, r.oid, 'MEMBER'))
+         AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls)
+   )
+   AND (
+       SELECT count(*) = 3 FROM pg_catalog.pg_roles r
+       WHERE r.rolname IN ('ruxbase_anon','ruxbase_authenticated','ruxbase_api')
+         AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreaterole OR r.rolcreatedb
+                  OR r.rolreplication OR r.rolbypassrls OR r.rolinherit)
+         AND pg_catalog.pg_has_role(current_user, r.oid, 'SET')
+         AND NOT pg_catalog.pg_has_role(current_user, r.oid, 'USAGE')
+   )
+`).Row(&ready)
+	if err != nil || !ready {
+		return errors.New("offline migration requires separately provisioned RLS roles and a non-administrative migration identity")
+	}
+	return nil
 }
