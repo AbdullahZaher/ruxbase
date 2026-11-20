@@ -74,7 +74,7 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	defer func() {
 		cleanupCtx, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		defer stop()
-		if _, err := owner.ExecContext(cleanupCtx, "DROP ROLE " + identifier); err != nil {
+		if _, err := owner.ExecContext(cleanupCtx, "DROP ROLE "+identifier); err != nil {
 			t.Error("unable to remove disposable restricted role")
 		}
 	}()
