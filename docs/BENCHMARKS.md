@@ -41,6 +41,35 @@ environment uses public collection rules and disposable database credentials;
 production-equivalent authorization and matched CPU/RAM budgets remain
 requirements for competitive performance evaluation.
 
+## CI smoke evidence — 2026-11-20
+
+[Run #44665505623](https://github.com/AbdullahZaher/ruxbase/actions/runs/44665505623)
+passed on candidate `98403be2c933192fb4d9f3c5df01d29753f25e61`.
+This is one single-instance disposable run: 1,000 initial records, 8 workers,
+8 seconds per CRUD scenario, 20 SSE clients and 20 events. All request and
+delivery checks passed.
+
+| Scenario | Successful requests / deliveries | Requests/s | P95 (ms) | P99 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Reads | 28,443 | 3,554.50 | 5.066 | 7.292 |
+| Writes | 33,900 | 4,236.29 | 3.485 | 4.707 |
+| Realtime | 400 deliveries | 99.85 deliveries/s | 2.295 | 3.159 |
+
+| Sample | Ruxbase MiB | PostgreSQL MiB | Total MiB | Combined CPU % |
+| --- | ---: | ---: | ---: | ---: |
+| Idle | 18.45 | 145.00 | 163.45 | 1.87 |
+| Reads | 18.84 | 150.30 | 169.14 | 218.48 |
+| Writes | 18.66 | 170.30 | 188.96 | 254.58 |
+| Realtime phase | 17.82 | 194.90 | 212.72 | 1.17 |
+
+These are point-in-time Docker stats (100% CPU = one logical CPU), not peaks,
+RSS, or average load. The realtime sample was near idle and is not evidence
+of sustained realtime CPU cost. No Supabase target was executed. Public
+rules, short duration, sequential workloads, and default test credentials
+limit applicability. The separate full CI on that candidate failed in
+`TestNotifyWatcher_SettingsUpdate`; successful benchmark evidence does not
+certify the candidate. Full CI must pass on any replacement candidate.
+
 ## Environment
 
 - Intel Core Ultra 9 275HX, Docker Desktop 29.7 (24 CPUs and 16 GB available to
