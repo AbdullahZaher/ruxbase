@@ -73,13 +73,14 @@ func Prepare(c Config) error {
 	}
 
 	app := core.NewBaseApp(core.BaseAppConfig{
-		DBConnect:              connect,
-		DatabaseURL:            c.DatabaseURL,
-		LogsDatabaseURL:        logsURL,
-		DataDir:                c.DataDir,
-		EncryptionEnv:          c.EncryptionEnv,
-		RealtimeSource:         "hooks",
-		PreprovisionedRLSRoles: c.PreprovisionedRLSRoles,
+		DBConnect:                connect,
+		DatabaseURL:              c.DatabaseURL,
+		LogsDatabaseURL:          logsURL,
+		DataDir:                  c.DataDir,
+		EncryptionEnv:            c.EncryptionEnv,
+		RealtimeSource:           "hooks",
+		PreprovisionedRLSRoles:   c.PreprovisionedRLSRoles,
+		OfflineSystemPreparation: true,
 	})
 	if err := app.Bootstrap(); err != nil {
 		_ = app.ClearBootstrap()
