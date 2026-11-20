@@ -36,6 +36,8 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const developer=await evaluateBenchmark(root,developerFixture,18,17);
  const starterFixture=JSON.parse(await readFile(new URL('../../docs/benchmarks/starter-retrieval-questions.json',import.meta.url),'utf8'));
  const starters=await evaluateBenchmark(root,starterFixture,6,5);
+ const toolingFixture=JSON.parse(await readFile(new URL('../../docs/benchmarks/tooling-retrieval-questions.json',import.meta.url),'utf8'));
+ const tooling=await evaluateBenchmark(root,toolingFixture,6,5);
  const out=fileURLToPath(new URL('../browser-evidence/',import.meta.url));await mkdir(out,{recursive:true});await writeFile(join(out,'ai-retrieval.json'),JSON.stringify(result,null,2)+'\n');
  console.log('AI retrieval proxy: '+result.passed+'/'+result.total+' passed; top1 '+result.hitAt1+'; top3 '+result.hitAt3+'; critical failures '+result.criticalFailures);
  for(const x of result.results.filter(x=>!x.pass))console.log('Retrieval miss:',x.id,'rank',x.rank,'missing evidence',JSON.stringify(x.missingEvidence));
@@ -48,6 +50,10 @@ if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  await writeFile(join(out,'starter-retrieval.json'),JSON.stringify(starters,null,2)+'\n');
  console.log('Starter AI retrieval proxy: '+starters.passed+'/'+starters.total+' passed; critical failures '+starters.criticalFailures);
  for(const x of starters.results.filter(x=>!x.pass))console.log('Starter retrieval miss:',x.id,'rank',x.rank,'missing evidence',JSON.stringify(x.missingEvidence));
+ await writeFile(join(out,'tooling-retrieval.json'),JSON.stringify(tooling,null,2)+'\n');
+ console.log('Tooling AI retrieval proxy: '+tooling.passed+'/'+tooling.total+' passed; critical failures '+tooling.criticalFailures);
+ for(const x of tooling.results.filter(x=>!x.pass))console.log('Tooling retrieval miss:',x.id,'rank',x.rank,'missing evidence',JSON.stringify(x.missingEvidence));
+ assert(tooling.passedGate,'Tooling retrieval gate failed (>=5/6 and zero critical failures)');
  assert(starters.passedGate,'Starter retrieval gate failed (>=5/6 and zero critical failures)');
  assert(developer.passedGate,'Developer retrieval gate failed (>=17/18 and zero critical failures)');
  assert(result.passedGate,'Baseline retrieval acceptance gate failed (>=27/30 and zero critical failures)');
