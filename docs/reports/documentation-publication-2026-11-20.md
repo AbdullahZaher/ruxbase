@@ -40,8 +40,12 @@ These are deployment build's Lighthouse lab measurements, not field or comprehen
 ## Retained evidence
 
 - Published manifest SHA-256: `e8fd1277ffb896092de35e6c8bd5185884bd61f0e6bdfc24efd68d40ceb4fd65`.
-- Reviewed snapshot artifact [14656341470](https://github.com/AbdullahZaher/ruxbase/actions/runs/44788879672/artifacts/14656341470); GitHub-reported archive SHA-256 `279d963b1ec3219a0f3c7c03c6b71fd640a3204a6b558f72b7dab559bf94e2a0`; expiry 2026-12-20 18:10 UTC. Archive not independently downloaded in this discovery review. Retain beyond expiry in approved storage before relying on rollback.
+- Reviewed snapshot artifact [14656341470](https://github.com/AbdullahZaher/ruxbase/actions/runs/44788879672/artifacts/14656341470); GitHub-reported archive SHA-256 `279d963b1ec3219a0f3c7c03c6b71fd640a3204a6b558f72b7dab559bf94e2a0`; expiry 2026-12-20 18:10 UTC. Archive independently downloaded in the follow-up review: ZIP SHA-256, manifest SHA-256, exact file set and all 93 listed file sizes and hashes matched. Retain beyond expiry in approved storage before relying on rollback.
 - Pages artifact 14656516442; GitHub-reported SHA-256 `e8321a8991fc221d9057ec5c62b24f1d6683895ddd4433bdff9e1b8d9c370d89`; short-lived, not the recovery ZIP.
+
+## Independent retained artifact discovery check
+
+The archive contains 17 canonical sitemap URLs, each mapping to an existing HTML page. The sitemap index points to sitemap-0.xml. The AI index links all 17 Markdown pages, full context, build identity and scoped machine-readable references. version.json confirms the published commit/tree, clean development status and null release version. No api-viewer files are present. These checks establish the retained build content, not a separate live network check or search indexing evidence.
 
 ## Scope and unfinished external actions
 
