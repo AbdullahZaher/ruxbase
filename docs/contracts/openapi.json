@@ -3,7 +3,7 @@
   "info": {
     "title": "Ruxbase API (scoped reference)",
     "version": "development",
-    "description": "Development documentation. Health, generic record CRUD, vector search, selected record authentication and account management, and file token creation. Not full REST coverage or production certification."
+    "description": "Development documentation. Scoped public and administrative API contracts. Collection-specific schemas, full settings definitions and exhaustive errors are not specified. Not a complete REST specification or production certification."
   },
   "servers": [
     {
@@ -1222,6 +1222,550 @@
           }
         }
       }
+    },
+    "/api/collections": {
+      "get": {
+        "operationId": "listCollections",
+        "summary": "List collections",
+        "description": "Superuser authentication required. Returns the paginated collection metadata.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page number."
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Requested page size."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Sort expression."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter expression."
+          },
+          {
+            "name": "skipTotal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Skip total count calculation."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCollection",
+        "summary": "Create collection",
+        "description": "Superuser authentication required. Create a collection using a supported definition. Apply schema changes through reviewed development and migration procedures.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionSummary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "base",
+                      "auth",
+                      "view"
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}": {
+      "get": {
+        "operationId": "getCollection",
+        "summary": "View collection",
+        "description": "Superuser authentication required. Read collection metadata.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionSummary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateCollection",
+        "summary": "Update collection",
+        "description": "Superuser authentication required. Update the definition of an existing collection. Review schema and data impact before making changes.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionSummary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCollection",
+        "summary": "Delete collection",
+        "description": "Superuser authentication required. Destructive operation. Review dependencies, backups and recovery before proceeding.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Completed; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/rls": {
+      "get": {
+        "operationId": "getCollectionRLS",
+        "summary": "Inspect collection RLS",
+        "description": "Superuser authentication required. Inspect compiled collection policies and their apply status. See the RLS guide for supported policy scope.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RLSInspection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      }
+    },
+    "/api/collections/meta/scaffolds": {
+      "get": {
+        "operationId": "getCollectionScaffolds",
+        "summary": "List collection scaffolds",
+        "description": "Superuser authentication required. Returns initial definitions for supported collection types.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "base",
+                    "auth",
+                    "view"
+                  ],
+                  "properties": {
+                    "base": {
+                      "$ref": "#/components/schemas/CollectionSummary"
+                    },
+                    "auth": {
+                      "$ref": "#/components/schemas/CollectionSummary"
+                    },
+                    "view": {
+                      "$ref": "#/components/schemas/CollectionSummary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      }
+    },
+    "/api/collections/meta/oauth2-providers": {
+      "get": {
+        "operationId": "listOAuth2Providers",
+        "summary": "List OAuth2 providers",
+        "description": "Superuser authentication required. Returns available provider metadata. This route is experimental; it does not perform authentication.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "displayName",
+                      "logo"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "displayName": {
+                        "type": "string"
+                      },
+                      "logo": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "summary": "Read application settings",
+        "description": "Superuser authentication required. Treat the response as confidential; this documentation does not enumerate sensitive configuration.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSettings",
+        "summary": "Update application settings",
+        "description": "Superuser authentication required. Update reviewed settings. Cluster mode requires S3 storage; ordinary validation rules apply.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups": {
+      "get": {
+        "operationId": "listBackups",
+        "summary": "List backups",
+        "description": "Superuser authentication required. Lists stored backup metadata, not backup contents. Backup existence alone is not evidence of recoverability.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BackupInfo"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource errors may apply."
+          }
+        }
+      }
+    },
+    "/api/files/{collection}/{recordId}/{filename}": {
+      "get": {
+        "operationId": "downloadFile",
+        "summary": "Read record file",
+        "description": "Reads a file associated with a record. Protected files are subject to the collection view rule and file-token authentication context; public files have different access behavior. Use protected fields for private content. Requested supported thumbnails may fall back to the original. Response media type depends on the file.",
+        "security": [
+          {},
+          {
+            "FileToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Collection name or ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "in": "path",
+            "required": true,
+            "description": "Record identifier.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "description": "Stored file name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "thumb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested supported thumbnail size."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content; media type depends on the asset.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial file response where supported.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "File unavailable or request failed."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1400,6 +1944,100 @@
           "otp"
         ],
         "additionalProperties": true
+      },
+      "CollectionSummary": {
+        "type": "object",
+        "description": "Collection model; returned properties vary by type and configuration. This scoped schema does not describe every collection field or configuration option.",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "base",
+              "auth",
+              "view"
+            ]
+          }
+        }
+      },
+      "CollectionList": {
+        "type": "object",
+        "required": [
+          "page",
+          "perPage",
+          "totalItems",
+          "totalPages",
+          "items"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectionSummary"
+            }
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Administrative settings object; individual settings and sensitive values are intentionally not enumerated in this scoped contract. Treat responses as confidential."
+      },
+      "RLSInspection": {
+        "type": "object",
+        "required": [
+          "applyStatus",
+          "strict"
+        ],
+        "properties": {
+          "applyStatus": {
+            "type": "string"
+          },
+          "strict": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true,
+        "description": "Compiled policies and status. The result is diagnostic and not a guarantee of complete tenant isolation."
+      },
+      "BackupInfo": {
+        "type": "object",
+        "required": [
+          "key",
+          "size",
+          "modified"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "modified": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
       }
     },
     "securitySchemes": {
@@ -1408,8 +2046,20 @@
         "in": "header",
         "name": "Authorization",
         "description": "Record authentication token. Guest access is only available when the configured collection rule permits it."
+      },
+      "SuperuserToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Valid superuser authentication token. Do not expose administrative tokens in client-side applications or documentation. Normal record tokens do not grant administrative authority."
+      },
+      "FileToken": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "Short-lived file token where required by protected-file access rules; avoid logging or sharing token-bearing URLs."
       }
     }
   },
-  "x-ruxbase-coverage": "partial: 19 operations; excludes OAuth2, impersonation, file download and multipart, administration, batch, realtime, MCP and custom routes"
+  "x-ruxbase-coverage": "partial: 31 operations; excludes OAuth2 authentication, impersonation, multipart uploads, collection import/truncate/view dry-run, settings test routes, backup creation/download/restore/delete, logs, cron, SQL, RLS tokens, batch, realtime, MCP and custom routes"
 }

@@ -95,3 +95,7 @@ Integrated viewer build 44747611786 passed the static checks, OpenAPI, Scalar re
 ### Accessibility closure and auth reference increment
 
 Run 44748029804 passed all five representative axe configurations at the serious/critical threshold and verified Scalar rendering and its observed local-only requests; Quickstart 44748030978 passed. Expanded OpenAPI from seven to 19 operations using 14 additional source evidence blobs. This covers selected authentication/account-management operations and file-token creation, but not OAuth2, impersonation, file download, administrative APIs or full runtime behavior. Revalidate the new candidate; brand, full accessibility coverage, bundle review, versioning, rollback and publication remain open.
+
+### Collections and administrative contracts increment
+
+All four workflows passed on ec00b1962970e068e4cf249645231e3850a2b4ba (19 operations). Expanded to 31 scoped operations, adding collections, settings, backup metadata and file reads. Added separate superuser/file-token schemes, administrative scope checks, and browser rendering checks for the new groups. The remaining API families and complete schema/error/runtime coverage, final brand, bundle/license review, versioning, rollback and Pages publication remain open. Require new CI evidence.

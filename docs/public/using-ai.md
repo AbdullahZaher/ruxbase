@@ -24,4 +24,4 @@ The text index improves direct retrieval, but does not promise that any search e
 
 ## Machine-readable references
 
-[OpenAPI JSON](/ruxbase/openapi.json) covers health, record CRUD, vector search, selected authentication and account management, and file tokens; not the complete API. [Feature manifest](/ruxbase/feature-manifest.json), [CLI flags](/ruxbase/cli-reference.json), and [configuration settings](/ruxbase/configuration-reference.json) record their scope and source identity.
+[OpenAPI JSON](/ruxbase/openapi.json) covers health, records, vector search, selected authentication, files, collections, settings and backup metadata; not the complete API. [Feature manifest](/ruxbase/feature-manifest.json), [CLI flags](/ruxbase/cli-reference.json), and [configuration settings](/ruxbase/configuration-reference.json) record their scope and source identity.

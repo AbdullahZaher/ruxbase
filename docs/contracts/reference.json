@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "documentationStatus": "development",
   "coverage": {
-    "openapi": "19 operations: health, CRUD, vector search, selected record authentication/account management, file token; other API families excluded",
+    "openapi": "31 operations: health, records, vector search, selected auth, files, collections, settings and backup listing; other routes excluded",
     "cli": "core startup and serve flags; other commands omitted",
     "configuration": "selected database and realtime settings",
     "features": "documented development capabilities; not production certification"
@@ -43,7 +43,11 @@
     "apis/record_auth_email_change_request.go": "ee4ccfec72e9da4efb3998aacf055d21ddab423f",
     "apis/record_auth_email_change_confirm.go": "a43164250c45492f18dbee7f90687f973ed64b54",
     "apis/record_helpers.go": "a81acfb53b23fc3b160dd92b4a42edb8de46904b",
-    "apis/file.go": "5921fada5629e4990e0316f471f6395633e75ea3"
+    "apis/file.go": "5921fada5629e4990e0316f471f6395633e75ea3",
+    "apis/collection.go": "5edc2462d67cd4d2f0eca5a0da46d7134f5e3ee4",
+    "apis/collection_rls.go": "3642c978bf6be73cc5f5b67af39fab36a0b1d16c",
+    "apis/settings.go": "5f0f1dfbf3343a92af325431eba9a48fbfcd7fa2",
+    "apis/backup.go": "b27934f575606055734a811e71648c7f7b054f"
   },
   "cli": [
     {
@@ -311,6 +315,78 @@
       "method": "POST",
       "path": "/api/files/token",
       "operationId": "createFileToken",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections",
+      "operationId": "listCollections",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections",
+      "operationId": "createCollection",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}",
+      "operationId": "getCollection",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{collection}",
+      "operationId": "updateCollection",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}",
+      "operationId": "deleteCollection",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/rls",
+      "operationId": "getCollectionRLS",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/meta/scaffolds",
+      "operationId": "getCollectionScaffolds",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/meta/oauth2-providers",
+      "operationId": "listOAuth2Providers",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "operationId": "getSettings",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings",
+      "operationId": "updateSettings",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/backups",
+      "operationId": "listBackups",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/files/{collection}/{recordId}/{filename}",
+      "operationId": "downloadFile",
       "success": "200"
     }
   ]

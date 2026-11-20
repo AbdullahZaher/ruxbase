@@ -1,11 +1,11 @@
 ---
 title: API reference
-description: Explore health, record, vector search, authentication and file token contracts.
+description: Explore scoped data, authentication, file and administrative API contracts.
 ---
 
 **Development documentation.** Scoped reference, not a certified production release.
 
-The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **19 operations**: health, record CRUD, vector search, selected record authentication and account management, and file tokens. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
+The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **31 operations**: health, records, vector search, selected authentication, files, collections, settings and backup metadata. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
 
 [Open the Scalar API viewer](/ruxbase/api-viewer/) to explore the same contract. The viewer is for documentation only and does not provide a live API request console. Static text and Markdown remain the authoritative readable references.
 
@@ -72,6 +72,27 @@ Authentication is configured per auth collection. Password and OTP authenticatio
 
 The auth-refresh, request-email-change and file-token operations require authenticated context. Review each operation's JSON request schema and authentication requirements in the OpenAPI contract. Account-specific rules and application-defined fields remain authoritative.
 
+## Collections, files and administration
+
+Collection metadata, settings and backup metadata operations in the following table require superuser authentication. Administrative responses may contain sensitive configuration. Do not embed administrative credentials in browser applications or expose them through documentation. Review and back up data before making destructive schema changes. The file read operation follows the protection configured on the file field.
+
+| Method | Path | Success |
+| --- | --- | --- |
+| GET | `/api/collections` | 200 |
+| POST | `/api/collections` | 200 |
+| GET | `/api/collections/{collection}` | 200 |
+| PATCH | `/api/collections/{collection}` | 200 |
+| DELETE | `/api/collections/{collection}` | 204 |
+| GET | `/api/collections/{collection}/rls` | 200 |
+| GET | `/api/collections/meta/scaffolds` | 200 |
+| GET | `/api/collections/meta/oauth2-providers` | 200 |
+| GET | `/api/settings` | 200 |
+| PATCH | `/api/settings` | 200 |
+| GET | `/api/backups` | 200 |
+| GET | `/api/files/{collection}/{recordId}/{filename}` | 200 |
+
+The collection and settings schemas are intentionally open objects, rather than exhaustive field-by-field contracts. The RLS inspection response is diagnostic; review [row-level security](/ruxbase/authorization/row-level-security/) for limits. Backup metadata does not establish restore readiness; see [operations](/ruxbase/operations/overview/). The OAuth2 provider metadata route is experimental.
+
 ## Scope
 
-OAuth2, impersonation, file downloads/multipart uploads, administrative APIs, realtime, batch, MCP and custom routes are not fully represented. The contract describes selected success responses; error details and collection-specific schemas remain outside this increment.
+Excluded in this increment: OAuth2 authentication, impersonation, multipart uploads, collection import/truncate/view dry-run, settings test routes, backup creation/download/restore/delete, logs, cron, SQL, RLS tokens, batch, realtime, MCP and custom routes. The contract covers selected responses; exhaustive errors, complete configuration and collection definitions and runtime behavior are not yet certified.
