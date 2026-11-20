@@ -36,7 +36,7 @@ jobs:
           node scripts/check-ai.mjs
           python3 tests/test-recover-docs-snapshot.py
           python3 scripts/rehearse-docs-recovery.py
-      - name: Evaluate 30 documentation retrieval queries
+      - name: Evaluate all 60 documentation retrieval queries
         working-directory: website
         run: npm run test:retrieval
       - name: Independent OpenAPI schema validation

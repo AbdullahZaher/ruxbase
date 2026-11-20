@@ -14,6 +14,20 @@ description: Give AI assistants version-specific Ruxbase documentation and machi
 
 Give your assistant the specific documentation page or the index, ask it to identify the source commit and cite the relevant section, and verify examples against your actual installed version. Treat features with documented limitations accordingly. Do not assume full PocketBase or Supabase compatibility.
 
+## Integration-specific context
+
+Use [llms-integrations.txt](/ruxbase/llms-integrations.txt) for client setup, collection rules, JavaScript, SSR, REST and mobile questions before loading the full context. Each guide states its evidence boundary. Use the published source identity when checking whether SDK methods match your installed server. Do not invent a Ruxbase-specific SDK or claim framework/device certification from generic SDK tests.
+
+## Topic-specific AI bundles
+
+- [Core concepts](/ruxbase/llms-concepts.txt) — schema, records, rules and authentication.
+- [Integration and tutorials](/ruxbase/llms-integrations.txt) — frontend, server and mobile clients.
+- [HTTP and machine references](/ruxbase/llms-api.txt) — operation scope and examples.
+- [Server extensions](/ruxbase/llms-extensions.txt) — Go and embedded JavaScript.
+- [PostgreSQL and operations](/ruxbase/llms-operations.txt) — data features, authorization and deployment.
+
+Start from llms.txt and select the smallest topic that answers the question. All bundles have exact source identity and are built only from the approved public corpus. A guide that labels a framework example illustrative must not be used as evidence of tested framework support.
+
 ## Working in the source repository
 
 Read the project's [AGENTS.md](https://github.com/AbdullahZaher/ruxbase/blob/main/AGENTS.md), upstream policy and relevant tests. Review [compatibility](/ruxbase/migration/compatibility/) before relying on upstream SDK behavior.

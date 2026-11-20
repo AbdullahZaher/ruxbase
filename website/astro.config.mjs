@@ -30,6 +30,12 @@ export default defineConfig({
     social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/AbdullahZaher/ruxbase' }],
     sidebar: [
       { label: 'Getting started', items: [{ autogenerate: { directory: 'getting-started' } }] },
+      { label: 'SDKs & Integrations', items: [{ autogenerate: { directory: 'integrations' } }] },
+      { label: 'Core concepts', items: [{ autogenerate: { directory: 'concepts' } }] },
+      { label: 'Tutorials', items: [{ autogenerate: { directory: 'tutorials' } }] },
+      { label: 'Extend with Go', items: [{ autogenerate: { directory: 'extend-go' } }] },
+      { label: 'Extend with JavaScript', items: [{ autogenerate: { directory: 'extend-js' } }] },
+      { label: 'PostgreSQL native', items: [{ autogenerate: { directory: 'postgresql' } }] },
       { label: 'Data', items: [{ autogenerate: { directory: 'data' } }] },
       { label: 'Authorization', items: [{ autogenerate: { directory: 'authorization' } }] },
       { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },

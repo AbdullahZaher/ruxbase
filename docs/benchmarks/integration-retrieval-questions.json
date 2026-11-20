@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "scope": "12 authored English integration queries across the entire public Markdown corpus; top 3 rank with exact normalized evidence. Not a model answer evaluation.",
+  "questions": [
+    {
+      "id": "sdk-choice",
+      "query": "Is there a Ruxbase npm SDK or should I use the official PocketBase JavaScript client?",
+      "target": "integrations/overview.md",
+      "evidence": [
+        "official PocketBase JavaScript SDK",
+        "not a separate Ruxbase npm SDK"
+      ],
+      "critical": true
+    },
+    {
+      "id": "server-origin",
+      "query": "Is the GitHub Pages URL the application server or do I use the Ruxbase server origin?",
+      "target": "integrations/overview.md",
+      "evidence": [
+        "documentation URL is not a Ruxbase API server"
+      ],
+      "critical": true
+    },
+    {
+      "id": "posts-schema",
+      "query": "Which fields and relation target should I configure for the example posts collection?",
+      "target": "integrations/example-app.md",
+      "evidence": [
+        "author",
+        "Target users",
+        "cover"
+      ],
+      "critical": false
+    },
+    {
+      "id": "posts-rules",
+      "query": "How does the example posts collection restrict guest create and owner access to drafts?",
+      "target": "integrations/example-app.md",
+      "evidence": [
+        "published = true || author = @request.auth.id",
+        "@request.auth.id != '' && author = @request.auth.id"
+      ],
+      "critical": true
+    },
+    {
+      "id": "sdk-install",
+      "query": "Which exact package version should I install for JavaScript and TypeScript SDK?",
+      "target": "integrations/javascript.md",
+      "evidence": [
+        "pocketbase@0.28.1"
+      ],
+      "critical": false
+    },
+    {
+      "id": "sdk-query",
+      "query": "How can the JavaScript SDK bind filter parameters q and min and paginate listPosts?",
+      "target": "integrations/javascript.md",
+      "evidence": [
+        "client.filter",
+        "getList(1, 2"
+      ],
+      "critical": true
+    },
+    {
+      "id": "sdk-upload",
+      "query": "How can JavaScript upload a cover file with FormData and getURL?",
+      "target": "integrations/javascript.md",
+      "evidence": [
+        "data.append(\"cover\", file)",
+        "pb.files.getURL"
+      ],
+      "critical": false
+    },
+    {
+      "id": "ssr-isolation",
+      "query": "Can Next.js SSR share a mutable user auth store across concurrent requests?",
+      "target": "integrations/server-side.md",
+      "evidence": [
+        "Never share a mutable user auth store",
+        "each incoming request"
+      ],
+      "critical": true
+    },
+    {
+      "id": "ssr-cookie",
+      "query": "How should server-side session adapter loadFromCookie, authRefresh and exportToCookie handle failed refresh?",
+      "target": "integrations/server-side.md",
+      "evidence": [
+        "loadFromCookie",
+        "authRefresh",
+        "pb.authStore.clear()"
+      ],
+      "critical": true
+    },
+    {
+      "id": "http-token",
+      "query": "What Authorization header token format is used for REST HTTP record requests?",
+      "target": "integrations/rest.md",
+      "evidence": [
+        "Authorization header containing the record token itself",
+        "Do not assume a Bearer prefix is required"
+      ],
+      "critical": true
+    },
+    {
+      "id": "mobile-address",
+      "query": "Why is mobile device emulator localhost different from computer running Ruxbase?",
+      "target": "integrations/mobile.md",
+      "evidence": [
+        "device's localhost is not necessarily the computer"
+      ],
+      "critical": false
+    },
+    {
+      "id": "dart-status",
+      "query": "Does Ruxbase currently have React Native device tests or Dart SDK compatibility suite?",
+      "target": "integrations/mobile.md",
+      "evidence": [
+        "does not currently run React Native device tests or a Dart SDK compatibility suite"
+      ],
+      "critical": true
+    }
+  ]
+}

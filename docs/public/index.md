@@ -26,6 +26,19 @@ before choosing a deployment configuration.
 
 [Using Ruxbase with AI](/ruxbase/ai/using-ruxbase-with-ai/) — direct Markdown, AI context and version identity.
 
+## Build an application
+
+- [Choose an integration](/ruxbase/integrations/overview/)
+- [Set up the example app](/ruxbase/integrations/example-app/)
+- [JavaScript SDK](/ruxbase/integrations/javascript/) and [REST](/ruxbase/integrations/rest/)
+- [Server-side integration](/ruxbase/integrations/server-side/) and [mobile integration](/ruxbase/integrations/mobile/)
+
+## Learn and extend
+- [Collections](/ruxbase/concepts/collections/) · [Field types](/ruxbase/concepts/fields/) · [Records](/ruxbase/concepts/records/) · [Authentication](/ruxbase/concepts/authentication/)
+- [API rules](/ruxbase/concepts/rules/) · [Relations](/ruxbase/concepts/relations/) · [Files](/ruxbase/concepts/files/)
+- [Browser SPA](/ruxbase/integrations/react/) · [Server adapters](/ruxbase/integrations/nextjs/) · [Complete local tutorial](/ruxbase/tutorials/posts-app/)
+- [Extend with Go](/ruxbase/extend-go/overview/) · [Extend with JavaScript](/ruxbase/extend-js/overview/) · [PostgreSQL native](/ruxbase/postgresql/overview/) · [Deploy](/ruxbase/operations/deployment/) · [Recover](/ruxbase/operations/recovery/)
+
 ## Explore the guides
 
 - [Development mode](/ruxbase/getting-started/development/) — Run Ruxbase locally with embedded PostgreSQL.

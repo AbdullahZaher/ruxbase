@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "scope": "18 authored developer questions, all public pages, top-three lexical and normalized evidence; not LLM answers",
+  "questions": [
+    {
+      "id": "types",
+      "query": "What collection types base auth and view are supported and which is read-only?",
+      "target": "concepts/collections.md",
+      "evidence": [
+        "base, auth and view",
+        "Read-only records"
+      ],
+      "critical": true
+    },
+    {
+      "id": "field-json",
+      "query": "What API logical field values and PostgreSQL JSONB storage behavior apply to record fields?",
+      "target": "concepts/fields.md",
+      "evidence": [
+        "JSONB",
+        "does not preserve input formatting"
+      ],
+      "critical": false
+    },
+    {
+      "id": "records-pagination",
+      "query": "Which SDK record lifecycle methods getList getOne create update delete map to HTTP?",
+      "target": "concepts/records.md",
+      "evidence": [
+        "getList(page, perPage, options)",
+        "DELETE record ID"
+      ],
+      "critical": false
+    },
+    {
+      "id": "auth-methods",
+      "query": "Which ordinary account workflows support OTP MFA and account recovery?",
+      "target": "concepts/authentication.md",
+      "evidence": [
+        "auth-with-otp",
+        "MFA is configuration-dependent"
+      ],
+      "critical": true
+    },
+    {
+      "id": "rules-filters",
+      "query": "What is a locked API rule null compared to client filter authorization?",
+      "target": "concepts/rules.md",
+      "evidence": [
+        "locked rule (null)",
+        "client filter only narrows"
+      ],
+      "critical": true
+    },
+    {
+      "id": "expanded-relations",
+      "query": "Why can author be absent from expand even when the relation ID exists?",
+      "target": "concepts/relations.md",
+      "evidence": [
+        "absent from expand",
+        "collection view rules"
+      ],
+      "critical": true
+    },
+    {
+      "id": "storage-protected",
+      "query": "What should be done with protected file URLs and shared S3 storage in a multi-instance application?",
+      "target": "concepts/files.md",
+      "evidence": [
+        "token-bearing URLs",
+        "shared S3-compatible storage"
+      ],
+      "critical": true
+    },
+    {
+      "id": "react-lifecycle",
+      "query": "Where is the React PostList effect cleanup and stale state guard?",
+      "target": "integrations/react.md",
+      "evidence": [
+        "let active = true",
+        "active = false"
+      ],
+      "critical": false
+    },
+    {
+      "id": "adapter-framework",
+      "query": "Which framework server adapter location is used in Nitro and SvelteKit event.locals?",
+      "target": "integrations/nextjs.md",
+      "evidence": [
+        "Nitro",
+        "event.locals"
+      ],
+      "critical": false
+    },
+    {
+      "id": "account-http",
+      "query": "What does a 401 with mfaId mean for a password HTTP response?",
+      "target": "reference/account-api.md",
+      "evidence": [
+        "401 with mfaId",
+        "Not every 401"
+      ],
+      "critical": true
+    },
+    {
+      "id": "go-start",
+      "query": "How do I compile the custom Go docs example and register OnServe route?",
+      "target": "extend-go/overview.md",
+      "evidence": [
+        "go build -o ruxbase-docs-go ./examples/docs-go",
+        "OnServe().BindFunc"
+      ],
+      "critical": false
+    },
+    {
+      "id": "go-tx",
+      "query": "Which txApp should Go RunInTransaction data model functions use?",
+      "target": "extend-go/data-hooks.md",
+      "evidence": [
+        "app.RunInTransaction",
+        "txApp.Save(record)"
+      ],
+      "critical": true
+    },
+    {
+      "id": "js-route",
+      "query": "How does the embedded Goja runtime register a routerAdd hello.pb.js route?",
+      "target": "extend-js/overview.md",
+      "evidence": [
+        "routerAdd",
+        "hello.pb.js"
+      ],
+      "critical": false
+    },
+    {
+      "id": "js-migrations",
+      "query": "What migrate(up, down) callbacks and pb_migrations directory does embedded JavaScript use?",
+      "target": "extend-js/data-migrations.md",
+      "evidence": [
+        "migrate(up, down)",
+        "pb_migrations"
+      ],
+      "critical": false
+    },
+    {
+      "id": "postgres-boundary",
+      "query": "What PostgreSQL native developer database and credential boundaries apply to DATABASE_URL?",
+      "target": "postgresql/overview.md",
+      "evidence": [
+        "never the browser",
+        "distinct capabilities"
+      ],
+      "critical": true
+    },
+    {
+      "id": "docker-deploy",
+      "query": "What user uid 10001 and container port is used in Docker local deployment smoke?",
+      "target": "operations/deployment.md",
+      "evidence": [
+        "10001",
+        "127.0.0.1:8090:8090"
+      ],
+      "critical": false
+    },
+    {
+      "id": "recovery-cli",
+      "query": "Does backup restore use CLI after stopping instances rather than inherited restore API?",
+      "target": "operations/recovery.md",
+      "evidence": [
+        "ruxbase restore",
+        "all instances have been stopped"
+      ],
+      "critical": true
+    },
+    {
+      "id": "tutorial",
+      "query": "How do I run the same origin local posts application from examples/docs-posts?",
+      "target": "tutorials/posts-app.md",
+      "evidence": [
+        "--publicDir=./examples/docs-posts",
+        "memory only"
+      ],
+      "critical": false
+    }
+  ]
+}

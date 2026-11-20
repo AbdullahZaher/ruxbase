@@ -11,6 +11,7 @@ import { parse as parseYaml } from 'yaml';
 import { rewriteLegacyUrl } from './legacy-links.mjs';
 import { SITE_BASE, absolute, routeFor, markdownFor } from './site-config.mjs';
 import { validatePage, assertWithin } from './prepare.mjs';
+import { TOPICS, introFor, topicPages, makeTopic } from './ai-topics.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = join(root, 'website/dist');
@@ -64,12 +65,17 @@ export async function exportAI() {
     outputs.set(e.target,content);
     pages.push({...page, sha256:hash(content)});
   }
-  const intro = '# Ruxbase documentation\n\n> PostgreSQL-native self-hosted backend platform. Development documentation, not a certified production release.\n\nSource commit: ' + identity.sourceCommit + '\n\n';
+  const intro = introFor(identity);
   const index = intro + '## Documentation\n\n' + pages.map(p => '- [' + p.title + '](' + p.markdown + '): ' + p.description).join('\n') +
     '\n\n## Optional\n\n- [Full context](' + absolute(SITE_BASE+'llms-full.txt') + ')\n- [Build identity](' + absolute(SITE_BASE+'version.json') + ')\n';
   const full = intro + pages.map(p => outputs.get(p.target)).join('\n---\n\n');
   if (Buffer.byteLength(full)>1048576) throw new Error('Full context exceeds 1 MiB; introduce topic bundles before increasing the limit');
-  outputs.set('llms.txt',index+'\n## Machine-readable references (scoped)\n\n'+['versions.json','artifact-manifest.json','openapi.json','api-coverage.json','feature-manifest.json','cli-reference.json','configuration-reference.json'].map(name=>'- ['+name+']('+absolute(SITE_BASE+name)+')').join('\n')+'\n');
+  for (const topic of TOPICS) {
+    const selected = topicPages(pages, topic);
+    outputs.set(topic.name, makeTopic(identity, topic, selected.map(p=>outputs.get(p.target))));
+  }
+  const topicIndex = TOPICS.map(t=>'- ['+t.title+']('+absolute(SITE_BASE+t.name)+')').join('\n');
+  outputs.set('llms.txt',index+'\n## Topic context\n\n'+topicIndex+'\n\n## Machine-readable references (scoped)\n\n'+['versions.json','artifact-manifest.json','openapi.json','api-coverage.json','feature-manifest.json','cli-reference.json','configuration-reference.json'].map(name=>'- ['+name+']('+absolute(SITE_BASE+name)+')').join('\n')+'\n');
   outputs.set('llms-full.txt',full);
   outputs.set('version.json',JSON.stringify({...identity,pageCount:pages.length},null,2)+'\n');
   outputs.set('documentation-manifest.json',JSON.stringify({...identity,pages},null,2)+'\n');

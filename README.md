@@ -35,6 +35,8 @@ dependency or synchronization source.
 
 ## Documentation
 
+[SDKs and integrations](https://abdullahzaher.github.io/ruxbase/integrations/overview/) — [JavaScript](https://abdullahzaher.github.io/ruxbase/integrations/javascript/), [REST](https://abdullahzaher.github.io/ruxbase/integrations/rest/), [integration context for AI](https://abdullahzaher.github.io/ruxbase/llms-integrations.txt).
+
 The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes the published development snapshot; it is not a stable release. Check [build identity](https://abdullahzaher.github.io/ruxbase/version.json) against your checkout before relying on version-specific behavior.
 
 - [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) and [API reference](https://abdullahzaher.github.io/ruxbase/reference/api/)
@@ -42,6 +44,8 @@ The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes t
 - [OpenAPI](https://abdullahzaher.github.io/ruxbase/openapi.json), [API coverage](https://abdullahzaher.github.io/ruxbase/api-coverage.json), [feature manifest](https://abdullahzaher.github.io/ruxbase/feature-manifest.json), [CLI reference](https://abdullahzaher.github.io/ruxbase/cli-reference.json), and [configuration reference](https://abdullahzaher.github.io/ruxbase/configuration-reference.json)
 
 The checked-out sources and tests remain authoritative when they differ from a previously published snapshot. API contracts are scoped, and MCP is documented separately.
+
+For application design and server extensions, see [core concepts](https://abdullahzaher.github.io/ruxbase/concepts/collections/), [local tutorial](https://abdullahzaher.github.io/ruxbase/tutorials/posts-app/), [Go extensions](https://abdullahzaher.github.io/ruxbase/extend-go/overview/) and [JavaScript extensions](https://abdullahzaher.github.io/ruxbase/extend-js/overview/).
 
 ## Current capabilities
 

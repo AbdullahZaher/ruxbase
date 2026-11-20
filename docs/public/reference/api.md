@@ -36,6 +36,12 @@ Without the `ready` query parameter, the handler reports liveness (HTTP 200 and 
 
 See [operations](/ruxbase/operations/overview/). SSE is represented as a scoped HTTP transport contract; MCP and custom routes remain outside OpenAPI. Collection schemas and permissions are application-specific.
 
+## Detailed client examples
+
+- [Record HTTP examples](/ruxbase/reference/records-api/)
+- [Account HTTP examples](/ruxbase/reference/account-api/)
+- [File HTTP examples](/ruxbase/reference/file-api/)
+
 ## Record operations
 
 | Method | Path | Success |

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { fromHtml } from 'hast-util-from-html';
 import { SITE_BASE, SITE_ORIGIN, absolute, routeFor, markdownFor } from './site-config.mjs';
 import { splitPage, rewriteContextLinks, markdownDocument } from './export-ai.mjs';
+import { TOPICS, topicPages, makeTopic } from './ai-topics.mjs';
 
 const root = fileURLToPath(new URL('../../',import.meta.url));
 const dist = join(root,'website/dist');
@@ -73,6 +74,14 @@ for(const match of index.matchAll(/\]\((https?:\/\/[^)]+)\)/g)) {
   const url=new URL(match[1]);
   assert(url.origin===SITE_ORIGIN && url.pathname.startsWith(SITE_BASE),'Unexpected index origin');
   await stat(join(dist,url.pathname.slice(SITE_BASE.length)));
+}
+for (const topic of TOPICS) {
+  const selected=topicPages(output.pages,topic);
+  const actual=await read(topic.name);
+  const expected=makeTopic(version,topic,await Promise.all(selected.map(p=>read(p.target))));
+  assert(actual===expected && Buffer.byteLength(actual)<=262144,'Topic context mismatch: '+topic.name);
+  assert(index.includes(']('+absolute(SITE_BASE+topic.name)+')'),'Missing topic discovery: '+topic.name);
+  console.log('Verified topic '+topic.name+': '+selected.length+' exact Markdown pages.');
 }
 const preview=await readFile(join(dist,'social-preview.png'));
 const original=await readFile(join(root,'assets/brand/ruxbase.png'));
