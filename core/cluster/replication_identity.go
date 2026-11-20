@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // DedicatedReplication identifies a separately provisioned WAL login.
@@ -82,4 +83,26 @@ SELECT session_user = $1 AND current_user = $1
 		return nil, errors.New("dedicated replication authority rejected")
 	}
 	return config, nil
+}
+
+// connect starts a replication-mode connection using the explicitly checked
+// configuration. Verify the session identity before entering COPY mode.
+func (d DedicatedReplication) connect(ctx context.Context, appDSN string) (*pgconn.PgConn, error) {
+	config, err := d.check(ctx, appDSN)
+	if err != nil {
+		return nil, err
+	}
+	config.RuntimeParams["replication"] = "database"
+	conn, err := pgconn.ConnectConfig(ctx, &config.Config)
+	if err != nil {
+		return nil, errors.New("dedicated WAL connection unavailable")
+	}
+	results, err := conn.Exec(ctx, "SELECT session_user::text, current_user::text, current_database()::text").ReadAll()
+	if err != nil || len(results) != 1 || len(results[0].Rows) != 1 ||
+		len(results[0].Rows[0]) != 3 || string(results[0].Rows[0][0]) != d.Role ||
+		string(results[0].Rows[0][1]) != d.Role || string(results[0].Rows[0][2]) != config.Database {
+		_ = conn.Close(ctx)
+		return nil, errors.New("dedicated WAL session identity rejected")
+	}
+	return conn, nil
 }
