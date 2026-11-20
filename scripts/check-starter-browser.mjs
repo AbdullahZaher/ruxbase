@@ -10,6 +10,7 @@ const email=process.env.RUXBASE_TEST_EMAIL, password=process.env.RUXBASE_TEST_PA
 if(!origin?.startsWith("http://127.0.0.1:")||!draftName||!email||!password)throw Error("Missing browser test URL and ephemeral credentials");
 const profile=await mkdtemp(join(tmpdir(),"rux-starter-browser-"));
 let chrome,ws;
+let diagnostics=async()=>"DOM unavailable";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,message,timeout=40000){
  const end=Date.now()+timeout;
@@ -46,6 +47,7 @@ try{
   if(result.exceptionDetails)throw Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);
   return result.result.value;
  }
+ diagnostics=()=>evaluate('document.body?.innerText.slice(0,1200) || document.documentElement.outerHTML.slice(0,1200)');
  await send("Page.enable");await send("Runtime.enable");
  await send("Page.navigate",{url:origin});
  await until(()=>evaluate('document.readyState === "complete" && !!document.querySelector("h1")'),"starter DOM");
@@ -70,8 +72,16 @@ try{
  assert.deepEqual(await evaluate('Object.keys(localStorage).filter(k=>/pocketbase|auth|token/i.test(k))'),[],"Unexpected persistent browser token");
  assert.deepEqual(failures,[],"Uncaught browser exceptions");
  console.log("Starter browser PASS:",origin,"health, black/white theme, ordinary user login, owner draft, logout isolation.");
+}catch(error){
+  let body="not available";
+  try { body=await diagnostics(); }catch{}
+  console.error("Starter browser diagnostic:",origin,error.message,"DOM:",body);
+  throw error;
 }finally{
  try{ws?.close();}catch{}
  if(chrome?.pid){chrome.kill();await new Promise(resolve=>{if(chrome.exitCode!==null)resolve();else chrome.once("exit",resolve);});}
- await rm(profile,{recursive:true,force:true});
+ // Chromium can briefly keep auxiliary profile handles active after its
+ // parent exits; do not mask the actual browser acceptance failure.
+ try{await rm(profile,{recursive:true,force:true,maxRetries:12,retryDelay:500});}
+ catch(error){console.warn("Chromium temporary profile cleanup:",error.code);}
 }
