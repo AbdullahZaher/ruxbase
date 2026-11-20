@@ -3,7 +3,7 @@
   "info": {
     "title": "Ruxbase API (scoped reference)",
     "version": "development",
-    "description": "Development documentation. Scoped public and administrative API contracts. Collection-specific schemas, full settings definitions and exhaustive errors are not specified. Not a complete REST specification or production certification."
+    "description": "Development documentation. Scoped public and operational API contracts; schemas and runtime behavior are not exhaustively verified."
   },
   "servers": [
     {
@@ -1687,6 +1687,41 @@
             "description": "Request failed; validation, authorization and resource errors may apply."
           }
         }
+      },
+      "post": {
+        "operationId": "createBackup",
+        "summary": "Create backup",
+        "description": "Superuser authentication required. Success does not certify recoverability or immediate object listing visibility.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Optional backup name, validated by the server."
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/files/{collection}/{recordId}/{filename}": {
@@ -1763,6 +1798,487 @@
           },
           "default": {
             "description": "File unavailable or request failed."
+          }
+        }
+      }
+    },
+    "/api/collections/import": {
+      "put": {
+        "operationId": "importCollections",
+        "summary": "Import collection definitions",
+        "description": "Superuser authentication required. Schema-changing administrative operation. Review the proposed schema and deletion policy in a disposable environment and verify backups.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "collections"
+                ],
+                "properties": {
+                  "collections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "deleteMissing": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/truncate": {
+      "delete": {
+        "operationId": "truncateCollection",
+        "summary": "Truncate collection",
+        "description": "Superuser authentication required. Destructive operation; view collections cannot be truncated. Use approved recovery and change procedures.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "operationId": "listLogs",
+        "summary": "List application logs",
+        "description": "Superuser authentication required. Logs may contain sensitive information.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skipTotal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "page",
+                    "perPage",
+                    "totalItems",
+                    "totalPages",
+                    "items"
+                  ],
+                  "properties": {
+                    "page": {
+                      "type": "integer"
+                    },
+                    "perPage": {
+                      "type": "integer"
+                    },
+                    "totalItems": {
+                      "type": "integer"
+                    },
+                    "totalPages": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "truncateLogs",
+        "summary": "Truncate logs",
+        "description": "Superuser authentication required. Destructive log deletion; follow retention and incident investigation policy.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/logs/{id}": {
+      "get": {
+        "operationId": "getLog",
+        "summary": "Read log entry",
+        "description": "Superuser authentication required. Log details are confidential.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/logs/stats": {
+      "get": {
+        "operationId": "getLogStats",
+        "summary": "Read log statistics",
+        "description": "Superuser authentication required. Statistic entry fields are not exhaustively specified.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/crons": {
+      "get": {
+        "operationId": "listCronJobs",
+        "summary": "List scheduled jobs",
+        "description": "Superuser authentication required. Returns registered job identifiers and schedule expressions.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "expression"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "expression": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/crons/{id}": {
+      "post": {
+        "operationId": "runCronJob",
+        "summary": "Request scheduled job execution",
+        "description": "Superuser authentication required. Asynchronous execution; HTTP 204 does not prove job completion.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/backups/upload": {
+      "post": {
+        "operationId": "uploadBackup",
+        "summary": "Upload backup archive",
+        "description": "Superuser authentication required. Upload a reviewed ZIP archive. Upload does not prove recoverability.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/{key}": {
+      "get": {
+        "operationId": "downloadBackup",
+        "summary": "Read backup archive",
+        "description": "Requires appropriate superuser file token and administrative access policy. Backup contents are sensitive.",
+        "security": [
+          {
+            "SuperuserFileToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup archive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBackup",
+        "summary": "Delete backup",
+        "description": "Superuser authentication required. Destructive backup deletion; review retention and recovery alternatives.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
+          }
+        }
+      }
+    },
+    "/api/backups/{key}/restore": {
+      "post": {
+        "operationId": "restoreBackup",
+        "summary": "Request backup restore",
+        "description": "Superuser authentication required. Potentially destructive asynchronous restore. Use approved recovery procedures; HTTP 204 is not completion evidence.",
+        "security": [
+          {
+            "SuperuserToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Request completed or accepted; no response body."
+          },
+          "default": {
+            "description": "Request failed; validation, authorization and resource state determine the error."
           }
         }
       }
@@ -2058,8 +2574,14 @@
         "in": "query",
         "name": "token",
         "description": "Short-lived file token where required by protected-file access rules; avoid logging or sharing token-bearing URLs."
+      },
+      "SuperuserFileToken": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token",
+        "description": "File token for a superuser; keep token-bearing URLs confidential and obey administrative access policy."
       }
     }
   },
-  "x-ruxbase-coverage": "partial: 31 operations; excludes OAuth2 authentication, impersonation, multipart uploads, collection import/truncate/view dry-run, settings test routes, backup creation/download/restore/delete, logs, cron, SQL, RLS tokens, batch, realtime, MCP and custom routes"
+  "x-ruxbase-coverage": "partial: 44 operations"
 }

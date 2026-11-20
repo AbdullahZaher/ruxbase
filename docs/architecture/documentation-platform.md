@@ -99,3 +99,7 @@ Run 44748029804 passed all five representative axe configurations at the serious
 ### Collections and administrative contracts increment
 
 All four workflows passed on ec00b1962970e068e4cf249645231e3850a2b4ba (19 operations). Expanded to 31 scoped operations, adding collections, settings, backup metadata and file reads. Added separate superuser/file-token schemes, administrative scope checks, and browser rendering checks for the new groups. The remaining API families and complete schema/error/runtime coverage, final brand, bundle/license review, versioning, rollback and Pages publication remain open. Require new CI evidence.
+
+### Operational contracts and route coverage
+
+Prior documentation, foundation and Quickstart passed on 7581a9d2fa1b49df7244f8781ef5184f430ed00e. Full CI failed TestSuperuserIPsWhitelist (PostgreSQL 18, missing expected events); retry requested without runtime changes or waivers. Added 13 scoped operational contracts and a bounded static registration scanner with expected binder set and route count; publishes api-coverage.json with covered/uncovered status. This scanner is not a general Go parser. All source evidence verified against Git tree. New build and runtime certification remain open.

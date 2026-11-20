@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "documentationStatus": "development",
   "coverage": {
-    "openapi": "31 operations: health, records, vector search, selected auth, files, collections, settings and backup listing; other routes excluded",
+    "openapi": "44 scoped operations: health, records, selected authentication, files, collections, settings, logs, cron and backups; not exhaustive",
     "cli": "core startup and serve flags; other commands omitted",
     "configuration": "selected database and realtime settings",
     "features": "documented development capabilities; not production certification"
@@ -47,7 +47,18 @@
     "apis/collection.go": "5edc2462d67cd4d2f0eca5a0da46d7134f5e3ee4",
     "apis/collection_rls.go": "3642c978bf6be73cc5f5b67af39fab36a0b1d16c",
     "apis/settings.go": "5f0f1dfbf3343a92af325431eba9a48fbfcd7fa2",
-    "apis/backup.go": "b27934f575606055734a811e71648c7f7f7b054f"
+    "apis/backup.go": "b27934f575606055734a811e71648c7f7f7b054f",
+    "apis/logs.go": "9eb86326650b2fec89a7256891c5da0b3e2347a7",
+    "apis/cron.go": "f0b9ee5f6ee4b7371aa3acd228d6e32052e4133b",
+    "apis/batch.go": "42a513ac83d23d13dec3443b8040431e847f9eb4",
+    "apis/realtime.go": "f596f80f62ad39387922d5aed7e68c5e9805568f",
+    "apis/sql.go": "acebc7646e93bf62101498dd4f4e79eacbf89b55",
+    "apis/rls_token.go": "5ed40bb495ce9e324341e2a39b2f00147f591919",
+    "apis/mcp_api.go": "0972711fb49b886e88888b013c00f0b9bbec3fbc",
+    "apis/collection_import.go": "698094f2a1ae80d0b5ab26e163498d153870e57a",
+    "apis/backup_create.go": "d380a9323de40dfbc2324d91fb863ce4d4ae4a26",
+    "apis/backup_upload.go": "e43c1a6e4194cb4e73b0fac8be2b7c76dfbc9799",
+    "tools/cron/job.go": "7827da52bc6a46d2724b25116defe0bf1d357146"
   },
   "cli": [
     {
@@ -384,10 +395,88 @@
       "success": "200"
     },
     {
+      "method": "POST",
+      "path": "/api/backups",
+      "operationId": "createBackup",
+      "success": "204"
+    },
+    {
       "method": "GET",
       "path": "/api/files/{collection}/{recordId}/{filename}",
       "operationId": "downloadFile",
       "success": "200"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/collections/import",
+      "operationId": "importCollections",
+      "success": "204"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}/truncate",
+      "operationId": "truncateCollection",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs",
+      "operationId": "listLogs",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/logs",
+      "operationId": "truncateLogs",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{id}",
+      "operationId": "getLog",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/stats",
+      "operationId": "getLogStats",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crons",
+      "operationId": "listCronJobs",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crons/{id}",
+      "operationId": "runCronJob",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/backups/upload",
+      "operationId": "uploadBackup",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/backups/{key}",
+      "operationId": "downloadBackup",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/backups/{key}",
+      "operationId": "deleteBackup",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/backups/{key}/restore",
+      "operationId": "restoreBackup",
+      "success": "204"
     }
   ]
 }

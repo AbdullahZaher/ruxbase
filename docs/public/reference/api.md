@@ -5,7 +5,7 @@ description: Explore scoped data, authentication, file and administrative API co
 
 **Development documentation.** Scoped reference, not a certified production release.
 
-The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **31 operations**: health, records, vector search, selected authentication, files, collections, settings and backup metadata. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
+The [OpenAPI 3.1 JSON contract](/ruxbase/openapi.json) covers **44 operations**: health, records, vector search, selected authentication, files, collections, settings, logs, cron and backups. It is not a complete platform API specification. Authenticated administrative diagnostics are outside the current schema examples.
 
 [Open the Scalar API viewer](/ruxbase/api-viewer/) to explore the same contract. The viewer is for documentation only and does not provide a live API request console. Static text and Markdown remain the authoritative readable references.
 
@@ -93,6 +93,26 @@ Collection metadata, settings and backup metadata operations in the following ta
 
 The collection and settings schemas are intentionally open objects, rather than exhaustive field-by-field contracts. The RLS inspection response is diagnostic; review [row-level security](/ruxbase/authorization/row-level-security/) for limits. Backup metadata does not establish restore readiness; see [operations](/ruxbase/operations/overview/). The OAuth2 provider metadata route is experimental.
 
+## Operational administration
+
+The following administrative operations require the appropriate superuser authorization. Review data impact, retention and recovery before authorized use. An asynchronous acknowledgement is not completion evidence.
+
+| Method | Path | Success |
+| --- | --- | --- |
+| POST | `/api/backups` | 204 |
+| PUT | `/api/collections/import` | 204 |
+| DELETE | `/api/collections/{collection}/truncate` | 204 |
+| GET | `/api/logs` | 200 |
+| DELETE | `/api/logs` | 204 |
+| GET | `/api/logs/{id}` | 200 |
+| GET | `/api/logs/stats` | 200 |
+| GET | `/api/crons` | 200 |
+| POST | `/api/crons/{id}` | 204 |
+| POST | `/api/backups/upload` | 204 |
+| GET | `/api/backups/{key}` | 200 |
+| DELETE | `/api/backups/{key}` | 204 |
+| POST | `/api/backups/{key}/restore` | 204 |
+
 ## Scope
 
-Excluded in this increment: OAuth2 authentication, impersonation, multipart uploads, collection import/truncate/view dry-run, settings test routes, backup creation/download/restore/delete, logs, cron, SQL, RLS tokens, batch, realtime, MCP and custom routes. The contract covers selected responses; exhaustive errors, complete configuration and collection definitions and runtime behavior are not yet certified.
+The [route coverage report](/ruxbase/api-coverage.json) counts direct built-in registrations, not dynamic or internal batch routes. OAuth2 authentication and redirect, impersonation, collection dry-run, settings test routes, SQL, RLS tokens, batch, realtime and MCP are outside the current contract. Ordinary record multipart bodies, exhaustive schemas and runtime behavior remain separate requirements.
