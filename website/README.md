@@ -42,3 +42,5 @@ CI 44737871458 verified Scalar 1.69.2 rendering; Quickstart 44737871615 also pas
 Expanded scoped API contract to 19 operations, including selected record authentication/account management and file token creation. Source evidence and human operation table are checked; browser smoke additionally requires the new auth and file-token operations to render. OAuth2, impersonation, file download/multipart, administration and other families remain excluded. This is not a runtime contract test of each operation.
 
 The scoped OpenAPI reference now covers 31 operations, adding collections, settings, backup metadata and file reads. Schema validation and evidence guards apply; administrative operations explicitly require superuser credentials. Collection and settings models remain partial open-object schemas. Do not treat the reference as exhaustive or a runtime certification.
+
+Brand review uses the separate docs-brand-review CI workflow and does not change published graphics. Scalar archive staging now retains legal notices and package dependency metadata under api-viewer/legal; this is an inventory, not full transitive license/advisory certification.

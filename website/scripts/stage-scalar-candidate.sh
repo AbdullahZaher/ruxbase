@@ -34,6 +34,36 @@ with tarfile.open(archive, 'r:gz') as tar:
         dest.parent.mkdir(parents=True, exist_ok=True)
         with tar.extractfile(m) as src, dest.open('xb') as out:
             shutil.copyfileobj(src, out)
+# Preserve publisher-provided license/notice files and exact package metadata.
+with tarfile.open(archive, 'r:gz') as tar:
+    pkg = json.load(tar.extractfile('package/package.json'))
+    assert pkg['name'] == info['name'] and pkg['version'] == info['version']
+    legal = target / 'legal'
+    legal.mkdir()
+    notices = []
+    for m in tar:
+        if not m.isfile() or not m.name.startswith('package/'):
+            continue
+        name = pathlib.PurePosixPath(m.name).name
+        if not name.upper().startswith(('LICENSE', 'LICENCE', 'NOTICE', 'COPYING', 'THIRD-PARTY', 'THIRD_PARTY')):
+            continue
+        rel = pathlib.PurePosixPath(m.name[len('package/'):])
+        assert not rel.is_absolute() and '..' not in rel.parts and m.size <= 4 * 1024 * 1024
+        dest = legal.joinpath(*rel.parts)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with tar.extractfile(m) as src, dest.open('xb') as out:
+            shutil.copyfileobj(src, out)
+        notices.append(str(rel))
+    (legal / 'package-review.json').write_text(json.dumps({
+        'name': pkg['name'], 'version': pkg['version'], 'declaredLicense': pkg.get('license'),
+        'declaredDependencies': pkg.get('dependencies', {}), 'declaredOptionalDependencies': pkg.get('optionalDependencies', {}),
+        'declaredPeerDependencies': pkg.get('peerDependencies', {}),
+        'includedNotices': sorted(notices),
+        'reviewStatus': 'inventory-only',
+        'limitations': 'Package declarations are not an SBOM of the bundled standalone JS. Transitive license and advisory review remains required.'
+    }, indent=2) + '\n')
+    assert pkg.get('license'), 'Missing package license metadata'
+    print('Scalar declared license:', pkg['license'], '; included legal files:', len(notices))
 assert (vendor / 'standalone.js').is_file() or (vendor / 'standalone.esm.js').is_file()
 print('Scalar entrypoints:', [p.name for p in vendor.glob('standalone*')])
 for name in ['index.html', 'viewer.js']:
