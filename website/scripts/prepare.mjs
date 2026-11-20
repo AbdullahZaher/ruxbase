@@ -117,13 +117,24 @@ export async function prepare() {
     const data = await readFile(join(brand, 'vector-review', name));
     if (createHash('sha256').update(data).digest('hex') !== digest) throw new Error('Approved brand derivative mismatch: '+name);
   }
+  const canonical=JSON.parse(await readFile(join(brand,'documentation-brand.json'),'utf8'));
+  if(canonical.status!=='approved-for-documentation')throw Error('Canonical documentation brand approval missing');
+  for(const [name,sha] of Object.entries(canonical.assets)){
+    const data=await readFile(join(brand,name));
+    const blob=createHash('sha1').update('blob '+data.length+'\0').update(data).digest('hex');
+    if(blob!==sha)throw Error('Canonical brand asset drift: '+name);
+    if(name===canonical.header.light||name===canonical.header.dark)await writeFile(join(brandDest,name),data);
+  }
   const publicDir = join(site, 'public');
   await mkdir(publicDir, { recursive: true });
   // Original verified horizontal artwork, metadata-only social preview.
   await writeFile(join(publicDir, 'social-preview.png'), assets.get('ruxbase.png'));
   const favicon = await readFile(join(brand, 'vector-review', 'favicon.svg'));
   if (vector.status !== 'approved-for-documentation' || createHash('sha256').update(favicon).digest('hex') !== vector.faviconSha256) throw new Error('Approved favicon identity mismatch');
-  await writeFile(join(publicDir, 'favicon.svg'), favicon);
+  // Preserve the historical favicon source, but publish only current dedicated master assets.
+  if(await realpath(publicDir)!==publicDir)throw Error('Unexpected public directory symlink');
+  await rm(join(publicDir,'favicon.svg'),{force:true});
+  for(const name of [canonical.favicon.primary,canonical.favicon.small])await writeFile(join(publicDir,name),await readFile(join(brand,name)));
   console.log('Validated ' + assets.size + ' originals and staged ' + pages.size + ' public pages.');
 }
 

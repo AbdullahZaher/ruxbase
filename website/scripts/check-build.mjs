@@ -35,5 +35,5 @@ if(process.env.DOCS_SCALAR_PREVIEW==='1'){
 }else{
  await import('./check-publication-scope.mjs');
 }
-for(const asset of ['favicon.svg','pagefind/pagefind.js','openapi.json'])await stat(join(site,'dist',asset));
+for(const asset of ['favicon-16.png','favicon-32.png','pagefind/pagefind.js','openapi.json'])await stat(join(site,'dist',asset));
 console.log('Verified static output for ' + routes.size + ' pages, mapped anchors, favicon and Pagefind entrypoint.');

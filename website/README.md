@@ -58,3 +58,5 @@ Development build now produces versions.json and artifact-manifest.json. Verify 
 ## Initial publication profile
 
 `npm run build` produces the approved-brand static documentation and OpenAPI only. It does not download or distribute Scalar. `npm run build:scalar-preview` is a separate local-only review build; `DOCS_SCALAR_PREVIEW=1 node scripts/browser-smoke.mjs` runs viewer checks on that profile. Never upload the preview as a Pages artifact. Existing Scalar distribution review remains pending and must be completed before changing public scope. Default CI verifies static publication scope; historical channel publication still requires an actual approved release.
+
+The current public header follows the canonical main brand guides (horizontal black/white outlined SVG master, dedicated 16/32 px favicons). Historical flat traces are retained for reference; see assets/brand/documentation-brand.json for exact source pins. Re-run tests on any changed guideline or master asset.

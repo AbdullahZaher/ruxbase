@@ -17,9 +17,10 @@ export default defineConfig({
     title: 'Ruxbase',
     description: 'PostgreSQL-native, self-hosted backend platform documentation.',
     // Source-derived, hash-verified vector identity; approved by delegated review.
-    logo: { light: './src/assets/brand/symbol-on-light.svg', dark: './src/assets/brand/symbol-on-dark.svg', alt: '' },
-    favicon: '/favicon.svg',
+    logo: { light: './src/assets/brand/ruxbase-horizontal-black.svg', dark: './src/assets/brand/ruxbase-horizontal-white.svg', alt: 'Ruxbase', replacesTitle: true },
+    favicon: '/favicon-32.png',
     head: [
+      { tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '16x16', href: SITE_BASE + 'favicon-16.png' } },
       { tag: 'meta', attrs: { property: 'og:image', content: SITE_ORIGIN + SITE_BASE + 'social-preview.png' } },
       { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Ruxbase logo and wordmark' } },
       { tag: 'meta', attrs: { property: 'og:image:width', content: '2172' } },

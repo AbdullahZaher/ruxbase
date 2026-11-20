@@ -10,7 +10,7 @@
     "symbol-on-dark.svg": "a466a2441833c33398c1b46021d2aaa8f33af808d38ef0a67929875bd3afc4c7"
   },
   "favicon": "Derived from the same contour on a fixed dark square with rounded corners; not an exact original trace.",
-  "review": "Approved for documentation by delegated visual review. No assertion of separate human sign-off.",
+  "review": "Historical source-trace visual approval retained for comparison. Superseded for public documentation by current main master guidelines and documentation-brand.json; not an alternative master.",
   "faviconSha256": "3fd9ce517fbec9e5a1ae0e0fe2a30a2463e3ee5e69dbc2178275b2ba3fd0c98c",
   "approval": {
     "date": "2026-11-20",
