@@ -1,4 +1,4 @@
-package pgrolecheck
+package pgrolecheck_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/internal/pgrolecheck"
 	"github.com/AbdullahZaher/ruxbase/tests"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/jackc/pgx/v5"
@@ -16,11 +17,11 @@ import (
 )
 
 func TestIdentityContract(t *testing.T) {
-	valid := IdentityContract{Runtime: "runtime", Migration: "migration", Provisioning: "provisioning"}
+	valid := pgrolecheck.IdentityContract{Runtime: "runtime", Migration: "migration", Provisioning: "provisioning"}
 	if err := valid.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	cases := []IdentityContract{
+	cases := []pgrolecheck.IdentityContract{
 		{},
 		{Runtime: "runtime", Migration: "runtime", Provisioning: "provisioning"},
 		{Runtime: "runtime", Migration: "migration", Provisioning: "runtime"},
@@ -90,7 +91,7 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	}
 	defer runtime.Close()
 
-	contract := IdentityContract{
+	contract := pgrolecheck.IdentityContract{
 		Runtime: role, Migration: fixture.Name + "_migration", Provisioning: fixture.Name + "_provisioning",
 	}
 	report, err := contract.AdmitRuntime(ctx, runtime)
@@ -126,13 +127,13 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 			t.Fatal("unable to prepare scoped grant fixture")
 		}
 	}
-	grants := GrantContract{
+	grants := pgrolecheck.GrantContract{
 		Role:   role,
 		Schema: "ruxbase_grant_contract",
-		Grants: []Grant{
-			{"schema", "ruxbase_grant_contract", "USAGE"},
-			{"relation", "items", "SELECT"},
-			{"sequence", "item_seq", "USAGE"},
+		Grants: []pgrolecheck.Grant{
+			{Kind: "schema", Object: "ruxbase_grant_contract", Privilege: "USAGE"},
+			{Kind: "relation", Object: "items", Privilege: "SELECT"},
+			{Kind: "sequence", Object: "item_seq", Privilege: "USAGE"},
 		},
 	}
 	if drift, err := grants.Check(ctx, runtime); err != nil {
@@ -140,14 +141,14 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 	}
 	// Change only the expected contract to exercise drift rejection without
 	// introducing extra database privileges.
-	grants.Grants = []Grant{
-		{"schema", "ruxbase_grant_contract", "USAGE"},
-		{"relation", "items", "INSERT"},
-		{"sequence", "item_seq", "USAGE"},
+	grants.Grants = []pgrolecheck.Grant{
+		{Kind: "schema", Object: "ruxbase_grant_contract", Privilege: "USAGE"},
+		{Kind: "relation", Object: "items", Privilege: "INSERT"},
+		{Kind: "sequence", Object: "item_seq", Privilege: "USAGE"},
 	}
 	drift, err := grants.Check(ctx, runtime)
-	if err == nil || !reflect.DeepEqual(drift.Missing, []Grant{{"relation", "items", "INSERT"}}) ||
-		!reflect.DeepEqual(drift.Unexpected, []Grant{{"relation", "items", "SELECT"}}) {
+	if err == nil || !reflect.DeepEqual(drift.Missing, []pgrolecheck.Grant{{Kind: "relation", Object: "items", Privilege: "INSERT"}}) ||
+		!reflect.DeepEqual(drift.Unexpected, []pgrolecheck.Grant{{Kind: "relation", Object: "items", Privilege: "SELECT"}}) {
 		t.Fatalf("expected exact grant drift, got %+v (%v)", drift, err)
 	}
 
