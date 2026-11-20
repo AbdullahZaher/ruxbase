@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Deterministic Ruxbase starter generator; safe for human and AI-agent usage.
 // Never generates secrets, runs a shell, modifies the backend or overwrites files.
-import { cp, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, stat, lstat, writeFile } from "node:fs/promises";
 import { resolve, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,7 +25,7 @@ const entries=await readdir(source);
 for(const item of entries){
  if(["node_modules",".next","dist","compose.yaml","package-lock.json"].includes(item))continue;
  const from=join(source,item),to=join(dest,item);
- const details=await stat(from);
+ const details=await lstat(from);
  if(details.isSymbolicLink())fail("Template symlink forbidden.");
  await cp(from,to,{recursive:true,errorOnExist:true,force:false});
 }

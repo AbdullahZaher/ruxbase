@@ -1,4 +1,4 @@
-const required=['ci','docs-foundation','docs-brand-review','docs-quickstart','docs-build-candidate','docs-performance'];
+const required=['ci','docs-foundation','docs-brand-review','docs-quickstart','docs-build-candidate','docs-performance','docs-starters'];
 const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
 if(repo!=='AbdullahZaher/ruxbase'||process.env.GITHUB_REF!=='refs/heads/main'||!token||!/^[0-9a-f]{40}$/.test(sha))throw Error('Invalid main deployment context');
 const endpoint=new URL('https://api.github.com/repos/'+repo+'/actions/runs');
