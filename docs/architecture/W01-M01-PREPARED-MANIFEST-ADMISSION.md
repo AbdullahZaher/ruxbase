@@ -93,3 +93,28 @@ Acceptance remains open until the exact integrated candidate passes CI,
 the remaining operator/replication/serving responsibilities are separated,
 the compatibility and cost are measured, and independent review accepts
 the evidence. M01 must not be closed on a test-only HTTP fixture.
+
+## Subsequent CI remediation and separate migration fixture
+
+CI #44721396281 passed eight of ten jobs (including lint and build), but
+both PostgreSQL jobs rejected the matching manifest before reaching the HTTP
+test. Drift output showed long routine signatures truncated to the
+63-byte PostgreSQL name representation. The grant UNION now explicitly
+casts all catalog name columns to text, preserving the full routine and
+column identifiers without changing the approved grants. A regression fixture
+requires an exact routine signature longer than 63 bytes.
+
+The offline preparation integration test now also creates a fresh disposable
+database and independently provisioned non-administrative migration login.
+The existing provisioner supplies database-local schema preparation
+authority and non-inherited SET membership in the pre-existing RLS roles.
+The positive test requires full system preparation, migration ledger
+ownership by the separate login, read-only history verification and repeated
+preparation. Cleanup removes only its generated database and role. This
+is fixture evidence pending CI, not a general production provisioning
+workflow. The prior administrative-role rejection remains in place.
+
+The functional HTTP fixture remains isolated and has not yet been shown
+to pass. Replication separation, complete restricted server lifecycle,
+performance and independent certification remain open. Do not close M01
+or authorize a production release based on the new code alone.
