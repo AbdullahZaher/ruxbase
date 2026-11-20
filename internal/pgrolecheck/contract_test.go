@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -181,6 +182,14 @@ func TestRestrictedIdentityAdmissionPostgreSQL(t *testing.T) {
 		{Kind: "routine", Object: "fixture_value(integer)", Privilege: "EXECUTE"},
 	}) || len(drift.Missing) != 0 {
 		t.Fatalf("unexpected routine authority was not detected: %+v (%v)", drift, err)
+	}
+
+	// A manifest cannot omit other schemas, even if the scoped grant
+	// contract itself is valid. The fixture always has public.
+	manifest := pgrolecheck.GrantManifest{Role: role, Schemas: []pgrolecheck.GrantContract{grants}}
+	manifestDrift, err := manifest.Check(ctx, runtime)
+	if err == nil || !slices.Contains(manifestDrift.UnexpectedSchemas, "public") {
+		t.Fatalf("omitted schema was not detected: %+v (%v)", manifestDrift, err)
 	}
 
 	// The guarded pool admits each distinct physical connection and its
