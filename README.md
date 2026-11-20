@@ -18,6 +18,18 @@
   · <a href="docs/COMPATIBILITY.md">Compatibility</a>
 </p>
 
+## Quickstart with Docker Compose
+
+Use a checked-out repository and Docker Compose v2 to run Ruxbase with PostgreSQL 18 and pgvector locally. Generate a private random password, then start the services:
+
+```sh
+umask 077
+printf 'POSTGRES_USER=ruxbase_local\nPOSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env.quickstart
+docker compose --env-file .env.quickstart up -d --build --wait
+```
+
+Open http://localhost:8090/_/ to initialize the administrator. The app binds to host loopback and PostgreSQL is private to the Compose network. See [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) for persistence, cleanup, troubleshooting and the Go + embedded PostgreSQL alternative. This local development stack is not production-certified.
+
 ## What is Ruxbase?
 
 Ruxbase is an independent, open-source backend platform based on
