@@ -72,6 +72,22 @@
     {
       "source": "docs/public/using-ai.md",
       "target": "ai/using-ruxbase-with-ai.md"
+    },
+    {
+      "source": "docs/public/reference/api.md",
+      "target": "reference/api.md"
+    },
+    {
+      "source": "docs/public/reference/cli.md",
+      "target": "reference/cli.md"
+    },
+    {
+      "source": "docs/public/reference/configuration.md",
+      "target": "reference/configuration.md"
+    },
+    {
+      "source": "docs/public/reference/features.md",
+      "target": "reference/features.md"
     }
   ]
 }

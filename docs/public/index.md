@@ -38,3 +38,10 @@ before choosing a deployment configuration.
 - [MCP server](/ruxbase/ai/mcp/) — Understand the optional Model Context Protocol integration.
 - [Operations](/ruxbase/operations/overview/) — Review health checks, database connectivity and operations.
 - [Migrating from PocketBase](/ruxbase/migration/from-pocketbase/) — Review supported import and migration requirements.
+
+## Reference
+
+- [Health API](/ruxbase/reference/api/)
+- [CLI](/ruxbase/reference/cli/)
+- [Configuration](/ruxbase/reference/configuration/)
+- [Feature availability](/ruxbase/reference/features/)

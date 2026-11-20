@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "documentationStatus": "development",
+  "coverage": {
+    "openapi": "health endpoint only; no claim of full REST coverage",
+    "cli": "core startup and serve flags; other commands omitted",
+    "configuration": "selected database and realtime settings",
+    "features": "documented development capabilities; not production certification"
+  },
+  "evidence": {
+    "apis/base.go": "3165e1b59e7787c96a29941a9c92d46e8b599ba0",
+    "apis/health.go": "f4c69b1b13d36962b45a6247cdd6cdecb9127bda",
+    "apis/health_test.go": "e05fda6ff697b3ce965aadd75231262f0eb9b080",
+    "cmd/serve.go": "58cfd8101ae7187c65db1c7c71522079910806ff",
+    "core/base.go": "c018def0835d6e5c31ae6291686f6fe7544fc622",
+    "docs/CLUSTER.md": "bb5b8fa258e5d4212bc98bd63361aee87665c723",
+    "docs/COMPATIBILITY.md": "312ea5e6a46b210fa82c7f6465457d3343be701a",
+    "docs/DEV.md": "5e3626f4f111de2a71edc83eb9dbac9741cebc8f",
+    "docs/MCP.md": "2fd5aa8b2eae6bf49f329ef7e1c9a2507f51e928",
+    "docs/MIGRATING.md": "f9ef17aeac6a5689059130ffcce901a0c10f9e6f",
+    "docs/OPERATIONS.md": "f3b9292aa22fb84967cb300bf14faff7c0bbd119",
+    "docs/REALTIME.md": "c26bf41717987303f8fcd0606d8bfa31e5e07002",
+    "docs/RLS.md": "216db47f225b4d2fb3c29a99dcb84dbef98d884c",
+    "docs/SEARCH.md": "6d9469e9249485cc312d367002b2bb3925259bb8",
+    "docs/VECTOR.md": "ab8b7d917dd2bbb48e72066caf55dffdb12f5299",
+    "ruxbase.go": "6db15112d0ff69e541365ac11b220c60997043b6",
+    "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19"
+  },
+  "cli": [
+    {
+      "name": "--dir",
+      "scope": "global",
+      "defaultValue": "ruxbase_data relative to executable",
+      "description": "Data directory."
+    },
+    {
+      "name": "--dev",
+      "scope": "global",
+      "defaultValue": "false for compiled binary",
+      "description": "Development logs; embedded PostgreSQL if DATABASE_URL is absent."
+    },
+    {
+      "name": "--encryptionEnv",
+      "scope": "global",
+      "defaultValue": "none",
+      "description": "Name of environment variable holding the 32-character settings encryption key."
+    },
+    {
+      "name": "--queryTimeout",
+      "scope": "global",
+      "defaultValue": "30 seconds",
+      "description": "Default SELECT query timeout."
+    },
+    {
+      "name": "--http",
+      "scope": "serve",
+      "defaultValue": "127.0.0.1:8090 without domain arguments",
+      "description": "HTTP listener address; domain arguments change the default."
+    },
+    {
+      "name": "--https",
+      "scope": "serve",
+      "defaultValue": "unset without domain arguments",
+      "description": "HTTPS listener address."
+    },
+    {
+      "name": "--origins",
+      "scope": "serve",
+      "defaultValue": "*",
+      "description": "Allowed CORS origins; review and restrict for the intended application."
+    }
+  ],
+  "configuration": [
+    {
+      "name": "DATABASE_URL",
+      "defaultValue": "required outside embedded development mode",
+      "description": "Main PostgreSQL connection string; keep credentials private."
+    },
+    {
+      "name": "RUXBASE_LOGS_URL",
+      "defaultValue": "main database",
+      "description": "Optional separate PostgreSQL connection string for logs."
+    },
+    {
+      "name": "RUXBASE_DB_MAX_CONNS",
+      "defaultValue": "20",
+      "description": "Main pool connection limit when not set by Go configuration."
+    },
+    {
+      "name": "RUXBASE_DB_CONN_MAX_LIFETIME",
+      "defaultValue": "30m",
+      "description": "Connection lifetime as a Go duration."
+    },
+    {
+      "name": "RUXBASE_CLUSTER",
+      "defaultValue": "false",
+      "description": "Enables cluster mode; see clustering constraints."
+    },
+    {
+      "name": "RUXBASE_REALTIME_SOURCE",
+      "defaultValue": "hooks",
+      "description": "Realtime source: hooks or replication; see requirements and fallback behavior."
+    },
+    {
+      "name": "RUXBASE_RLS_STRICT",
+      "defaultValue": "false",
+      "description": "Additional RLS enforcement for supported non-superuser list and view queries; see documented limitations."
+    }
+  ],
+  "features": [
+    {
+      "id": "embedded-development",
+      "page": "getting-started/development",
+      "source": "docs/DEV.md",
+      "limitations": "Embedded PostgreSQL for development; review platform limitations.",
+      "status": "documented-development"
+    },
+    {
+      "id": "pocketbase-compatibility",
+      "page": "migration/compatibility",
+      "source": "docs/COMPATIBILITY.md",
+      "limitations": "Compatibility is bounded by documented differences.",
+      "status": "documented-development"
+    },
+    {
+      "id": "health-readiness",
+      "page": "operations/overview",
+      "source": "docs/OPERATIONS.md",
+      "limitations": "Separate liveness and readiness semantics.",
+      "status": "documented-development"
+    },
+    {
+      "id": "clustering",
+      "page": "operations/clustering",
+      "source": "docs/CLUSTER.md",
+      "limitations": "Multi-instance operation with documented constraints.",
+      "status": "documented-development"
+    },
+    {
+      "id": "row-level-security",
+      "page": "authorization/row-level-security",
+      "source": "docs/RLS.md",
+      "limitations": "Only supported rules and scopes; not a universal isolation guarantee.",
+      "status": "documented-development"
+    },
+    {
+      "id": "realtime",
+      "page": "guides/realtime",
+      "source": "docs/REALTIME.md",
+      "limitations": "Hooks or logical replication with documented limitations.",
+      "status": "documented-development"
+    },
+    {
+      "id": "full-text-search",
+      "page": "data/full-text-search",
+      "source": "docs/SEARCH.md",
+      "limitations": "PostgreSQL full-text search.",
+      "status": "documented-development"
+    },
+    {
+      "id": "vector-search",
+      "page": "data/vector-search",
+      "source": "docs/VECTOR.md",
+      "limitations": "Requires supported pgvector setup.",
+      "status": "documented-development"
+    },
+    {
+      "id": "mcp",
+      "page": "ai/mcp",
+      "source": "docs/MCP.md",
+      "limitations": "Optional integration; review its access rules.",
+      "status": "documented-development"
+    },
+    {
+      "id": "pocketbase-import",
+      "page": "migration/from-pocketbase",
+      "source": "docs/MIGRATING.md",
+      "limitations": "Follow supported import scope and limitations.",
+      "status": "documented-development"
+    }
+  ]
+}

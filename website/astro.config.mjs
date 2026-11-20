@@ -24,6 +24,7 @@ export default defineConfig({
       { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
       { label: 'AI & MCP', items: [{ autogenerate: { directory: 'ai' } }] },
       { label: 'Operations', items: [{ autogenerate: { directory: 'operations' } }] },
+      { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
       { label: 'Migration', items: [{ autogenerate: { directory: 'migration' } }] },
     ],
     customCss: ['./src/assets/brand/tokens.css', './src/styles/theme.css'],

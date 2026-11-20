@@ -1,0 +1,119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ruxbase health API (partial reference)",
+    "version": "development",
+    "description": "Development documentation. Covers only guest JSON responses for GET /api/health; not full REST coverage or release certification."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8090",
+      "description": "Local development instance"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Check liveness or readiness",
+        "description": "Presence of ready (regardless of value) enables readiness checks; a database or cluster readiness failure returns 503.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "ready",
+            "in": "query",
+            "required": false,
+            "allowEmptyValue": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Presence enables readiness."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Healthy or ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "message": "API is healthy.",
+                  "code": 200,
+                  "data": {}
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Not ready when requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "example": {
+                  "message": "API is not ready.",
+                  "code": 503,
+                  "data": {
+                    "ready": {
+                      "database": true,
+                      "cluster": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "message",
+          "code",
+          "data"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "integer",
+            "enum": [
+              200,
+              503
+            ]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "ready": {
+                "type": "object",
+                "required": [
+                  "database",
+                  "cluster"
+                ],
+                "properties": {
+                  "database": {
+                    "type": "boolean"
+                  },
+                  "cluster": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "x-ruxbase-coverage": "partial: health only"
+}

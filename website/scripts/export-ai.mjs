@@ -69,7 +69,7 @@ export async function exportAI() {
     '\n\n## Optional\n\n- [Full context](' + absolute(SITE_BASE+'llms-full.txt') + ')\n- [Build identity](' + absolute(SITE_BASE+'version.json') + ')\n';
   const full = intro + pages.map(p => outputs.get(p.target)).join('\n---\n\n');
   if (Buffer.byteLength(full)>1048576) throw new Error('Full context exceeds 1 MiB; introduce topic bundles before increasing the limit');
-  outputs.set('llms.txt',index);
+  outputs.set('llms.txt',index+'\n## Machine-readable references (scoped)\n\n'+['openapi.json','feature-manifest.json','cli-reference.json','configuration-reference.json'].map(name=>'- ['+name+']('+absolute(SITE_BASE+name)+')').join('\n')+'\n');
   outputs.set('llms-full.txt',full);
   outputs.set('version.json',JSON.stringify({...identity,pageCount:pages.length},null,2)+'\n');
   outputs.set('documentation-manifest.json',JSON.stringify({...identity,pages},null,2)+'\n');

@@ -21,3 +21,7 @@ Read the project's [AGENTS.md](https://github.com/AbdullahZaher/ruxbase/blob/mai
 The [Ruxbase MCP server](/ruxbase/ai/mcp/) is an optional runtime integration for application collections, not a documentation crawler. Do not give an assistant production credentials merely to read these public docs.
 
 The text index improves direct retrieval, but does not promise that any search engine or model will index, train on, or recommend Ruxbase.
+
+## Machine-readable references
+
+[OpenAPI JSON](/ruxbase/openapi.json) covers only health. [Feature manifest](/ruxbase/feature-manifest.json), [CLI flags](/ruxbase/cli-reference.json), and [configuration settings](/ruxbase/configuration-reference.json) record their scope and source identity.
