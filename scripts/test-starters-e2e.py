@@ -106,6 +106,12 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
             accounts.append({"email": email, "password": USERPASS, "token": session["token"], "id": user["id"]})
         return accounts
 
+    overlay_stack = compose + [
+        "-f", str(ROOT / "starters/react/compose.yaml"),
+        "-f", str(ROOT / "starters/nextjs/compose.yaml"),
+    ]
+    cleanup_stack = compose
+
     try:
         docker("up", "-d", "--build", "--wait", "--wait-timeout", "300")
         health = await_http(SERVER, "/api/health?ready")
@@ -191,6 +197,22 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
             assert model[framework]["environment"]["RUXBASE_INTERNAL_URL"] == "http://ruxbase:8090"
             assert model[framework]["depends_on"]["ruxbase"]["condition"] == "service_healthy"
         print("React and Next.js Docker overlays: restricted ports and private Ruxbase network PASS", flush=True)
+
+        # Now start both development UIs as actual containers. This verifies
+        # the Docker overlays, not just their static rendered configuration.
+        cleanup_stack = overlay_stack
+        subprocess.run(overlay_stack + [
+            "up", "-d", "--wait", "--wait-timeout", "300", "react", "nextjs",
+        ], cwd=ROOT, check=True)
+        for framework, port in [("react", 5173), ("nextjs", 3000)]:
+            origin = f"http://127.0.0.1:{port}"
+            payload = await_http(origin, "/api/health?ready", 120)
+            assert payload["data"]["ready"]["database"], framework + " container's proxy is not ready"
+            with OPENER.open(origin + "/", timeout=12) as response:
+                assert response.status == 200, framework + " frontend container not serving"
+        print("Both Docker Compose frontend containers PASS: healthy, live /api proxy and browser entrypoint.", flush=True)
     finally:
-        # Explicitly dispose of only this CI-owned project and its volumes.
-        docker("down", "--volumes", "--remove-orphans")
+        # Explicitly dispose of only this CI-owned project and all named
+        # volumes, including frontend dependency volumes of the overlays.
+        subprocess.run(cleanup_stack + ["down", "--volumes", "--remove-orphans"],
+                       cwd=ROOT, check=True)
