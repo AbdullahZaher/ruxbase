@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Ruxbase health API (partial reference)",
+    "title": "Ruxbase API (scoped reference)",
     "version": "development",
-    "description": "Development documentation. Covers only guest JSON responses for GET /api/health; not full REST coverage or release certification."
+    "description": "Development documentation. Health, generic record CRUD and vector search. Not a complete REST API specification or release certification."
   },
   "servers": [
     {
@@ -68,6 +68,448 @@
           }
         }
       }
+    },
+    "/api/collections/{collection}/records": {
+      "get": {
+        "operationId": "listRecords",
+        "summary": "List records",
+        "description": "Collection list rule applies. Returned fields depend on schema and access permissions.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page number."
+          },
+          {
+            "name": "perPage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Requested page size."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Sort expression."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection filter expression."
+          },
+          {
+            "name": "skipTotal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Skip total count calculation."
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Response field selection."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRecord",
+        "summary": "Create record",
+        "description": "Collection create rule and field validation apply.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Response field selection."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Created record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "JSON representation of writable fields in the target collection. File multipart and collection-specific validation are not described in this scoped contract.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/records/{id}": {
+      "get": {
+        "operationId": "getRecord",
+        "summary": "View record",
+        "description": "Collection view rule applies.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Record ID."
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Response field selection."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateRecord",
+        "summary": "Update record",
+        "description": "Collection update rule and field validation apply.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Record ID."
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Response field selection."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "JSON representation of writable fields in the target collection. File multipart and collection-specific validation are not described in this scoped contract.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRecord",
+        "summary": "Delete record",
+        "description": "Collection delete rule applies.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Record ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted; no response body"
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        }
+      }
+    },
+    "/api/collections/{collection}/vector-search": {
+      "post": {
+        "operationId": "vectorSearch",
+        "summary": "Search records by vector",
+        "description": "Requires a supported vector field and matching dimensions. Collection list rule applies; returned fields depend on permissions and selection. See vector guide for metric-specific scores and limitations.",
+        "security": [
+          {},
+          {
+            "RecordToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Collection name or ID."
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Requested relations."
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Response field selection."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vector search record list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error response; status depends on validation, permissions or resource state."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "field",
+                  "vector"
+                ],
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "vector": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1
+                  },
+                  "k": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "default": 10
+                  },
+                  "filter": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -112,8 +554,53 @@
             "additionalProperties": true
           }
         }
+      },
+      "Record": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Collection-defined record. Fields and even standard metadata may be restricted by field selection or permissions."
+      },
+      "RecordList": {
+        "type": "object",
+        "required": [
+          "page",
+          "perPage",
+          "totalItems",
+          "totalPages",
+          "items"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "perPage": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer",
+            "description": "May be -1 when totals are skipped."
+          },
+          "totalPages": {
+            "type": "integer",
+            "description": "May be -1 when totals are skipped."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Record"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "RecordToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Record authentication token. Guest access is only available when the configured collection rule permits it."
       }
     }
   },
-  "x-ruxbase-coverage": "partial: health only"
+  "x-ruxbase-coverage": "partial: health, generic record CRUD, vector search; JSON only where applicable"
 }

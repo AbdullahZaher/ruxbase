@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "documentationStatus": "development",
   "coverage": {
-    "openapi": "health endpoint only; no claim of full REST coverage",
+    "openapi": "7 operations: health, generic record CRUD, vector search; remaining API families excluded",
     "cli": "core startup and serve flags; other commands omitted",
     "configuration": "selected database and realtime settings",
     "features": "documented development capabilities; not production certification"
@@ -24,7 +24,12 @@
     "docs/SEARCH.md": "6d9469e9249485cc312d367002b2bb3925259bb8",
     "docs/VECTOR.md": "ab8b7d917dd2bbb48e72066caf55dffdb12f5299",
     "ruxbase.go": "6db15112d0ff69e541365ac11b220c60997043b6",
-    "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19"
+    "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19",
+    "apis/record_crud.go": "6c78acada4ccb7c849f335e30bc3cc4bbbcb0650",
+    "apis/record_crud_test.go": "277a2dd83c1214ebec535b7d1dbf507dc2cbfe16",
+    "apis/record_vector_search.go": "1bbca01c9b42587382a52cccb3a74fec6c6a3858",
+    "tools/search/provider.go": "be37981dc87773620c0227cf189c6fe098f69f55",
+    "apis/middlewares.go": "d482450c993de981574ed3eede28b0bd02cc6900"
   },
   "cli": [
     {
@@ -177,6 +182,50 @@
       "source": "docs/MIGRATING.md",
       "limitations": "Follow supported import scope and limitations.",
       "status": "documented-development"
+    }
+  ],
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "operationId": "getHealth",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/records",
+      "operationId": "listRecords",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/records",
+      "operationId": "createRecord",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "getRecord",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "updateRecord",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "deleteRecord",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/vector-search",
+      "operationId": "vectorSearch",
+      "success": "200"
     }
   ]
 }

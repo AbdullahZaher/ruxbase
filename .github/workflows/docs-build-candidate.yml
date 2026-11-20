@@ -37,6 +37,11 @@ jobs:
           npm run build
           node scripts/check-build.mjs
           node scripts/check-ai.mjs
+      - name: Independent OpenAPI schema validation (candidate tool)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/docs-openapi-validator"
+          "$RUNNER_TEMP/docs-openapi-validator/bin/pip" install --disable-pip-version-check openapi-spec-validator==0.7.2
+          "$RUNNER_TEMP/docs-openapi-validator/bin/openapi-spec-validator" website/dist/openapi.json
       - name: Exercise built site in Chromium
         working-directory: website
         env:

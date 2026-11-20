@@ -71,3 +71,7 @@ Added development-only health OpenAPI 3.1, selected CLI/configuration references
 ### Browser and deployment increment
 
 Prior scoped contract candidate 93d63f55ae2231e350ce40f192de5badcc89846b passed all three CI workflows. Added Chromium functional smoke and manual main-only Pages workflow with expected SHA, environment isolation and live verification, pending actual execution and repository Pages configuration. No deployment or stable release assumed. Full API coverage, independent OpenAPI standards validation, Scalar, accessibility and visual approval remain open.
+
+### REST reference expansion
+
+Expanded OpenAPI from health only to seven operations covering health, generic record CRUD and vector search. The explicit scoped inventory is checked against the OpenAPI operation table and evidence blobs. Authentication, files, administration, batch, realtime, MCP and custom routes still need contract review. Independent schema validator added to candidate CI; its dependency lock and Scalar integration remain open until verified.

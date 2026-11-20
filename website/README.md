@@ -28,3 +28,5 @@ The public source manifest now includes ten existing root guides. The build stag
 The build exports scoped reference contracts from docs/contracts and checks exact evidence blobs and reference table consistency. Source changes invalidate the reference until reviewed. Full REST inventory, general OpenAPI validation and Scalar remain open.
 
 Browser smoke: after build, run `CHROME_BIN=chromium node scripts/browser-smoke.mjs` from website with a local Chromium installation. CI retains screenshots and a report. Deployment is manual from reviewed main; see [publishing runbook](../docs/architecture/documentation-publishing.md).
+
+API scope expanded to seven operations. Candidate CI additionally runs openapi-spec-validator 0.7.2 in an isolated Python environment. Its transitive dependency lock is not yet committed; this is an independent schema check, not full contract runtime certification.

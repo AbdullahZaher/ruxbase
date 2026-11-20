@@ -18,12 +18,15 @@ export async function verifyReferenceInputs(){
   const source=resolve(root,name);assertWithin(root,source);
   assert(gitBlob(await readFile(source))===sha,'Reference evidence changed: '+name);
  }
- assert(api.openapi==='3.1.0'&&Object.keys(api.paths).length===1&&api.paths['/api/health']?.get?.operationId==='getHealth','Unexpected API scope');
+ assert(api.openapi==='3.1.0'&&Object.keys(api.paths).length===4&&api.paths['/api/health']?.get?.operationId==='getHealth','Unexpected API scope');
  const op=api.paths['/api/health'].get;
  assert(op.security.length===0&&op.parameters.some(p=>p.name==='ready'&&p.in==='query'&&!p.required),'Health parameter mismatch');
  assert(Object.keys(op.responses).sort().join(',')==='200,503','Health codes mismatch');
  assert(api.components.schemas.HealthResponse.required.join(',')==='message,code,data','Health schema mismatch');
+ const actual=Object.entries(api.paths).flatMap(([path,methods])=>Object.entries(methods).map(([method,o])=>({method:method.toUpperCase(),path,operationId:o.operationId,success:Object.keys(o.responses).filter(k=>k.startsWith('2'))[0]})));
+ assert(actual.length===7&&JSON.stringify(actual)===JSON.stringify(refs.operations),'Operation inventory mismatch');
  const apiMd=await readFile(join(root,'docs/public/reference/api.md'),'utf8');
+ for(const o of actual.filter(o=>o.operationId!=='getHealth'))assert(apiMd.includes('| '+o.method+' | `'+o.path+'` | '+o.success+' |'),'Missing operation table row: '+o.operationId);
  for(const [status,resp] of Object.entries(op.responses)){
   const media=resp.content['application/json'];
   assert(media.schema.$ref==='#/components/schemas/HealthResponse'&&media.example.code===Number(status),'Health example mismatch');
@@ -52,6 +55,6 @@ export async function exportReferences(){
   'configuration-reference.json':{schemaVersion:1,...identity,scope:refs.coverage.configuration,settings:refs.configuration},
  };
  for(const [name,value] of Object.entries(outputs))await writeFile(join(dist,name),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
- console.log('Verified '+Object.keys(refs.evidence).length+' evidence blobs; exported 1 scoped REST operation, '+refs.features.length+' features, '+refs.cli.length+' CLI flags and '+refs.configuration.length+' configuration settings.');
+ console.log('Verified '+Object.keys(refs.evidence).length+' evidence blobs; exported 7 scoped REST operations, '+refs.features.length+' features, '+refs.cli.length+' CLI flags and '+refs.configuration.length+' configuration settings.');
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await exportReferences();

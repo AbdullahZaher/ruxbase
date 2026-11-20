@@ -72,7 +72,7 @@ try{
   await screenshot('desktop-'+theme);
  }
  await visit('reference/api/');
- assert(await evaluate('document.querySelector("h1").textContent.includes("Health API")'),'Reference heading');
+ assert(await evaluate('document.querySelector("h1").textContent.includes("API reference")'),'Reference heading');
  assert(await evaluate('!!document.querySelector(\'a[href="/ruxbase/reference/api.md"]\')'),'Markdown link');
  await until(()=>evaluate('!!document.querySelector("button[data-open-modal]:not([disabled])")'),'search ready');
  await evaluate('document.querySelector("button[data-open-modal]").click()');
