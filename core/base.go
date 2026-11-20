@@ -127,6 +127,10 @@ type BaseAppConfig struct {
 	// made outside of the app API). If not set, it fallbacks to the RUXBASE_REALTIME_SOURCE env variable.
 	RealtimeSource string
 
+	// ReplicationIdentity opts into a separately provisioned WAL connection.
+	// It is explicit Go configuration, not an environment fallback.
+	ReplicationIdentity cluster.DedicatedReplication
+
 	// ClusterMode enables the features required to run multiple app instances
 	// (nodes) with the same database behind a load balancer (eg. the rate limits
 	// shared by all nodes). If not set, it fallbacks to the RUXBASE_CLUSTER env variable.
