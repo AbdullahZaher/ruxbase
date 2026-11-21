@@ -62,9 +62,17 @@ type JSONField struct {
 	// If zero, a default limit of 1MB is applied.
 	MaxSize int64 `form:"maxSize" json:"maxSize"`
 
+	// Generated marks the column as a PostgreSQL generated/computed column.
+	Generated bool `form:"generated" json:"generated"`
+
 	// Required will require the field value to be non-empty JSON value
 	// (aka. not "null", `""`, "[]", "{}").
 	Required bool `form:"required" json:"required"`
+}
+
+// IsGenerated reports whether the field is computed by PostgreSQL.
+func (f *JSONField) IsGenerated() bool {
+	return f.Generated
 }
 
 // Type implements [Field.Type] interface method.
@@ -156,6 +164,10 @@ var emptyJSONValues = []string{
 
 // ValidateValue implements [Field.ValidateValue] interface method.
 func (f *JSONField) ValidateValue(ctx context.Context, app App, record *Record) error {
+	if f.Generated {
+		return nil // computed by PostgreSQL
+	}
+
 	raw, ok := record.GetRaw(f.Name).(types.JSONRaw)
 	if !ok {
 		return validators.ErrUnsupportedValueType

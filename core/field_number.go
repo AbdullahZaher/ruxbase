@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/AbdullahZaher/ruxbase/core/validators"
@@ -76,8 +77,22 @@ type NumberField struct {
 	// OnlyInt will require the field value to be integer.
 	OnlyInt bool `form:"onlyInt" json:"onlyInt"`
 
+	// Precision specifies the maximum total digits (1 to 1000) for exact numeric types.
+	Precision *int `form:"precision" json:"precision"`
+
+	// Scale specifies the number of fractional digits after decimal point for exact numeric types.
+	Scale *int `form:"scale" json:"scale"`
+
+	// Generated marks the column as a PostgreSQL generated/computed column.
+	Generated bool `form:"generated" json:"generated"`
+
 	// Required will require the field value to be non-zero.
 	Required bool `form:"required" json:"required"`
+}
+
+// IsGenerated reports whether the field is computed by PostgreSQL.
+func (f *NumberField) IsGenerated() bool {
+	return f.Generated
 }
 
 // Type implements [Field.Type] interface method.
@@ -127,6 +142,15 @@ func (f *NumberField) SetHidden(hidden bool) {
 
 // ColumnType implements [Field.ColumnType] interface method.
 func (f *NumberField) ColumnType(app App) string {
+	if f.Precision != nil && f.Scale != nil {
+		return fmt.Sprintf("NUMERIC(%d, %d) DEFAULT 0 NOT NULL", *f.Precision, *f.Scale)
+	}
+	if f.Precision != nil {
+		return fmt.Sprintf("NUMERIC(%d) DEFAULT 0 NOT NULL", *f.Precision)
+	}
+	if f.OnlyInt {
+		return "BIGINT DEFAULT 0 NOT NULL"
+	}
 	// ruxbase: DOUBLE PRECISION instead of NUMERIC
 	return "DOUBLE PRECISION DEFAULT 0 NOT NULL"
 }
@@ -138,6 +162,10 @@ func (f *NumberField) PrepareValue(record *Record, raw any) (any, error) {
 
 // ValidateValue implements [Field.ValidateValue] interface method.
 func (f *NumberField) ValidateValue(ctx context.Context, app App, record *Record) error {
+	if f.Generated {
+		return nil // computed by PostgreSQL
+	}
+
 	val, ok := record.GetRaw(f.Name).(float64)
 	if !ok {
 		return validators.ErrUnsupportedValueType
@@ -166,6 +194,25 @@ func (f *NumberField) ValidateValue(ctx context.Context, app App, record *Record
 
 	if f.Max != nil && val > *f.Max {
 		return maxNumberValidationError.SetParams(map[string]any{"max": *f.Max})
+	}
+
+	if f.Scale != nil && *f.Scale >= 0 {
+		factor := math.Pow10(*f.Scale)
+		scaled := val * factor
+		if math.Abs(scaled-math.Round(scaled)) > 1e-6 {
+			return validation.NewError("validation_numeric_scale_exceeded", fmt.Sprintf("Number exceeds maximum scale of %d decimal places", *f.Scale))
+		}
+	}
+
+	if f.Precision != nil && *f.Precision > 0 {
+		absVal := math.Abs(val)
+		maxAllowedDigits := *f.Precision
+		if f.Scale != nil && *f.Scale > 0 {
+			maxAllowedDigits = *f.Precision - *f.Scale
+		}
+		if maxAllowedDigits > 0 && absVal >= math.Pow10(maxAllowedDigits) {
+			return validation.NewError("validation_numeric_precision_exceeded", fmt.Sprintf("Number exceeds maximum precision of %d digits", *f.Precision))
+		}
 	}
 
 	return nil

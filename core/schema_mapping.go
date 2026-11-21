@@ -152,40 +152,51 @@ func MapNativeColumnToField(col *NativeColumn) (Field, error) {
 	switch {
 	case udt == "bool" || udt == "boolean":
 		return &BoolField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Generated: col.Generated(),
 		}, nil
 
 	case strings.HasPrefix(udt, "int") || udt == "smallint" || udt == "integer" || udt == "bigint" ||
 		udt == "float4" || udt == "float8" || udt == "numeric" || udt == "decimal" ||
 		strings.Contains(dataType, "double precision") || strings.Contains(dataType, "real"):
-		return &NumberField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
-		}, nil
+		numField := &NumberField{
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Precision: col.NumericPrecision,
+			Scale:     col.NumericScale,
+			Generated: col.Generated(),
+		}
+		if strings.HasPrefix(udt, "int") || udt == "smallint" || udt == "integer" || udt == "bigint" {
+			numField.OnlyInt = true
+		}
+		return numField, nil
 
 	case strings.HasPrefix(udt, "timestamp") || udt == "timestamptz" || udt == "date" || udt == "time":
 		return &DateField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Generated: col.Generated(),
 		}, nil
 
 	case udt == "json" || udt == "jsonb":
 		return &JSONField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Generated: col.Generated(),
 		}, nil
 
 	case udt == "uuid":
 		return &TextField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
-			Pattern:  `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Generated: col.Generated(),
+			Pattern:   `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
 		}, nil
 
 	case udt == "vector":
@@ -209,10 +220,11 @@ func MapNativeColumnToField(col *NativeColumn) (Field, error) {
 			maxLen = *col.CharMaxLength
 		}
 		return &TextField{
-			Id:       fieldId,
-			Name:     col.Name,
-			Required: required,
-			Max:      maxLen,
+			Id:        fieldId,
+			Name:      col.Name,
+			Required:  required,
+			Max:       maxLen,
+			Generated: col.Generated(),
 		}, nil
 	}
 }
@@ -235,8 +247,22 @@ func MapFieldToNativeColumn(field Field) (*NativeColumn, error) {
 		col.UDTName = "bool"
 		col.DefaultValue = "false"
 	case *NumberField:
-		col.DataType = "double precision"
-		col.UDTName = "float8"
+		if f.Precision != nil && f.Scale != nil {
+			col.DataType = fmt.Sprintf("numeric(%d,%d)", *f.Precision, *f.Scale)
+			col.UDTName = "numeric"
+			col.NumericPrecision = f.Precision
+			col.NumericScale = f.Scale
+		} else if f.Precision != nil {
+			col.DataType = fmt.Sprintf("numeric(%d)", *f.Precision)
+			col.UDTName = "numeric"
+			col.NumericPrecision = f.Precision
+		} else if f.OnlyInt {
+			col.DataType = "bigint"
+			col.UDTName = "int8"
+		} else {
+			col.DataType = "double precision"
+			col.UDTName = "float8"
+		}
 		col.DefaultValue = "0"
 	case *DateField, *AutodateField:
 		col.DataType = "timestamp with time zone"
@@ -331,6 +357,8 @@ func (app *BaseApp) introspectTableColumns(tableName string) ([]*NativeColumn, e
 			COALESCE(pg_get_expr(d.[[adbin]], d.[[adrelid]]), '') AS [[column_default]],
 			CASE WHEN a.[[attidentity]] != '' THEN 'YES' ELSE 'NO' END AS [[is_identity]],
 			CASE WHEN a.[[attgenerated]] != '' THEN 'YES' ELSE 'NO' END AS [[is_generated]],
+			CASE WHEN a.[[atttypmod]] > 4 THEN ((a.[[atttypmod]] - 4) >> 16) & 65535 ELSE NULL END AS [[numeric_precision]],
+			CASE WHEN a.[[atttypmod]] > 4 THEN (a.[[atttypmod]] - 4) & 65535 ELSE NULL END AS [[numeric_scale]],
 			EXISTS (
 				SELECT 1
 				FROM {{pg_index}} i
