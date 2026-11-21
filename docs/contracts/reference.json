@@ -13,7 +13,7 @@
     "apis/health_test.go": "e05fda6ff697b3ce965aadd75231262f0eb9b080",
     "cmd/serve.go": "58cfd8101ae7187c65db1c7c71522079910806ff",
     "core/base.go": "0a4f36e0640afb318fb88c1037208374196c1a2a",
-    "docs/CLUSTER.md": "bb5b8fa258e5d4212bc98bd63361aee87665c723",
+    "docs/CLUSTER.md": "53140c0f0124e3e570c053364dba0f93455078b2",
     "docs/COMPATIBILITY.md": "312ea5e6a46b210fa82c7f6465457d3343be701a",
     "docs/DEV.md": "5e3626f4f111de2a71edc83eb9dbac9741cebc8f",
     "docs/MCP.md": "2fd5aa8b2eae6bf49f329ef7e1c9a2507f51e928",
