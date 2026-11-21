@@ -423,6 +423,10 @@ func applyRLSDefinition(txApp App, collection *Collection, functions []string, d
 		for _, rule := range []string{RLSRuleList, RLSRuleView, RLSRuleCreate, RLSRuleUpdate, RLSRuleDelete} {
 			drop.WriteString("DROP POLICY IF EXISTS " + quoteRLSIdent(rlsPolicyName(rule)) + " ON " + table + ";\n")
 		}
+	} else {
+		// ruxbase: ensure security_invoker = true so that queries on views enforce
+		// underlying base table RLS policies and privileges as the invoking role.
+		drop.WriteString("ALTER VIEW " + table + " SET (security_invoker = true);\n")
 	}
 	for _, fn := range functions {
 		drop.WriteString("DROP FUNCTION IF EXISTS " + fn + ";\n")

@@ -129,9 +129,15 @@ dashboard shows a warning.
 - `INSERT`, `UPDATE` (non-hidden columns, except `id`) and `DELETE` only for the
   base collections with a non-`null` rule. The auth records are managed only
   through the API (password hashes, token keys and verification).
-- No privileges on the views, the system collections (`_superusers`,
-  `_externalAuths`, `_mfas`, `_otps`, `_authOrigins`) and the other system
-  tables (`_collections`, `_params`, `_realtime_events`, etc.).
+- Views are created with `WITH (security_invoker = true)`: when queried via the
+  API in strict mode (`ruxbase_api`), PostgreSQL enforces the underlying base tables'
+  RLS policies and permissions against the invoking role, preventing definer privilege
+  escalation. External direct roles do not receive permissions on view collections
+  or system collections (`_superusers`, `_externalAuths`, `_mfas`, `_otps`, `_authOrigins`)
+  and other system tables (`_collections`, `_params`, `_realtime_events`, etc.).
+- Privileged routines (`ruxbase_rls.auth()`, policy helper functions) are created
+  with `SET search_path = pg_catalog, <schema>, pg_temp` to prevent search_path
+  injection attacks.
 
 The external writes don't execute the app hooks and the fields validations.
 

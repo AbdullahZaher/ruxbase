@@ -42,7 +42,7 @@ func findDependentViews(app App, relationName string) ([]*dependentView, error) 
 		)
 		SELECT
 			[[relname]] AS [[name]],
-			format('CREATE VIEW %I AS %s', [[relname]], pg_get_viewdef([[oid]])) AS [[sql]],
+			format('CREATE VIEW %I WITH (security_invoker = true) AS %s', [[relname]], pg_get_viewdef([[oid]])) AS [[sql]],
 			max([[depth]]) AS [[depth]]
 		FROM deps
 		GROUP BY [[oid]], [[relname]]
@@ -76,7 +76,7 @@ func findSchemaViews(app App) ([]*dependentView, error) {
 		)
 		SELECT
 			c.[[relname]] AS [[name]],
-			format('CREATE VIEW %I AS %s', c.[[relname]], pg_get_viewdef(c.[[oid]])) AS [[sql]],
+			format('CREATE VIEW %I WITH (security_invoker = true) AS %s', c.[[relname]], pg_get_viewdef(c.[[oid]])) AS [[sql]],
 			max(deps.[[depth]]) AS [[depth]]
 		FROM deps
 		JOIN {{pg_class}} c ON c.[[oid]] = deps.[[oid]]
