@@ -112,7 +112,11 @@ jobs:
             echo "the ruxbase binary must not link SQLite"
             exit 1
           fi
-          ls .builds/*.zip
+          for archive in .builds/*.zip; do
+            entries=$(unzip -Z1 "$archive")
+            grep -Fx 'LICENSE.md' <<< "$entries"
+            grep -Fx 'NOTICE.md' <<< "$entries"
+          done
 
   # the official PocketBase JS SDK against a ruxbase server (tests/sdk/js)
   sdk:
