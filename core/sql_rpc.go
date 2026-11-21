@@ -21,25 +21,27 @@ type RPCParam struct {
 
 // RPCFunction represents an introspected PostgreSQL stored procedure / function.
 type RPCFunction struct {
-	Name        string      `db:"name" json:"name"`
-	Schema      string      `db:"schema" json:"schema"`
-	ReturnType  string      `db:"return_type" json:"returnType"`
-	ReturnsSet  bool        `db:"returns_set" json:"returnsSet"`
-	Volatility  string      `db:"volatility" json:"volatility"` // "VOLATILE", "STABLE", "IMMUTABLE"
-	Arguments   string      `db:"arguments" json:"arguments"`
-	Parameters  []RPCParam  `db:"-" json:"parameters"`
-	IsExposed   bool        `db:"-" json:"isExposed"`
-	AccessRule  *string     `db:"access_rule" json:"accessRule"` // nil for superuser only, "" for public
-	ParamsJSON  string      `db:"params_json" json:"-"`
-	ArgTypes    string      `db:"arg_types" json:"-"`
-	ArgNamesStr string      `db:"arg_names" json:"-"`
+	Name            string      `db:"name" json:"name"`
+	Schema          string      `db:"schema" json:"schema"`
+	ReturnType      string      `db:"return_type" json:"returnType"`
+	ReturnsSet      bool        `db:"returns_set" json:"returnsSet"`
+	Volatility      string      `db:"volatility" json:"volatility"` // "VOLATILE", "STABLE", "IMMUTABLE"
+	SecurityDefiner bool        `db:"security_definer" json:"securityDefiner"`
+	Arguments       string      `db:"arguments" json:"arguments"`
+	Parameters      []RPCParam  `db:"-" json:"parameters"`
+	IsExposed       bool        `db:"-" json:"isExposed"`
+	AccessRule      *string     `db:"access_rule" json:"accessRule"` // nil for superuser only, "" for public
+	ParamsJSON      string      `db:"params_json" json:"-"`
+	ArgTypes        string      `db:"arg_types" json:"-"`
+	ArgNamesStr     string      `db:"arg_names" json:"-"`
 }
 
 // ExposeFunctionOptions defines configuration for exposing an RPC function.
 type ExposeFunctionOptions struct {
-	FunctionName string  `json:"functionName"`
-	Schema       string  `json:"schema"`
-	AccessRule   *string `json:"accessRule"`
+	FunctionName         string  `json:"functionName"`
+	Schema               string  `json:"schema"`
+	AccessRule           *string `json:"accessRule"`
+	AllowSecurityDefiner bool    `json:"allowSecurityDefiner"`
 }
 
 func (app *BaseApp) initRPCFunctionsTable() error {
@@ -86,6 +88,7 @@ func (app *BaseApp) ListRPCFunctions(schema string) ([]*RPCFunction, error) {
 				WHEN 's' THEN 'STABLE'
 				ELSE 'VOLATILE'
 			END AS [[volatility]],
+			p.[[prosecdef]] AS [[security_definer]],
 			COALESCE(pg_get_function_arguments(p.[[oid]]), '') AS [[arguments]],
 			COALESCE(array_to_json(p.[[proargnames]])::text, '[]') AS [[arg_names]],
 			COALESCE((
@@ -144,6 +147,7 @@ func (app *BaseApp) IntrospectRPCFunction(name string) (*RPCFunction, error) {
 				WHEN 's' THEN 'STABLE'
 				ELSE 'VOLATILE'
 			END AS [[volatility]],
+			p.[[prosecdef]] AS [[security_definer]],
 			COALESCE(pg_get_function_arguments(p.[[oid]]), '') AS [[arguments]],
 			COALESCE(array_to_json(p.[[proargnames]])::text, '[]') AS [[arg_names]],
 			COALESCE((
@@ -204,9 +208,17 @@ func parseRPCParameters(fn *RPCFunction) {
 
 // ExposeRPCFunction registers a function in the exposure ledger with an access rule.
 func (app *BaseApp) ExposeRPCFunction(opts ExposeFunctionOptions) (*RPCFunction, error) {
+	if DangerousBuiltinFunctions[strings.ToLower(opts.FunctionName)] {
+		return nil, fmt.Errorf("security violation: function %q is a blacklisted administrative function and cannot be exposed", opts.FunctionName)
+	}
+
 	fn, err := app.IntrospectRPCFunction(opts.FunctionName)
 	if err != nil {
 		return nil, err
+	}
+
+	if fn.SecurityDefiner && (opts.AccessRule != nil && *opts.AccessRule == "") && !opts.AllowSecurityDefiner {
+		return nil, fmt.Errorf("security violation: function %q is SECURITY DEFINER and cannot be exposed publicly without explicit AllowSecurityDefiner opt-in", fn.Name)
 	}
 
 	schema := opts.Schema
@@ -264,6 +276,10 @@ func (app *BaseApp) UnexposeRPCFunction(name string) error {
 
 // ExecuteRPC executes an exposed PostgreSQL function with parameter binding and authorization.
 func (app *BaseApp) ExecuteRPC(name string, args map[string]any, authRecord *Record, hasSuperuserAuth bool) (any, error) {
+	if DangerousBuiltinFunctions[strings.ToLower(name)] {
+		return nil, fmt.Errorf("security violation: execution of blacklisted function %q is strictly blocked", name)
+	}
+
 	fn, err := app.IntrospectRPCFunction(name)
 	if err != nil {
 		return nil, err

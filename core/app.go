@@ -353,6 +353,9 @@ type App interface {
 	// ExecuteRPC executes an exposed PostgreSQL function with parameter binding and authorization.
 	ExecuteRPC(name string, args map[string]any, authRecord *Record, hasSuperuserAuth bool) (any, error)
 
+	// AuditDatabaseRoutineSecurity inspects PostgreSQL catalogs for privilege escalation or RLS bypass risks.
+	AuditDatabaseRoutineSecurity(schema string) (*RoutineSecurityAuditReport, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
