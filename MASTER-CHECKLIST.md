@@ -182,7 +182,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 **Must share one identity/policy kernel with Collections-first.** Acceptance on both PostgreSQL 17 and 18.
 
-- [ ] **W02-01 / P0 / CORE** — Inventory mappings of existing collection types to native PostgreSQL tables, constraints and schema metadata.
+- [x] **W02-01 / P0 / CORE** — Inventory mappings of existing collection types to native PostgreSQL tables, constraints and schema metadata. **Evidence:** `docs/architecture/WAVE02-SCHEMA-MAPPING.md`, `core/schema_mapping.go`, `core/schema_mapping_test.go` (`TestMapNativeColumnToField`, `TestMapFieldToNativeColumn`, `TestIntrospectTable_Integration`, `TestIntrospectSchemaTables_Integration`).
 - [ ] **W02-02 / P0 / CORE** — Specify and implement authorized SQL-first introspection, explicit schema/table/API exposure and deny by default.
 - [ ] **W02-03 / P1 / CORE** — Support native foreign keys, documented composite keys, constraints and deterministic relations where approved.
 - [ ] **W02-04 / P1 / CORE** — Support exact numeric types, native timestamps, generated columns and type-safe validation.

@@ -269,6 +269,18 @@ type App interface {
 	// Note: This method doesn't return an error on nonexisting table.
 	TableIndexes(tableName string) (map[string]string, error)
 
+	// IntrospectTable returns detailed PostgreSQL catalog metadata, columns, constraints and indexes for a table.
+	IntrospectTable(tableName string) (*NativeTable, error)
+
+	// IntrospectSchemaTables returns all tables and views within the specified PostgreSQL schema.
+	IntrospectSchemaTables(schema string) ([]*NativeTable, error)
+
+	// IntrospectTableConstraints returns all constraints defined on the specified table.
+	IntrospectTableConstraints(tableName string) ([]*NativeConstraint, error)
+
+	// IntrospectTableIndexes returns all indexes defined on the specified table with detailed definitions.
+	IntrospectTableIndexes(tableName string) ([]*NativeIndexInfo, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
