@@ -48,13 +48,63 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | EV-00-BASELINE | W00-08 | [Merged PR #6](https://github.com/AbdullahZaher/ruxbase/pull/6) and [benchmark run #44667194387](https://github.com/AbdullahZaher/ruxbase/actions/runs/44667194387); pinned repeatable workload in [benchmark methodology](docs/BENCHMARKS.md) | Scoped smoke workload. Independent baseline acceptance and matched Supabase Self-Hosted evidence remain open. |
 | EV-00-INVENTORY | W00-09 | [Merged PR #7](https://github.com/AbdullahZaher/ruxbase/pull/7) established read-only tree inventory. The scanner now emits the scanned tree, dependency/notice paths and inherited Go annotation review groups. | The scan of `988fd86b` flagged 44 modified inherited production Go paths beyond literal module-path substitution. A review of their diff hunks found import changes only. It also identified 12 tracked license and dependency files. The review register needs human disposition of the findings and dependency license obligations. |
 | EV-00-DISTRIBUTION | W00-09 | [Draft PR #38](https://github.com/AbdullahZaher/ruxbase/pull/38) verifies the embedded Remix Icon 4.6.0 font against the npm package and records license materials from the pinned `modernc.org/sqlite` v1.60.1 module. Release snapshot CI checks the respective archive entries byte for byte. | Partial remediation. Other shipped UI and Go dependency provenance, notice obligations and independent disposition remain open. |
-| EV-00-RELEASE | W00-10 | [PocketBase v0.40.6](https://github.com/pocketbase/pocketbase/releases/tag/v0.40.6) was the latest official release on 2026-11-21 | Real subsequent release rehearsal unavailable at inspection. Owner disposition pending. |
+| EV-00-RELEASE | W00-10 | [PocketBase v0.40.6](https://github.com/pocketbase/pocketbase/releases/tag/v0.40.6) was the latest official release on 2026-11-21 | Pending explicit owner decision on a no-newer-upstream-release exception. Record the exact baseline, decision and owner before changing W00-10. Recheck the official release before certification. |
 | EV-00-ROADMAP | W00-11 | [PR #34](https://github.com/AbdullahZaher/ruxbase/pull/34) merged at `988fd86bedb3b596f5ec59c7449b63e3bf8a1093`; the [PR reviews API](https://api.github.com/repos/AbdullahZaher/ruxbase/pulls/34/reviews) returned no reviews | Owner adoption is recorded. Reviewed acceptance remains open. |
 | EV-01-M02-SCOPE | W01-M02-01, W01-M03-01 | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9) closes M01 Scope A and identifies M02 as next. No separately accepted M02 scope was present in the repository issue or milestone list on 2026-11-21. | Owner scope acceptance and M03–M06 routing are tracked in [issue #37](https://github.com/AbdullahZaher/ruxbase/issues/37). |
 | EV-01-M01 | Restricted PostgreSQL kernel | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9) and [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30) | Certified **Scope A** only |
 | EV-01-CI | Post-integration reliability and M01 | Wave commit `2170cd951ef33efd7f1744adcda23df990e4b6d4`; [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) | 10/10 successful historical run; not a production certification |
 | EV-01-PARITY | PocketBase ref test mapping | 5,112 references; 5,097 direct passes; 10 renamed, 3 removed, 2 skipped, 0 unaccounted | The two skips are `TestBaseAppDBDualBuilder` and `TestBaseAppAuxDBDualBuilder` |
 | EV-01-CRON | Scheduler stabilization | [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30); `tools/cron/cron.go` | Reported targeted race tests and successful post-merge CI; preserve regression contract |
+
+### Wave 00 closure review packet
+
+Evidence baseline for [draft PR #38](https://github.com/AbdullahZaher/ruxbase/pull/38) is commit
+`212ab3fcef26771c6dc8fcf9b400d3a7a5409683`, tree
+`0266f18226fa2c91052c1837ea24cee29638f845`. Preserve the
+[required CI](https://github.com/AbdullahZaher/ruxbase/actions/runs/44885007463),
+[benchmark smoke](https://github.com/AbdullahZaher/ruxbase/actions/runs/44885007467)
+and [inventory](https://github.com/AbdullahZaher/ruxbase/actions/runs/44885007492)
+as evidence for that tree. The owner accepted the bounded Remix Icon and
+importer SQLite packaging remediation.
+
+| Gate | Evidence and remaining review |
+| --- | --- |
+| W00-07 | Blocked on a qualified independent human reviewer and effective rules requiring at least one approving review on `main` and `wave/*`, with mandatory CI and no unauthorized bypass. Capture the effective rules and reviewer identity in [issue #36](https://github.com/AbdullahZaher/ruxbase/issues/36). |
+| W00-08 | Confirmed the [official Supabase Self-Hosted Compose profile](https://supabase.com/docs/guides/self-hosting/docker) at tag `self-hosted/v0.8.4`, peeled commit `189adda99d1b56da55fc5a6ee3f849354aaea92a`, as the proposed comparison input. The existing run covers Ruxbase smoke only. The matched harness and measured comparison are outstanding. |
+| W00-09 | Blob comparison found 67 public files copied verbatim into the embedded distribution. Of these, 63 match the locked PocketBase tree. Four branding files differ from upstream. The remaining 27 embedded files are generated output. See the provenance findings below. |
+| W00-10 | Pending explicit no-newer-upstream-release exception decision. The official `v0.40.*` Git tags still place the locked `v0.40.6` first on 2026-11-21. Record the owner decision and latest applicable official release at certification. |
+| W00-11 | Ready for formal review of the [master roadmap](MASTER-ROADMAP.md). Review the twelve-wave scope and dependencies (§§3–4), named ownership and independent approval responsibilities (§8), and acceptance criteria and release gates (§§4, 6 and 9). The review should identify the roadmap commit and blob, record the decision and any required amendments, and link the reviewed and merged PR. [PR #34](https://github.com/AbdullahZaher/ruxbase/pull/34) is the adoption record. |
+| W00-12 | Blocked on W00-07 and outstanding W00-08 through W00-11 dispositions. Submit the immutable candidate and exact-tree CI for independent certification once those inputs are complete. Record the approving GitHub review, authorized integration, post-merge CI on the resulting `main` SHA and checklist reconciliation. Production remains **NO-GO**. |
+
+#### W00-08 matched measurement inputs
+
+Build both targets on the same Docker host with attributable container
+cgroups. Pin Compose, platform image digests and the Ruxbase commit/tree.
+Record the total CPU and memory budget, database settings and version,
+enabled services and any profile differences. Use identical seeded records,
+indexes, response fields, filter/page semantics, write payloads and load
+schedules. Keep access policies equivalent and use the public API paths.
+Measure realtime separately with equivalent subscriptions and event rates,
+and record the SSE and WebSocket protocol differences. Run each stack alone
+with the same load generator, warmup, duration, concurrency and repetition
+count. Publish raw request, latency, error and delivery counters, container
+samples for every enabled service, and the environment manifest. Compare
+functional smoke and measured throughput within their respective profiles.
+
+#### W00-09 embedded distribution findings
+
+Compare the blob IDs in `git ls-tree -r <candidate> ui/dist ui/public` to
+`git ls-tree -r 9d281ccaba65f2686eb7b0b614ccda72d1116a1b ui/public` by
+relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
+
+| Shipped group | Observed provenance | Outstanding disposition |
+| --- | --- | --- |
+| 7 fonts | All match pinned PocketBase. One is the separately verified Remix Icon 4.6.0 font. | Resolve the six IBM Plex font files to original distributions and verify notice obligations. |
+| 30 OAuth provider icons | All match pinned PocketBase. | Verify provider origins and redistribution and trademark terms per icon. |
+| 4 brand images | Both favicons and both logo SVGs match the Ruxbase public copies and differ from PocketBase. | Verify source and ownership against the approved brand masters. |
+| 26 vendored library files | All match pinned PocketBase. Headers identify TinyMCE 6.8.6, bundled DOMPurify 3.2.4, PrismJS 1.30.0 and uPlot 1.6.32. Shablon has no version in its opening header. | Match the original distribution files or custom build inputs and resolve applicable licenses, notices and bundled components. |
+| 27 generated files | Dashboard build output. The lockfile identifies Leaflet 1.9.4 and PocketBase JS SDK 0.28.1 as runtime dependencies. | Verify actual bundle contents from a locked rebuild and match each bundled component to its original license and notices. |
+| Server and importer Go modules | The SQLite module in the importer has separately verified packaging evidence. | Derive the linked module and package sets from release builds for each supported target and build tag. Verify original license texts and obligations, including transitive modules and vendored sources, against the distributed artifacts. |
 
 ## 1. Wave 00 — Foundation & Upstream Sustainability
 
