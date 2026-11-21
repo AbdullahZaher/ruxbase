@@ -388,6 +388,15 @@ type App interface {
 	// ValidateTenantAccess verifies that the given principal is authorized to access the specified tenant.
 	ValidateTenantAccess(p Principal, tenantId string) error
 
+	// GenerateTenantAuthToken generates a signed JWT token bound to a user record and optional active tenant.
+	GenerateTenantAuthToken(record *Record, tenantId string, duration time.Duration) (string, error)
+
+	// VerifyTenantAuthToken verifies a JWT token and constructs an authoritative UserPrincipal with fresh database state.
+	VerifyTenantAuthToken(tokenStr string) (*UserPrincipal, *Record, error)
+
+	// RevokeUserSession rotates the user record's tokenKey, instantly invalidating all issued tokens.
+	RevokeUserSession(record *Record) error
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
