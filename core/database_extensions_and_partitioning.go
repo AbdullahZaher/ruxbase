@@ -231,7 +231,7 @@ func (app *BaseApp) CreateNativeIndex(opts CreateIndexOptions) error {
 		if i > 0 {
 			colsBuilder.WriteString(", ")
 		}
-		colsBuilder.WriteString(fmt.Sprintf("%q", col))
+		fmt.Fprintf(&colsBuilder, "%q", col)
 		if opts.VectorDistance != "" && (method == "hnsw" || method == "ivfflat") {
 			colsBuilder.WriteString(" " + opts.VectorDistance)
 		}

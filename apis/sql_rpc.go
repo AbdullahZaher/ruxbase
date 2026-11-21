@@ -9,8 +9,8 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/router"
 )
 
-// bindSQLRPCApi registers the SQL RPC introspection and invocation endpoints.
-func bindSQLRPCApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
+// bindSQLRPC registers the SQL RPC introspection and invocation endpoints.
+func bindSQLRPC(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	rpcGroup := rg.Group("/ruxbase/rpc")
 
 	// Administrative endpoints

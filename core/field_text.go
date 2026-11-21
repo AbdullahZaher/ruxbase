@@ -113,7 +113,7 @@ type TextField struct {
 	PrimaryKey bool `form:"primaryKey" json:"primaryKey"`
 
 	// Generated marks the column as a PostgreSQL generated/computed column.
-	Generated bool `form:"generated" json:"generated"`
+	Generated bool `form:"generated" json:"generated,omitzero"`
 }
 
 // IsGenerated reports whether the field is computed by PostgreSQL.

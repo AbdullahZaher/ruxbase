@@ -47,7 +47,7 @@ type BoolField struct {
 	Help string `form:"help" json:"help"`
 
 	// Generated marks the column as a PostgreSQL generated/computed column.
-	Generated bool `form:"generated" json:"generated"`
+	Generated bool `form:"generated" json:"generated,omitzero"`
 
 	// Required will require the field value to be always "true".
 	Required bool `form:"required" json:"required"`

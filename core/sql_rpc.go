@@ -21,19 +21,19 @@ type RPCParam struct {
 
 // RPCFunction represents an introspected PostgreSQL stored procedure / function.
 type RPCFunction struct {
-	Name            string      `db:"name" json:"name"`
-	Schema          string      `db:"schema" json:"schema"`
-	ReturnType      string      `db:"return_type" json:"returnType"`
-	ReturnsSet      bool        `db:"returns_set" json:"returnsSet"`
-	Volatility      string      `db:"volatility" json:"volatility"` // "VOLATILE", "STABLE", "IMMUTABLE"
-	SecurityDefiner bool        `db:"security_definer" json:"securityDefiner"`
-	Arguments       string      `db:"arguments" json:"arguments"`
-	Parameters      []RPCParam  `db:"-" json:"parameters"`
-	IsExposed       bool        `db:"-" json:"isExposed"`
-	AccessRule      *string     `db:"access_rule" json:"accessRule"` // nil for superuser only, "" for public
-	ParamsJSON      string      `db:"params_json" json:"-"`
-	ArgTypes        string      `db:"arg_types" json:"-"`
-	ArgNamesStr     string      `db:"arg_names" json:"-"`
+	Name            string     `db:"name" json:"name"`
+	Schema          string     `db:"schema" json:"schema"`
+	ReturnType      string     `db:"return_type" json:"returnType"`
+	ReturnsSet      bool       `db:"returns_set" json:"returnsSet"`
+	Volatility      string     `db:"volatility" json:"volatility"` // "VOLATILE", "STABLE", "IMMUTABLE"
+	SecurityDefiner bool       `db:"security_definer" json:"securityDefiner"`
+	Arguments       string     `db:"arguments" json:"arguments"`
+	Parameters      []RPCParam `db:"-" json:"parameters"`
+	IsExposed       bool       `db:"-" json:"isExposed"`
+	AccessRule      *string    `db:"access_rule" json:"accessRule"` // nil for superuser only, "" for public
+	ParamsJSON      string     `db:"params_json" json:"-"`
+	ArgTypes        string     `db:"arg_types" json:"-"`
+	ArgNamesStr     string     `db:"arg_names" json:"-"`
 }
 
 // ExposeFunctionOptions defines configuration for exposing an RPC function.

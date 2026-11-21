@@ -63,7 +63,7 @@ type JSONField struct {
 	MaxSize int64 `form:"maxSize" json:"maxSize"`
 
 	// Generated marks the column as a PostgreSQL generated/computed column.
-	Generated bool `form:"generated" json:"generated"`
+	Generated bool `form:"generated" json:"generated,omitzero"`
 
 	// Required will require the field value to be non-empty JSON value
 	// (aka. not "null", `""`, "[]", "{}").

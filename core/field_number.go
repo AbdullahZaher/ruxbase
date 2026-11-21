@@ -78,13 +78,13 @@ type NumberField struct {
 	OnlyInt bool `form:"onlyInt" json:"onlyInt"`
 
 	// Precision specifies the maximum total digits (1 to 1000) for exact numeric types.
-	Precision *int `form:"precision" json:"precision"`
+	Precision *int `form:"precision" json:"precision,omitzero"`
 
 	// Scale specifies the number of fractional digits after decimal point for exact numeric types.
-	Scale *int `form:"scale" json:"scale"`
+	Scale *int `form:"scale" json:"scale,omitzero"`
 
 	// Generated marks the column as a PostgreSQL generated/computed column.
-	Generated bool `form:"generated" json:"generated"`
+	Generated bool `form:"generated" json:"generated,omitzero"`
 
 	// Required will require the field value to be non-zero.
 	Required bool `form:"required" json:"required"`

@@ -57,7 +57,7 @@ type DateField struct {
 	Max types.DateTime `form:"max" json:"max"`
 
 	// Generated marks the column as a PostgreSQL generated/computed column.
-	Generated bool `form:"generated" json:"generated"`
+	Generated bool `form:"generated" json:"generated,omitzero"`
 
 	// Required will require the field value to be non-zero [types.DateTime].
 	Required bool `form:"required" json:"required"`

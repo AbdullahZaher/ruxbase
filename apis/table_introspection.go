@@ -9,8 +9,8 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/router"
 )
 
-// bindTableIntrospectionApi registers the PostgreSQL native table introspection and exposure endpoints.
-func bindTableIntrospectionApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
+// bindTableIntrospection registers the PostgreSQL native table introspection and exposure endpoints.
+func bindTableIntrospection(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	subGroup := rg.Group("/ruxbase/tables").Bind(RequireSuperuserAuth())
 	subGroup.GET("", tablesList)
 	subGroup.GET("/{name}", tableDetail)

@@ -29,7 +29,7 @@ func ValidateExposedTableName(tableName string) error {
 
 	// Validate character set (alphanumeric and underscore only)
 	for _, ch := range name {
-		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_') {
+		if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') && ch != '_' {
 			return fmt.Errorf("table name %q contains invalid characters; only alphanumeric and underscores allowed", name)
 		}
 	}
