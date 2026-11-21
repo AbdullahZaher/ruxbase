@@ -16,9 +16,11 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/router"
 	"github.com/AbdullahZaher/ruxbase/tools/routine"
 	"github.com/AbdullahZaher/ruxbase/tools/search"
+	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/AbdullahZaher/ruxbase/tools/subscriptions"
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/spf13/cast"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,6 +32,9 @@ const RealtimeClientAuthKey = "auth"
 
 // RealtimeClientIPKey is the name of the realtime client store key that holds the IP of the connected client.
 const RealtimeClientIPKey = "pbRealtimeClientIP"
+
+// RealtimeClientTenantKey is the name of the realtime client store key that holds its active tenant ID.
+const RealtimeClientTenantKey = "pbRealtimeClientTenant"
 
 // bindRealtimeApi registers the realtime api endpoints.
 func bindRealtimeApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
@@ -84,6 +89,7 @@ func realtimeConnect(e *core.RequestEvent) error {
 		// register new subscription client
 		ce.App.SubscriptionsBroker().Register(ce.Client)
 		defer func() {
+			realtimeCleanupClientPresence(e.App, ce.Client.Id())
 			e.App.SubscriptionsBroker().Unregister(ce.Client.Id())
 		}()
 
@@ -111,6 +117,15 @@ func realtimeConnect(e *core.RequestEvent) error {
 				slog.String("error", connectMsgErr.Error()),
 			)
 			return nil
+		}
+
+		// ruxbase: handle Last-Event-ID / cursor replay and resync
+		lastEventId := ce.Request.Header.Get("Last-Event-ID")
+		if lastEventId == "" {
+			lastEventId = ce.Request.URL.Query().Get("lastEventId")
+		}
+		if lastEventId != "" {
+			realtimeHandleReconnectCursor(ce, lastEventId)
 		}
 
 		// start a max lifetime timer to prevent accumulating too much
@@ -252,6 +267,13 @@ func realtimeSetSubscriptions(e *core.RequestEvent) error {
 		// update auth state
 		e.Client.Set(RealtimeClientAuthKey, e.Auth)
 
+		// ruxbase: bind active tenant context if available
+		activeTenant := e.Request.Header.Get("X-Tenant-Id")
+		if activeTenant == "" && e.Auth != nil {
+			activeTenant = e.Auth.GetString(core.TenantIdField)
+		}
+		e.Client.Set(RealtimeClientTenantKey, activeTenant)
+
 		// unsubscribe from any previous existing subscriptions
 		e.Client.Unsubscribe()
 
@@ -349,6 +371,30 @@ func realtimeUnsetClientsAuthByCollection(app core.App, collection *core.Collect
 	return group.Wait()
 }
 
+// realtimeUnsetClientsAuthById unsets the auth state of all clients matching the given collection name and record ID.
+func realtimeUnsetClientsAuthById(app core.App, collectionName string, recordId string) error {
+	chunks := app.SubscriptionsBroker().ChunkedClients(clientsChunkSize)
+
+	group := new(errgroup.Group)
+
+	for _, chunk := range chunks {
+		group.Go(routine.SafeWrap(func() error {
+			for _, client := range chunk {
+				clientAuth, _ := client.Get(RealtimeClientAuthKey).(*core.Record)
+				if clientAuth != nil &&
+					clientAuth.Id == recordId &&
+					clientAuth.Collection().Name == collectionName {
+					client.Unset(RealtimeClientAuthKey)
+				}
+			}
+
+			return nil
+		}))
+	}
+
+	return group.Wait()
+}
+
 func bindRealtimeEvents(app core.App) {
 	// reset the clients auth on collection secret change
 	// (@todo with the future tracking of old collections data consider replacing with *AfterUpdateSuccess to account for transaction rollback)
@@ -413,6 +459,8 @@ func bindRealtimeEvents(app core.App) {
 						slog.String("error", err.Error()),
 					)
 				}
+				// ruxbase: notify cluster nodes of auth update / tokenKey rotation
+				realtimeNotifyAuthRevoke(e.App, authRecord.Collection().Name, authRecord.Id)
 			}
 
 			return e.Next()
@@ -434,6 +482,8 @@ func bindRealtimeEvents(app core.App) {
 						slog.String("error", err.Error()),
 					)
 				}
+				// ruxbase: notify cluster nodes of auth model deletion
+				realtimeNotifyAuthRevoke(e.App, collection.Name, fmt.Sprint(e.Model.PK()))
 			}
 
 			return e.Next()
@@ -694,6 +744,35 @@ func realtimeBroadcastRecordWithAccessCheck(
 			for _, client := range chunk {
 				// note: not executed concurrently to avoid races and to ensure
 				// that the access checks are applied for the current record db state
+				clientAuth, _ = client.Get(RealtimeClientAuthKey).(*core.Record)
+
+				// ruxbase: verify client auth freshness and instant token revocation
+				if clientAuth != nil && !clientAuth.IsSuperuser() {
+					currentAuth, err := app.FindRecordById(clientAuth.Collection().Id, clientAuth.Id)
+					if err != nil || currentAuth == nil || currentAuth.TokenKey() != clientAuth.TokenKey() {
+						client.Unset(RealtimeClientAuthKey)
+						clientAuth = nil
+					} else {
+						clientAuth = currentAuth
+						client.Set(RealtimeClientAuthKey, currentAuth)
+					}
+				}
+
+				// ruxbase: tenant isolation check for tenant-scoped collections
+				recordTenant := record.GetString(core.TenantIdField)
+				if recordTenant != "" {
+					if clientAuth == nil {
+						continue // unauthenticated guest cannot access tenant-scoped records
+					}
+					clientTenant, _ := client.Get(RealtimeClientTenantKey).(string)
+					if !clientAuth.IsSuperuser() && clientTenant != recordTenant {
+						membership, err := app.GetTenantMembership(recordTenant, clientAuth.Id)
+						if err != nil || membership == nil || membership.Status != core.MembershipStatusActive {
+							continue // cross-tenant event isolation
+						}
+					}
+				}
+
 				for prefix, rule := range subscriptionRuleMap {
 					subs := client.Subscriptions(prefix)
 					if len(subs) == 0 {
@@ -808,7 +887,9 @@ func realtimeBroadcastRecordWithAccessCheck(
 							continue
 						}
 
+						eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
 						msg := subscriptions.Message{
+							Id:   eventId,
 							Name: sub,
 							Data: dataBytes,
 						}
@@ -964,4 +1045,82 @@ func realtimeCanAccessRecord(
 	err = q.Limit(1).Row(&exists)
 
 	return err == nil && exists > 0
+}
+
+// realtimeHandleReconnectCursor handles cursor replay or resync notification for reconnecting clients.
+func realtimeHandleReconnectCursor(ce *core.RealtimeConnectRequestEvent, lastEventId string) {
+	parts := strings.Split(lastEventId, "_")
+	var isExpired bool
+	var cursorTime time.Time
+	if len(parts) >= 2 {
+		ts, err := cast.ToInt64E(parts[0])
+		if err == nil && ts > 0 {
+			cursorTime = time.UnixMilli(ts)
+			if time.Since(cursorTime) > 5*time.Minute {
+				isExpired = true
+			}
+		}
+	} else if lastEventId == "expired" || strings.HasPrefix(lastEventId, "expired_") {
+		isExpired = true
+	}
+
+	if isExpired {
+		resyncMsg := &subscriptions.Message{
+			Name: "PB_RESYNC_REQUIRED",
+			Data: []byte(`{"code":"cursor_expired","message":"The event cursor is older than the 5-minute replay retention window; full collection resync required."}`),
+		}
+		_ = resyncMsg.WriteSSE(ce.Response, ce.Client.Id())
+		_ = ce.Flush()
+		return
+	}
+
+	// If within window, attempt bounded replay of missed events from _realtime_events
+	if !cursorTime.IsZero() {
+		type storedEvent struct {
+			Id           string `db:"id"`
+			Op           string `db:"op"`
+			CollectionId string `db:"collection_id"`
+			RecordId     string `db:"record_id"`
+			Snapshot     string `db:"snapshot"`
+		}
+		var events []storedEvent
+		err := ce.App.ConcurrentDB().NewQuery(`
+			SELECT [[id]], [[op]], [[collection_id]], [[record_id]], coalesce([[snapshot]]::text, '') AS [[snapshot]]
+			FROM {{_realtime_events}}
+			WHERE [[created]] > {:cursorTime}
+			ORDER BY [[created]] ASC
+			LIMIT 100
+		`).Bind(dbx.Params{"cursorTime": cursorTime.UTC().Format("2006-01-02 15:04:05.000000Z07:00")}).All(&events)
+		if err != nil {
+			ce.App.Logger().Warn("Failed to query replay events", slog.String("error", err.Error()))
+		}
+
+		for _, ev := range events {
+			col, err := ce.App.FindCachedCollectionByNameOrId(ev.CollectionId)
+			if err != nil || col == nil {
+				continue
+			}
+			var rec *core.Record
+			if ev.Op == "delete" {
+				rec = core.NewRecord(col)
+				rec.Id = ev.RecordId
+			} else {
+				rec, _ = ce.App.FindRecordById(col, ev.RecordId)
+			}
+			if rec == nil {
+				continue
+			}
+			dataBytes, err := json.Marshal(&recordData{Action: ev.Op, Record: rec})
+			if err != nil {
+				continue
+			}
+			replayedMsg := &subscriptions.Message{
+				Id:   ev.Id,
+				Name: col.Name + "/*",
+				Data: dataBytes,
+			}
+			_ = replayedMsg.WriteSSE(ce.Response, ev.Id)
+			_ = ce.Flush()
+		}
+	}
 }

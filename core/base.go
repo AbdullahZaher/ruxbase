@@ -178,6 +178,7 @@ type BaseApp struct {
 	cron                *cron.Cron
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
+	presence            *PresenceManager
 	// ruxbase: the cluster and the main Postgres pool
 	cluster             *cluster.Cluster
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
@@ -320,6 +321,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		store:               store.New[string, any](nil),
 		cron:                cron.New(),
 		subscriptionsBroker: subscriptions.NewBroker(),
+		presence:            NewPresenceManager(),
 		config:              &config,
 		clusterFingerprints: &clusterFingerprints{},
 		modules:             newModuleRegistry(),
@@ -860,6 +862,11 @@ func (app *BaseApp) Cluster() *cluster.Cluster {
 // SubscriptionsBroker returns the app realtime subscriptions broker instance.
 func (app *BaseApp) SubscriptionsBroker() *subscriptions.Broker {
 	return app.subscriptionsBroker
+}
+
+// Presence returns the ephemeral presence manager instance.
+func (app *BaseApp) Presence() *PresenceManager {
+	return app.presence
 }
 
 // NewMailClient creates and returns a new SMTP or Sendmail client

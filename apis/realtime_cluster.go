@@ -2,6 +2,7 @@ package apis
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/inflector"
 	"github.com/AbdullahZaher/ruxbase/tools/search"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/AbdullahZaher/ruxbase/tools/subscriptions"
 	"github.com/pocketbase/dbx"
 )
 
@@ -36,6 +38,7 @@ import (
 const (
 	clusterTopicRealtimeRecord         = "rt_record"
 	clusterTopicRealtimeAuthCollection = "rt_auth_collection"
+	clusterTopicRealtimeAuthRevoke     = "rt_auth_revoke"
 
 	realtimeEventsTable = "_realtime_events"
 	realtimeSourceHooks = "hooks"
@@ -82,6 +85,78 @@ func bindRealtimeClusterEvents(app core.App) {
 				slog.String("collectionName", msg.Payload),
 				slog.String("error", err.Error()),
 			)
+		}
+	})
+
+	app.Cluster().Subscribe(clusterTopicRealtimeAuthRevoke, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.Split(msg.Payload, "|")
+		if len(parts) == 2 {
+			if err := realtimeUnsetClientsAuthById(app, parts[0], parts[1]); err != nil {
+				app.Logger().Warn(
+					"Failed to unset clients auth on cluster revocation",
+					slog.String("collection", parts[0]),
+					slog.String("id", parts[1]),
+					slog.String("error", err.Error()),
+				)
+			}
+		}
+	})
+
+	app.Cluster().SubscribeData(clusterTopicRealtimeBroadcast, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 5)
+		if len(parts) == 5 {
+			channel := parts[0]
+			event := parts[1]
+			sender := parts[2]
+			tenantId := parts[3]
+			rawPayload := parts[4]
+			var payload any
+			_ = json.Unmarshal([]byte(rawPayload), &payload)
+
+			dataBytes, err := json.Marshal(map[string]any{
+				"event":   event,
+				"channel": channel,
+				"payload": payload,
+				"sender":  sender,
+			})
+			if err == nil {
+				topic := "broadcast:" + channel
+				eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+				outMsg := subscriptions.Message{
+					Id:   eventId,
+					Name: topic,
+					Data: dataBytes,
+				}
+				_ = realtimeDispatchToTopic(app, topic, tenantId, outMsg)
+			}
+		}
+	})
+
+	app.Cluster().SubscribeData(clusterTopicRealtimePresence, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) == 2 {
+			channel := parts[0]
+			dataBytes := []byte(parts[1])
+			topic := "presence:" + channel
+			eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+			outMsg := subscriptions.Message{
+				Id:   eventId,
+				Name: topic,
+				Data: dataBytes,
+			}
+			_ = realtimeDispatchToTopic(app, topic, "", outMsg)
 		}
 	})
 
@@ -156,8 +231,9 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterCreateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
-				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+			if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+				realtimeStoreHookEvent(e.App, "create", collection.Id, fmt.Sprint(e.Model.PK()))
+				if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("create", collection, e.Model.PK()))
 				}
 			}
@@ -168,8 +244,9 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterUpdateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
-				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+			if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+				realtimeStoreHookEvent(e.App, "update", collection.Id, fmt.Sprint(e.Model.PK()))
+				if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("update", collection, e.Model.PK()))
 				}
 			}
@@ -181,7 +258,7 @@ func bindRealtimeClusterEvents(app core.App) {
 	// delete: snapshot the record row before the delete (inside the delete transaction)
 	app.OnModelDelete().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
+			if !realtimeFromReplication(app) {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
 					snapshot, err := realtimeRecordSnapshot(e.App, collection, e.Model.PK())
 					if err != nil {
@@ -217,7 +294,7 @@ func bindRealtimeClusterEvents(app core.App) {
 							slog.String("collectionName", collection.Name),
 							slog.String("error", err.Error()),
 						)
-					} else {
+					} else if app.Cluster().Enabled() {
 						notify(clusterTopicRealtimeRecord, "delete|"+eventId+"|"+collection.Name)
 					}
 				}
@@ -246,6 +323,26 @@ func realtimeNotifyAuthCollectionChange(app core.App, collectionName string) {
 			app.Logger().Warn(
 				"Failed to publish the realtime auth collection change",
 				slog.String("collectionName", collectionName),
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil
+	})
+}
+
+// realtimeNotifyAuthRevoke notifies the other nodes (after the
+// transaction commit, if any) to reset the auth state of their clients
+// related to the revoked auth record (eg. on tokenKey change or user deletion).
+func realtimeNotifyAuthRevoke(app core.App, collectionName string, recordId string) {
+	if !app.Cluster().Enabled() {
+		return
+	}
+	execAfterSuccessTx(true, app, func() error {
+		if err := app.Cluster().Notify(clusterTopicRealtimeAuthRevoke, collectionName+"|"+recordId); err != nil {
+			app.Logger().Warn(
+				"Failed to publish the realtime auth revoke cluster event",
+				slog.String("collectionName", collectionName),
+				slog.String("recordId", recordId),
 				slog.String("error", err.Error()),
 			)
 		}
@@ -283,6 +380,26 @@ func realtimeRecordSnapshot(app core.App, collection *core.Collection, pk any) (
 	)).Bind(dbx.Params{"id": fmt.Sprint(pk)}).Row(&snapshot)
 
 	return snapshot, err
+}
+
+// realtimeStoreHookEvent records an event in _realtime_events for cursor-based replay.
+func realtimeStoreHookEvent(app core.App, op string, collectionId string, recordId string) string {
+	eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+	_, err := app.DB().NewQuery(`
+		INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]])
+		VALUES ({:id}, {:source}, {:op}, {:collectionId}, {:recordId})
+		ON CONFLICT ([[id]]) DO NOTHING
+	`).Bind(dbx.Params{
+		"id":           eventId,
+		"source":       realtimeSourceHooks,
+		"op":           op,
+		"collectionId": collectionId,
+		"recordId":     recordId,
+	}).Execute()
+	if err != nil {
+		app.Logger().Warn("Failed to store realtime hook event", slog.String("error", err.Error()))
+	}
+	return eventId
 }
 
 // realtimeStoreDeleteEvent stores the deleted record snapshot and returns the new event id.
@@ -369,7 +486,7 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string, collectio
 func realtimeBroadcastDeletedSnapshot(app core.App, collection *core.Collection, snapshot string) error {
 	withFrom, params := realtimeSnapshotCTE(collection.Name, collection.Name, snapshot)
 
-	record := &core.Record{}
+	record := core.NewRecord(collection)
 	err := app.RecordQuery(collection).PreFragment(withFrom).Bind(params).Limit(1).One(record)
 	if err != nil {
 		return err

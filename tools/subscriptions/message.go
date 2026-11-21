@@ -6,6 +6,7 @@ import (
 
 // Message defines a client's channel data.
 type Message struct {
+	Id   string `json:"id,omitempty"`
 	Name string `json:"name"`
 	Data []byte `json:"data"`
 }
@@ -18,8 +19,13 @@ type Message struct {
 //	m.WriteSSE(e.Response, "yourEventId")
 //	e.Flush()
 func (m *Message) WriteSSE(w io.Writer, eventId string) error {
+	id := m.Id
+	if id == "" {
+		id = eventId
+	}
+
 	parts := [][]byte{
-		[]byte("id:" + eventId + "\n"),
+		[]byte("id:" + id + "\n"),
 		[]byte("event:" + m.Name + "\n"),
 		[]byte("data:"),
 		m.Data,
