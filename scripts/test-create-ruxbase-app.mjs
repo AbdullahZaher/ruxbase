@@ -46,6 +46,10 @@ test("Both starters scaffold deterministically with portable lock and no secrets
       for(const f of ["public/ruxbase-horizontal-white.svg","public/ruxbase-horizontal-black.svg",
         ".env.example","RUXBASE_AI_CONTEXT.md","README.md"])await stat(join(target,f));
       assert.match(await readFile(join(target,"RUXBASE_AI_CONTEXT.md"),"utf8"),/npm ci/);
+      const readme=await readFile(join(target,"README.md"),"utf8");
+      assert.doesNotMatch(readme,/\.\.\/\.\.\/docs\//,"Generated standalone README must not contain broken in-repository links");
+      assert.match(readme,/https:\/\/abdullahzaher\.github\.io\/ruxbase\/getting-started\/quickstart\//);
+      assert.match(readme,/https:\/\/abdullahzaher\.github\.io\/ruxbase\/integrations\/example-app\//);
       assert.ok(!JSON.stringify(pkg).includes("POSTGRES_PASSWORD"));
       assert.equal(run([framework,name,"--output",dir,"--json"]).status,2,"No overwrite on existing directory");
       // Existing project must never be changed by rejected invocations.
