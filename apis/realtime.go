@@ -41,6 +41,8 @@ func bindRealtimeApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	sub := rg.Group("/realtime")
 	sub.GET("", realtimeConnect).Bind(SkipSuccessActivityLog())
 	sub.POST("", realtimeSetSubscriptions)
+	sub.POST("/broadcast", realtimeBroadcast)
+	sub.POST("/presence", realtimePresence)
 
 	bindRealtimeEvents(app)
 	bindRealtimeClusterEvents(app)
@@ -89,6 +91,7 @@ func realtimeConnect(e *core.RequestEvent) error {
 		// register new subscription client
 		ce.App.SubscriptionsBroker().Register(ce.Client)
 		defer func() {
+			realtimeCleanupClientPresence(e.App, ce.Client.Id())
 			e.App.SubscriptionsBroker().Unregister(ce.Client.Id())
 		}()
 

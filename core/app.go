@@ -110,6 +110,9 @@ type App interface {
 	// SubscriptionsBroker returns the app realtime subscriptions broker instance.
 	SubscriptionsBroker() *subscriptions.Broker
 
+	// Presence returns the ephemeral presence manager instance.
+	Presence() *PresenceManager
+
 	// ruxbase: the cluster of the app instances (nodes) and the RLS strict mode
 	// Cluster returns the app cluster instance used to coordinate
 	// the app instances (nodes) that share the same database.

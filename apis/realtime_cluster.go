@@ -2,6 +2,7 @@ package apis
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/inflector"
 	"github.com/AbdullahZaher/ruxbase/tools/search"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/AbdullahZaher/ruxbase/tools/subscriptions"
 	"github.com/pocketbase/dbx"
 )
 
@@ -101,6 +103,60 @@ func bindRealtimeClusterEvents(app core.App) {
 					slog.String("error", err.Error()),
 				)
 			}
+		}
+	})
+
+	app.Cluster().SubscribeData(clusterTopicRealtimeBroadcast, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 5)
+		if len(parts) == 5 {
+			channel := parts[0]
+			event := parts[1]
+			sender := parts[2]
+			tenantId := parts[3]
+			rawPayload := parts[4]
+			var payload any
+			_ = json.Unmarshal([]byte(rawPayload), &payload)
+
+			dataBytes, err := json.Marshal(map[string]any{
+				"event":   event,
+				"channel": channel,
+				"payload": payload,
+				"sender":  sender,
+			})
+			if err == nil {
+				topic := "broadcast:" + channel
+				eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+				outMsg := subscriptions.Message{
+					Id:   eventId,
+					Name: topic,
+					Data: dataBytes,
+				}
+				_ = realtimeDispatchToTopic(app, topic, tenantId, outMsg)
+			}
+		}
+	})
+
+	app.Cluster().SubscribeData(clusterTopicRealtimePresence, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.SplitN(msg.Payload, "|", 2)
+		if len(parts) == 2 {
+			channel := parts[0]
+			dataBytes := []byte(parts[1])
+			topic := "presence:" + channel
+			eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+			outMsg := subscriptions.Message{
+				Id:   eventId,
+				Name: topic,
+				Data: dataBytes,
+			}
+			_ = realtimeDispatchToTopic(app, topic, "", outMsg)
 		}
 	})
 
