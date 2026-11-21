@@ -258,7 +258,7 @@ func bindRealtimeClusterEvents(app core.App) {
 	// delete: snapshot the record row before the delete (inside the delete transaction)
 	app.OnModelDelete().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
+			if !realtimeFromReplication(app) {
 				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
 					snapshot, err := realtimeRecordSnapshot(e.App, collection, e.Model.PK())
 					if err != nil {
@@ -294,7 +294,7 @@ func bindRealtimeClusterEvents(app core.App) {
 							slog.String("collectionName", collection.Name),
 							slog.String("error", err.Error()),
 						)
-					} else {
+					} else if app.Cluster().Enabled() {
 						notify(clusterTopicRealtimeRecord, "delete|"+eventId+"|"+collection.Name)
 					}
 				}
