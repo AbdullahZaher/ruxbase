@@ -64,3 +64,7 @@ The disposable GitHub Actions `docs-starters` job builds Next.js with its real t
 These checks do not prove multi-node token revocation, OAuth/MFA, access-token theft recovery, advanced rate limiting, proxy configuration or external attack resistance. **Logout clears the cookie only; it does not revoke an already copied backend bearer token.** A further production security assessment is required before adapting this pattern for real customer accounts.
 
 Read [server-side authentication](/ruxbase/integrations/server-side/) and [Next.js integration](/ruxbase/integrations/nextjs/) for the broader SSR boundary.
+
+## Reverse-proxy Host boundary
+
+Mutating endpoints validate both a fixed server-configured `RUXBASE_APP_ORIGIN` and the incoming HTTP `Host` header, plus JSON content type and `Sec-Fetch-Site`. Next.js may canonicalize `request.url` to its internal listener hostname; do not make the CSRF decision from that internal URL. Terminating proxies must preserve the **external public Host** and only trusted TLS routing may reach the application. Requests using a mismatched Host, missing Origin, or cross-site Fetch Metadata are rejected; arbitrary `X-Forwarded-Host` headers are not treated as authority. This remains an example requiring an infrastructure-specific security review before production use.

@@ -15,11 +15,12 @@ BOB = {"email": os.environ["RUXBASE_TEST_BOB_EMAIL"], "password": os.environ["RU
 url = urlparse(ORIGIN)
 assert url.hostname == "127.0.0.1" and url.port == 3000, "Session test must target local temporary Next.js"
 
-def call(method, path, body=None, cookie=None, origin=ORIGIN, fetch_site="same-origin", content_type="application/json"):
+def call(method, path, body=None, cookie=None, origin=ORIGIN, fetch_site="same-origin", content_type="application/json", host=None):
     headers = {}
     if origin is not None: headers["Origin"] = origin
     if fetch_site is not None: headers["Sec-Fetch-Site"] = fetch_site
     if cookie: headers["Cookie"] = cookie
+    if host is not None: headers["Host"] = host
     data = json.dumps(body).encode() if body is not None else None
     if data is not None:
         headers["Content-Type"] = content_type
@@ -54,6 +55,11 @@ for origin, site, typ in [(None, None, "application/json"),
     assert resp[0] == 403, ("CSRF must fail closed", resp[0])
 invalid = call("POST", "/api/session/login", {"email": "absent-account@example.invalid", "password": "wrong"})
 assert invalid[0] == 401, ("Invalid credentials must be rejected after same-origin CSRF validation", invalid[0], invalid[2][:160])
+# An attacker-controlled Host, even with a valid Origin, cannot authorize a
+# cookie mutation. Do not rely on Next.js's internally canonicalized URL.
+for hostile_host in ["evil.example", "localhost:3000", "127.0.0.1:3001"]:
+    resp = call("POST", "/api/session/login", payload, host=hostile_host)
+    assert resp[0] == 403, ("Unexpected Host authorization", hostile_host, resp[0])
 assert call("POST", "/api/session/login", {"email": ALICE["email"], "password": "x" * 9000})[0] == 400
 
 cookies = {}

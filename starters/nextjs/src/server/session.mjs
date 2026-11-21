@@ -40,7 +40,13 @@ export function isSafeMutation(request) {
   const origin = request.headers.get("origin");
   const fetchSite = request.headers.get("sec-fetch-site");
   const type = request.headers.get("content-type") || "";
-  return origin === expected && new URL(request.url).origin === expected &&
+  // Next.js may canonicalize Request.url to its internal listener hostname
+  // (e.g. localhost instead of 127.0.0.1). Trust neither that synthetic URL
+  // nor forwarded-host headers for CSRF. Require the public, explicitly
+  // configured origin AND the real incoming Host header to match.
+  const host = request.headers.get("host");
+  const expectedHost = new URL(expected).host;
+  return origin === expected && host === expectedHost &&
     (!fetchSite || fetchSite === "same-origin" || fetchSite === "none") &&
     /^application\/json(?:\s*;|$)/i.test(type);
 }
