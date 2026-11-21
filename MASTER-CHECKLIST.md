@@ -238,14 +238,14 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 8. Wave 07 — Storage & Function Runtime
 
-- [ ] **W07-01 / P0 / CORE** — Storage bucket and object authorization aligned with shared IAM and RLS contracts.
-- [ ] **W07-02 / P1 / CORE** — Local/S3 adapters with predictable filename, metadata and ownership semantics.
-- [ ] **W07-03 / P1 / CORE** — Secure uploads/replacements and tested resumable or multipart protocol as scope requires.
-- [ ] **W07-04 / P1 / CORE** — Quotas, cleanup, orphan reconciliation and signed-access boundaries.
-- [ ] **W07-05 / P1 / CORE** — Coordinated database/file backup and restore integrity tests.
-- [ ] **W07-06 / P1 / CORE** — Authorized isolated function execution model and secrets boundary; trusted app hooks remain separate.
-- [ ] **W07-07 / P2 / ADV** — Optional WASM/sandbox/plugin function packaging and versioned deployments.
-- [ ] **W07-08 / GATE / CORE** — Cross-tenant file access, malicious function, interrupted upload and restore regression certification.
+- [x] **W07-01 / P0 / CORE** — Storage bucket and object authorization aligned with shared IAM and RLS contracts. **Evidence:** `docs/architecture/WAVE07-STORAGE-AND-FUNCTION-RUNTIME.md`, `migrations/1761800000_ruxbase_storage_functions.go`, `core/storage.go`, `tests/e2e/storage_test.go` (`TestStorage_CrossTenantAuthorizationAndPrivateAccess`).
+- [x] **W07-02 / P1 / CORE** — Local/S3 adapters with predictable filename, metadata and ownership semantics. **Evidence:** `core/storage.go` (`UploadObject`, `GetObject`, `DeleteObject`), `tests/e2e/storage_test.go` (`TestStorage_BucketCreationAndQuotaEnforcement`).
+- [x] **W07-03 / P1 / CORE** — Secure uploads/replacements and tested resumable or multipart protocol as scope requires. **Evidence:** `core/storage.go` (`StartMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`), `tests/e2e/storage_multipart_backup_test.go` (`TestStorage_MultipartChunkedUploadSession`).
+- [x] **W07-04 / P1 / CORE** — Quotas, cleanup, orphan reconciliation and signed-access boundaries. **Evidence:** `core/storage.go` (`CreateSignedURL`, `VerifySignedToken`, `ReconcileOrphans`), `tests/e2e/storage_test.go` (`TestStorage_SignedURLTemporaryAccess`, `TestStorage_OrphanReconciliation`).
+- [x] **W07-05 / P1 / CORE** — Coordinated database/file backup and restore integrity tests. **Evidence:** `tests/e2e/storage_multipart_backup_test.go` (`TestStorage_CoordinatedBackupRestoreIntegrity`).
+- [x] **W07-06 / P1 / CORE** — Authorized isolated function execution model and secrets boundary; trusted app hooks remain separate. **Evidence:** `core/functions.go` (`Invoke`), `tests/e2e/function_runtime_test.go` (`TestFunctions_IsolatedExecutionAndSecretsBoundary`).
+- [x] **W07-07 / P2 / ADV** — Optional WASM/sandbox/plugin function packaging and versioned deployments. **Evidence:** `migrations/1761800000_ruxbase_storage_functions.go`, `core/functions.go`, `tests/e2e/function_runtime_test.go`.
+- [x] **W07-08 / GATE / CORE** — Cross-tenant file access, malicious function, interrupted upload and restore regression certification. **Evidence:** `docs/architecture/WAVE07-AUDIT.md`, `tests/e2e/storage_test.go`, `tests/e2e/storage_multipart_backup_test.go`, `tests/e2e/function_runtime_test.go`. All 9 tests passing, independent certification by A11.
 
 ## 9. Wave 08 — Production Reliability & Operations
 

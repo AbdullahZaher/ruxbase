@@ -116,6 +116,12 @@ type App interface {
 	// Jobs returns the durable background jobs manager instance.
 	Jobs() *JobsManager
 
+	// Storage returns the storage buckets and objects manager instance.
+	Storage() *StorageManager
+
+	// Functions returns the isolated compute functions manager instance.
+	Functions() *FunctionManager
+
 	// ruxbase: the cluster of the app instances (nodes) and the RLS strict mode
 	// Cluster returns the app cluster instance used to coordinate
 	// the app instances (nodes) that share the same database.

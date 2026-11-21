@@ -180,6 +180,8 @@ type BaseApp struct {
 	subscriptionsBroker *subscriptions.Broker
 	presence            *PresenceManager
 	jobs                *JobsManager
+	storage             *StorageManager
+	functions           *FunctionManager
 	// ruxbase: the cluster and the main Postgres pool
 	cluster             *cluster.Cluster
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
@@ -883,6 +885,32 @@ func (app *BaseApp) Jobs() *JobsManager {
 		}
 	}
 	return app.jobs
+}
+
+// Storage returns the storage buckets and objects manager instance.
+func (app *BaseApp) Storage() *StorageManager {
+	if app.storage == nil {
+		app.storage = NewStorageManager(app)
+	}
+	if app.txInfo != nil {
+		return &StorageManager{
+			app: app,
+		}
+	}
+	return app.storage
+}
+
+// Functions returns the isolated compute functions manager instance.
+func (app *BaseApp) Functions() *FunctionManager {
+	if app.functions == nil {
+		app.functions = NewFunctionManager(app)
+	}
+	if app.txInfo != nil {
+		return &FunctionManager{
+			app: app,
+		}
+	}
+	return app.functions
 }
 
 // NewMailClient creates and returns a new SMTP or Sendmail client
