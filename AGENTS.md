@@ -12,6 +12,7 @@ The official PocketBase repository is the sole ongoing upstream. The initial thi
 
 - In a checkout, run `git status --short --branch`, `git rev-parse HEAD` and `git rev-parse HEAD^{tree}`. With remote-only access, inspect the equivalent branch and commit metadata. Preserve unrelated changes.
 - Identify the active issue, milestone, integration target and acceptance criteria from current GitHub state. Do not infer completion from historical reports. Read [branch strategy](docs/BRANCH-STRATEGY.md) and [contributing](CONTRIBUTING.md).
+- **Every new project conversation or milestone task:** read [MASTER-ROADMAP.md](MASTER-ROADMAP.md) (approved strategic scope and 12-wave structure), [MASTER-CHECKLIST.md](MASTER-CHECKLIST.md) (stable task IDs and evidence ledger) and [AI execution protocol](docs/roadmap/AI-EXECUTION-PROTOCOL.md) (revalidation and handoff instructions). Refresh GitHub issues, current refs and CI before claiming progress. Do not equate the planning checklist with completed code or an authorization. Compare only with **Supabase Self-Hosted**, not Supabase Cloud.
 - Inspect the affected implementation, nearby tests and existing conventions before changing code. Implement the smallest complete functional change; avoid speculative abstractions, unrelated formatting and planning-only deliverables when implementation is requested.
 - If working in stages, use the existing issue/PR as the checkpoint. Record remaining work, exact candidate SHA and evidence instead of adding transient status to this file.
 
@@ -54,7 +55,8 @@ Database-dependent commands require a disposable local or CI database, never pro
 | Dashboard | ui/src/, ui/package.json, [UI README](ui/README.md) |
 | Brand and visual design | [brand guidelines](assets/brand/brand-guidelines.md), [brand tokens](assets/brand/brand-tokens.json), existing master SVGs |
 | Test infrastructure | tests/, scripts/, Makefile, .github/workflows/ |
-| Architecture direction | [Wave 00 baseline](docs/architecture/WAVE00-BASELINE-ASSESSMENT.md), current tracking issues |
+| Architecture roadmap and status | [Master roadmap](MASTER-ROADMAP.md), [master checklist](MASTER-CHECKLIST.md), [AI protocol](docs/roadmap/AI-EXECUTION-PROTOCOL.md), current tracking issues |
+| Architecture evidence | [Wave 00 baseline](docs/architecture/WAVE00-BASELINE-ASSESSMENT.md), accepted issue/spec and source/tests |
 
 ## 5. Non-negotiable engineering rules
 
