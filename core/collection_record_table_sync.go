@@ -33,18 +33,22 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 		if oldCollection == nil || !app.HasTable(oldCollection.Name) {
 			tableName := newCollection.Name
 
-			fields := newCollection.Fields
+			// ruxbase: if the table already exists (eg. native PostgreSQL table exposed as a collection),
+			// skip CreateTable and preserve existing native schema and data
+			if !app.HasTable(tableName) {
+				fields := newCollection.Fields
 
-			cols := make(map[string]string, len(fields))
+				cols := make(map[string]string, len(fields))
 
-			// add fields definition
-			for _, field := range fields {
-				cols[field.GetName()] = field.ColumnType(app)
-			}
+				// add fields definition
+				for _, field := range fields {
+					cols[field.GetName()] = field.ColumnType(app)
+				}
 
-			// create table
-			if _, err := txApp.DB().CreateTable(tableName, cols).Execute(); err != nil {
-				return err
+				// create table
+				if _, err := txApp.DB().CreateTable(tableName, cols).Execute(); err != nil {
+					return err
+				}
 			}
 
 			// ruxbase: the realtime events of the new table

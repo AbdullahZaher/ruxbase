@@ -183,7 +183,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 **Must share one identity/policy kernel with Collections-first.** Acceptance on both PostgreSQL 17 and 18.
 
 - [x] **W02-01 / P0 / CORE** — Inventory mappings of existing collection types to native PostgreSQL tables, constraints and schema metadata. **Evidence:** `docs/architecture/WAVE02-SCHEMA-MAPPING.md`, `core/schema_mapping.go`, `core/schema_mapping_test.go` (`TestMapNativeColumnToField`, `TestMapFieldToNativeColumn`, `TestIntrospectTable_Integration`, `TestIntrospectSchemaTables_Integration`).
-- [ ] **W02-02 / P0 / CORE** — Specify and implement authorized SQL-first introspection, explicit schema/table/API exposure and deny by default.
+- [x] **W02-02 / P0 / CORE** — Specify and implement authorized SQL-first introspection, explicit schema/table/API exposure and deny by default. **Evidence:** `docs/architecture/WAVE02-AUTHORIZED-INTROSPECTION.md`, `apis/table_introspection.go`, `core/table_exposure.go`, `tests/e2e/table_introspection_test.go` (`TestTableIntrospection_DenyByDefault`, `TestTableIntrospection_SuperuserAuthorized`, `TestTableIntrospection_UnexposedTableUnreachableViaAPI`, `TestTableIntrospection_ExposeNativeTableAndQuery`, `TestTableIntrospection_RejectsSystemTables`).
 - [ ] **W02-03 / P1 / CORE** — Support native foreign keys, documented composite keys, constraints and deterministic relations where approved.
 - [ ] **W02-04 / P1 / CORE** — Support exact numeric types, native timestamps, generated columns and type-safe validation.
 - [ ] **W02-05 / P1 / CORE** — Support reviewed indexes, appropriate partitioning and PostgreSQL extensions.

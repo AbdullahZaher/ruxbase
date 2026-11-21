@@ -281,6 +281,15 @@ type App interface {
 	// IntrospectTableIndexes returns all indexes defined on the specified table with detailed definitions.
 	IntrospectTableIndexes(tableName string) ([]*NativeIndexInfo, error)
 
+	// ListExposableTables returns summaries of all candidate native tables in the specified schema.
+	ListExposableTables(schema string) ([]*NativeTableSummary, error)
+
+	// IntrospectAndBuildCollection inspects an existing native table and constructs a candidate Collection.
+	IntrospectAndBuildCollection(tableName string) (*Collection, error)
+
+	// ExposeNativeTable registers an existing native PostgreSQL table as an exposed Collection.
+	ExposeNativeTable(opts ExposeTableOptions) (*Collection, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
