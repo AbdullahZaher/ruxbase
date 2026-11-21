@@ -12,7 +12,7 @@
 name: ruxbase-bench
 
 x-app: &app
-  image: ${BENCH_BASE_IMAGE:-debian:trixie-slim}
+  image: ${BENCH_BASE_IMAGE:-debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2}
   entrypoint: []
   deploy:
     resources:
@@ -28,7 +28,7 @@ x-ruxbase: &ruxbase
 
 services:
   postgres:
-    image: pgvector/pgvector:0.8.7-pg18-trixie
+    image: ${BENCH_POSTGRES_IMAGE:-pgvector/pgvector:0.8.7-pg18-trixie@sha256:ab49524d18df7200b74ac9a475e1db6297fc1eb57da4c214c63d10ecc4b754fa}
     command: >
       postgres -c wal_level=logical -c max_connections=400 -c shared_buffers=1GB -c effective_cache_size=2GB
     environment:
@@ -36,7 +36,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "${BENCH_POSTGRES_CPUS:-4}"
           memory: 4g
 
   pocketbase:
@@ -74,15 +74,14 @@ services:
       - node3_data:/data
 
   runner:
-    image: ${BENCH_BASE_IMAGE:-debian:trixie-slim}
-    entrypoint: []
+    <<: *app
     command: [ "sleep", "infinity" ]
     volumes:
       - ./.bin:/bench:ro
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "${BENCH_RUNNER_CPUS:-4}"
           memory: 2g
 
 volumes:

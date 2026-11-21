@@ -44,9 +44,9 @@ import helper is not an integration branch.
 
 Wave 01 uses wave/01-secure-platform-kernel. The first increment is
 feat/w01-m01-runtime-role-preflight, based on the exact same starting commit and
-targeting the wave branch, not main. Wave 00 issue #4 remains open for owner
-provenance review, Git ancestry, rulesets and final certification. Isolated
-engineering may proceed; production authorization remains NO-GO.
+targeting the wave branch. [Wave 00 issue #4](https://github.com/AbdullahZaher/ruxbase/issues/4)
+is closed. The master checklist tracks the remaining Wave 00 review and
+certification gates. Production authorization remains NO-GO.
 
 The wave integration branch is removed only after its complete reviewed
 integration, post-merge CI and evidence retention are verified.
