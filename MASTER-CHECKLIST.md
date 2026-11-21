@@ -77,6 +77,23 @@ importer SQLite packaging remediation.
 | W00-11 | Ready for formal review of the [master roadmap](MASTER-ROADMAP.md). Review the twelve-wave scope and dependencies (§§3–4), named ownership and independent approval responsibilities (§8), and acceptance criteria and release gates (§§4, 6 and 9). The review should identify the roadmap commit and blob, record the decision and any required amendments, and link the reviewed and merged PR. [PR #34](https://github.com/AbdullahZaher/ruxbase/pull/34) is the adoption record. |
 | W00-12 | Blocked on W00-07 and outstanding W00-08 through W00-11 dispositions. Submit the immutable candidate and exact-tree CI for independent certification once those inputs are complete. Record the approving GitHub review, authorized integration, post-merge CI on the resulting `main` SHA and checklist reconciliation. Production remains **NO-GO**. |
 
+[PR #38](https://github.com/AbdullahZaher/ruxbase/pull/38) merged at
+`38f8292c0bed7da380dd1b5dca83419317c402e8` (tree
+`2997aebad1bae76a5272dad7124dc30b681b1d39`). GitHub lists zero submitted
+reviews for the PR, and ruleset `27761929` still requires zero approving
+reviews. The merge does not satisfy W00-07 or W00-12.
+
+Release snapshot CI now captures the Go build metadata and SHA-256 of
+each server and importer ZIP and its executable in the
+`release-go-inventory` artifact. That inventory supports version-specific
+license review. Go standard-library, vendored-source and container
+base-image obligations need separate evidence. TinyMCE 6.8.6 license and
+notices are now included in the server ZIP and runtime container.
+The 22 TinyMCE assets match the PocketBase baseline, with 17 also matching
+the original npm package byte for byte. Verify upstream provenance and
+license obligations for the other five files, including the modified
+DOMPurify bundle, before disposition.
+
 #### W00-08 matched measurement inputs
 
 Build both targets on the same Docker host with attributable container

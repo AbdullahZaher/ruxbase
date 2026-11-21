@@ -111,6 +111,7 @@ jobs:
             awk '$1 == "dep" && $2 == "modernc.org/sqlite" { print $3 }')
           sqlite_notices="THIRD-PARTY-LICENSES/modernc-sqlite/$importer_version"
           remixicon_license=THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE
+          tinymce_notices=THIRD-PARTY-LICENSES/tinymce/6.8.6
           printf '%s  %s\n' 7ea90bbc7c505b98dd7d3a089a6fa32067e353150192951cedb05e26820936cf \
             ui/dist/fonts/remixicon/remixicon.woff2 | sha256sum --check
           if go version -m .builds/build_noncgo_linux_amd64_v1/ruxbase | grep modernc.org/sqlite; then
@@ -121,12 +122,24 @@ jobs:
             notices=(LICENSE.md NOTICE.md)
             case "${archive##*/}" in
               ruxbase-import_*) notices+=("$sqlite_notices/LICENSE" "$sqlite_notices/LICENSE-3RD-PARTY.md") ;;
-              *) notices+=("$remixicon_license") ;;
+              *) notices+=("$remixicon_license" "$tinymce_notices/license.txt" "$tinymce_notices/notices.txt") ;;
             esac
             for notice in "${notices[@]}"; do
               unzip -p "$archive" "$notice" | cmp "$notice" -
             done
           done
+
+      - name: Inventory Go dependencies from release archives
+        run: |
+          python3 -m unittest discover -s scripts -p test_release_go_inventory.py
+          python3 scripts/release_go_inventory.py .builds > .builds/release-go-inventory.json
+
+      - name: Upload release Go dependency inventory
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: release-go-inventory
+          path: .builds/release-go-inventory.json
+          if-no-files-found: error
 
   # the official PocketBase JS SDK against a ruxbase server (tests/sdk/js)
   sdk:
