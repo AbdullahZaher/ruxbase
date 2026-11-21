@@ -356,6 +356,38 @@ type App interface {
 	// AuditDatabaseRoutineSecurity inspects PostgreSQL catalogs for privilege escalation or RLS bypass risks.
 	AuditDatabaseRoutineSecurity(schema string) (*RoutineSecurityAuditReport, error)
 
+	// --- Wave 03: Enterprise IAM & Multi-Tenancy ---
+
+	// EnsureIAMSystemTables ensures that _tenants and _tenant_memberships exist with proper constraints and indexes.
+	EnsureIAMSystemTables() error
+
+	// CreateTenant creates a new organizational tenant.
+	CreateTenant(name, slug string) (*Tenant, error)
+
+	// GetTenant retrieves a tenant by its ID or unique slug.
+	GetTenant(idOrSlug string) (*Tenant, error)
+
+	// UpdateTenantStatus updates a tenant's lifecycle status (active, suspended, archived).
+	UpdateTenantStatus(id string, status TenantStatus) error
+
+	// AddTenantMember adds a user to a tenant with an assigned role.
+	AddTenantMember(tenantId, userId, role string) (*TenantMembership, error)
+
+	// UpdateTenantMemberRole updates the role assigned to a tenant member.
+	UpdateTenantMemberRole(tenantId, userId, newRole string) error
+
+	// RemoveTenantMember removes a user from a tenant.
+	RemoveTenantMember(tenantId, userId string) error
+
+	// GetTenantMembership retrieves a specific user's membership within a tenant.
+	GetTenantMembership(tenantId, userId string) (*TenantMembership, error)
+
+	// ListUserTenants lists all active tenants for a given user.
+	ListUserTenants(userId string) ([]*Tenant, error)
+
+	// ValidateTenantAccess verifies that the given principal is authorized to access the specified tenant.
+	ValidateTenantAccess(p Principal, tenantId string) error
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.

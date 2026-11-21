@@ -195,7 +195,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 4. Wave 03 — Enterprise IAM & Multi-Tenancy
 
-- [ ] **W03-01 / P0 / CORE** — Specify principals: auth collection identity, service identity, role, tenant and membership boundaries.
+- [x] **W03-01 / P0 / CORE** — Specify principals: auth collection identity, service identity, role, tenant and membership boundaries. **Evidence:** `docs/architecture/WAVE03-PRINCIPALS-AND-TENANCY.md`, `core/principal.go`, `tests/e2e/iam_principals_test.go` (`TestIAM_TenantLifecycleAndStatus`, `TestIAM_UserPrincipalAndMemberships`, `TestIAM_ServicePrincipalAndScopeBoundaries`, `TestIAM_SuperuserAndAnonymousBoundaries`).
 - [ ] **W03-02 / P0 / CORE** — Session/token lifecycle, revocation and safe claim freshness; reject client-editable authorization claims.
 - [ ] **W03-03 / P1 / CORE** — Scalable RBAC/ABAC evaluation with explicit role/permission ownership and defaults.
 - [ ] **W03-04 / P0 / CORE** — Tenant-bound record, relation, file and event ownership with restricted SQL enforcement.
