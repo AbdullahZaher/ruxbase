@@ -605,6 +605,16 @@ func (app *BaseApp) FindAuthRecordByEmail(collectionModelOrIdentifier any, email
 //
 //	if ok, _ := app.CanAccessRecord(record, requestInfo, rule); ok { ... }
 func (app *BaseApp) CanAccessRecord(record *Record, requestInfo *RequestInfo, accessRule *string) (bool, error) {
+	// ruxbase: defensive fail-closed validation for nil record or collection
+	if record == nil || record.Collection() == nil {
+		return false, errors.New("record and its collection cannot be nil")
+	}
+
+	// ruxbase: default nil requestInfo to empty unauthenticated guest context
+	if requestInfo == nil {
+		requestInfo = &RequestInfo{}
+	}
+
 	// superusers can access everything
 	if requestInfo.HasSuperuserAuth() {
 		return true, nil

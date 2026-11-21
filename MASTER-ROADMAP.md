@@ -99,7 +99,7 @@ Security, tests, operations, performance measurements, user documentation, upgra
 - **M06:** Cluster policy consistency, bounded revocation guarantees and security auditing; no stale cache may grant disallowed operations.
 - **M07:** Integrated independent Wave 01 audit, security regression matrix, compatibility evidence and post-merge checks.
 
-**Acceptance:** unsafe serving authority absent, cross-path access decisions consistent, mandatory negative tests pass using restricted PostgreSQL roles, documented unsupported rules fail closed, no cross-request identity leakage. Do not merge the Wave 01 integration branch into `main` before its *entire* wave is accepted.
+**Acceptance:** unsafe serving authority absent, cross-path access decisions consistent, mandatory negative tests pass using restricted PostgreSQL roles, documented unsupported rules fail closed, no cross-request identity leakage. Under the owner-approved Wave-Level Execution Policy, milestones M01–M07 are local engineering increments integrated, tested across the full wave matrix, independently certified by A11, and integrated as a complete wave into `main` via PR. Do not merge the Wave 01 integration branch into `main` before its *entire* wave is accepted.
 
 ### Wave 02 — PostgreSQL Native Engine
 

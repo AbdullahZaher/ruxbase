@@ -1168,12 +1168,27 @@ func TestRecordCrudView(t *testing.T) {
 func TestRecordCrudDelete(t *testing.T) {
 	t.Parallel()
 
-	ensureDeletedFiles := func(app *tests.TestApp, collectionId string, recordId string) {
+	ensureDeletedFiles := func(t testing.TB, app *tests.TestApp, collectionId string, recordId string) {
+		t.Helper()
 		storageDir := filepath.Join(app.DataDir(), "storage", collectionId, recordId)
 
-		entries, _ := os.ReadDir(storageDir)
-		if len(entries) != 0 {
-			t.Errorf("Expected empty/deleted dir, found: %d\n%v", len(entries), entries)
+		// File removal runs asynchronously after the successful delete.
+		// Check completion rather than assuming a fixed scenario delay
+		// is sufficient under parallel CI load.
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			entries, err := os.ReadDir(storageDir)
+			if os.IsNotExist(err) || (err == nil && len(entries) == 0) {
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unable to inspect deleted record storage: %v", err)
+			}
+			if time.Now().After(deadline) {
+				t.Errorf("Expected empty/deleted dir, found: %d\n%v", len(entries), entries)
+				return
+			}
+			time.Sleep(25 * time.Millisecond)
 		}
 	}
 
@@ -1338,7 +1353,7 @@ func TestRecordCrudDelete(t *testing.T) {
 				"OnRecordUpdateExecute":      1,
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				ensureDeletedFiles(app, "_pb_users_auth_", "4q1xlclmfloku33")
+				ensureDeletedFiles(t, app, "_pb_users_auth_", "4q1xlclmfloku33")
 
 				// check if all the external auths records were deleted
 				collection, _ := app.FindCollectionByNameOrId("users")
@@ -1462,8 +1477,8 @@ func TestRecordCrudDelete(t *testing.T) {
 				if rec != nil {
 					t.Errorf("Expected record %s to be cascade deleted", recId)
 				}
-				ensureDeletedFiles(app, "wsmn24bux7wo113", recId)
-				ensureDeletedFiles(app, "_pb_users_auth_", "oap640cot4yru2s")
+				ensureDeletedFiles(t, app, "wsmn24bux7wo113", recId)
+				ensureDeletedFiles(t, app, "_pb_users_auth_", "oap640cot4yru2s")
 			},
 		},
 

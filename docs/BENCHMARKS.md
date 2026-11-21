@@ -86,6 +86,20 @@ limit applicability. The separate full CI on that candidate failed in
 `TestNotifyWatcher_SettingsUpdate`; successful benchmark evidence does not
 certify the candidate. Full CI must pass on any replacement candidate.
 
+## Guarded connection pool microbenchmarks (W01-M01)
+
+Ruxbase incorporates a guarded connection pool (`internal/pgrolecheck/connector.go`) to verify connection-level role isolation and `search_path` constraints at checkout time. Serial microbenchmarks (three trials, 200 ordinary and 200 guarded samples per trial) evaluate the checkout latency overhead:
+
+| PostgreSQL Version | Ordinary Pool Checkout (p95) | Guarded Pool Checkout (p95) | Overhead Factor |
+|---|---|---|---|
+| PostgreSQL 17 | 0.205 ms | 1.525 ms | ~7.4x |
+| PostgreSQL 18 | 0.093 ms | 0.769 ms | ~8.2x |
+
+### Proposed performance budget (M01 Scope A)
+
+- **Target:** Guarded connection checkout p95 < 2.0 ms across supported PostgreSQL versions (17 and 18).
+- **Scope:** Bounded to Scope A (restricted prepared runtime profile). General production serving under Scope B will require dedicated connection pooling optimization (e.g. prepared statement reuse, pipelined verification).
+
 ## Environment
 
 - Intel Core Ultra 9 275HX, Docker Desktop 29.7 (24 CPUs and 16 GB available to

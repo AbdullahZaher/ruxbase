@@ -1131,7 +1131,7 @@ CREATE TABLE public.nologin (
 -- Name: numeric_id_view; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.numeric_id_view AS
+CREATE VIEW public.numeric_id_view WITH (security_invoker = true) AS
  SELECT id,
     email
    FROM ( SELECT (unnamed_subquery_1.id)::text AS id,
@@ -1166,7 +1166,7 @@ CREATE TABLE public.users (
 -- Name: view1; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.view1 AS
+CREATE VIEW public.view1 WITH (security_invoker = true) AS
  SELECT id,
     text,
     bool,
@@ -1206,7 +1206,7 @@ CREATE VIEW public.view1 AS
 -- Name: view2; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.view2 AS
+CREATE VIEW public.view2 WITH (security_invoker = true) AS
  SELECT id,
     state,
     file_many,

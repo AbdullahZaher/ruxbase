@@ -155,6 +155,13 @@ func resolveSlotName(ctx context.Context, db dbx.Builder, database string) (stri
 
 // ReplicationConfig defines the callbacks used by the replication leader.
 type ReplicationConfig struct {
+	// Dedicated selects an explicitly provisioned WAL login without fallback.
+	Dedicated DedicatedReplication
+
+	// PreparedSlotOnly requires an existing operator-prepared slot and
+	// publication verification. No slot repair or metadata writes occur.
+	PreparedSlotOnly bool
+
 	// PrepareTables ensures that the publication contains all collection
 	// tables (with REPLICA IDENTITY FULL). It is called by the leader before
 	// consuming the slot.
@@ -230,6 +237,17 @@ func (c *Cluster) CheckReplicationSupport(ctx context.Context) error {
 	return nil
 }
 
+// CheckConfiguredReplicationSupport preserves the legacy path unless a
+// dedicated identity is explicitly configured. Incomplete configuration
+// cannot fall back to the application login.
+func (c *Cluster) CheckConfiguredReplicationSupport(ctx context.Context, dedicated DedicatedReplication) error {
+	if dedicated.Enabled() {
+		_, err := dedicated.check(ctx, c.dsn())
+		return err
+	}
+	return c.CheckReplicationSupport(ctx)
+}
+
 // StartReplication starts competing for the replication leadership in the background.
 //
 // It is no-op if it is already started.
@@ -279,7 +297,7 @@ func (c *Cluster) runReplication(ctx context.Context, config ReplicationConfig) 
 		// the node falls back to the hooks source if the replication is not available
 		// (eg. a temporary database error on start) and it is checked again periodically
 		if c.RealtimeSource() != RealtimeSourceReplication {
-			if err := c.CheckReplicationSupport(ctx); err != nil {
+			if err := c.CheckConfiguredReplicationSupport(ctx, config.Dedicated); err != nil {
 				sleepCtx(ctx, replicationSupportRetryInterval)
 				continue
 			}
@@ -371,6 +389,9 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		return err
 	}
 
+	if config.PreparedSlotOnly && (!config.Dedicated.Enabled() || config.PrepareTables == nil) {
+		return errors.New("prepared replication requires a dedicated identity and publication verification")
+	}
 	if config.PrepareTables != nil {
 		if err := config.PrepareTables(); err != nil {
 			return fmt.Errorf("failed to prepare the publication tables: %w", err)
@@ -381,17 +402,28 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 	if err := db.NewQuery("SELECT current_database()").WithContext(ctx).Row(&database); err != nil {
 		return err
 	}
-	slot, err := resolveSlotName(ctx, db, database)
-	if err != nil {
-		return err
+	slot := SlotName(database)
+	if config.PreparedSlotOnly {
+		if err := verifyPreparedSlot(ctx, db, slot); err != nil {
+			return err
+		}
+	} else {
+		slot, err = resolveSlotName(ctx, db, database)
+		if err != nil {
+			return err
+		}
 	}
 
-	replDSN, err := replicationDSN(c.dsn())
-	if err != nil {
-		return err
+	var conn *pgconn.PgConn
+	if config.Dedicated.Enabled() {
+		conn, err = config.Dedicated.connect(ctx, c.dsn())
+	} else {
+		var replDSN string
+		replDSN, err = replicationDSN(c.dsn())
+		if err == nil {
+			conn, err = pgconn.Connect(ctx, replDSN)
+		}
 	}
-
-	conn, err := pgconn.Connect(ctx, replDSN)
 	if err != nil {
 		return err
 	}
@@ -401,8 +433,10 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 		_ = conn.Close(closeCtx)
 	}()
 
-	if err := c.ensureSlot(ctx, db, conn, slot); err != nil {
-		return err
+	if !config.PreparedSlotOnly {
+		if err := c.ensureSlot(ctx, db, conn, slot); err != nil {
+			return err
+		}
 	}
 
 	err = pglogrepl.StartReplication(ctx, conn, slot, 0, pglogrepl.StartReplicationOptions{
@@ -569,6 +603,28 @@ func (c *Cluster) consume(ctx context.Context, config ReplicationConfig, lockCon
 			}
 		}
 	}
+}
+
+// verifyPreparedSlot never creates, drops, repairs or advances a slot.
+// The canonical slot and recorded operator metadata must agree.
+func verifyPreparedSlot(ctx context.Context, db *dbx.DB, slot string) error {
+	var ready bool
+	err := db.NewQuery(`
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_replication_slots s
+    WHERE s.slot_name = {:slot} AND s.database = current_database()
+      AND s.plugin = 'pgoutput' AND s.slot_type = 'logical'
+      AND s.failover AND NOT s.temporary AND NOT s.active
+      AND s.wal_status IN ('reserved', 'extended')
+      AND s.confirmed_flush_lsn IS NOT NULL
+) AND EXISTS (
+    SELECT 1 FROM public._params WHERE id = {:marker} AND value = {:slot}
+)
+`).WithContext(ctx).Bind(dbx.Params{"slot": slot, "marker": slotParamKey}).Row(&ready)
+	if err != nil || !ready {
+		return errors.New("prepared replication slot missing, unavailable or inconsistent")
+	}
+	return nil
 }
 
 // ensureSlot creates the logical replication slot if missing
@@ -777,19 +833,35 @@ func (c *Cluster) storeAndPublishEvents(ctx context.Context, db *dbx.DB, events 
 			ids = append(ids, e.Id)
 		}
 
-		// note: the already stored events (eg. decoded again after a leader change)
-		// are still published because the previous leader could have stopped before publishing them
-		_, err := db.NewQuery(
-			"INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]], [[snapshot]]) VALUES " +
-				strings.Join(values, ",") +
-				" ON CONFLICT DO NOTHING",
-		).WithContext(ctx).Bind(params).Execute()
-		if err != nil {
-			return fmt.Errorf("failed to store the realtime events: %w", err)
+		// Resolve the notification key before entering the write transaction.
+		// The general Publish helper may treat an unprepared cluster as a
+		// no-op; replication must not acknowledge such a batch.
+		if _, err := c.loadKey(); err != nil {
+			return fmt.Errorf("realtime notification key unavailable: %w", err)
 		}
 
-		if err := c.Publish(db, TopicRealtimeEvents, strings.Join(ids, ",")); err != nil {
-			return fmt.Errorf("failed to publish the realtime events: %w", err)
+		// Store and notify in one transaction. A cancelled leader cannot
+		// leave a committed batch without its corresponding notification.
+		// Replayed batches still publish their stable IDs for deduplication.
+		err := db.Transactional(func(tx *dbx.Tx) error {
+			_, err := tx.NewQuery(
+				"INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]], [[snapshot]]) VALUES " +
+					strings.Join(values, ",") +
+					" ON CONFLICT DO NOTHING",
+			).WithContext(ctx).Bind(params).Execute()
+			if err != nil {
+				return fmt.Errorf("failed to store the realtime events: %w", err)
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := c.Publish(tx, TopicRealtimeEvents, strings.Join(ids, ",")); err != nil {
+				return fmt.Errorf("failed to publish the realtime events: %w", err)
+			}
+			return ctx.Err()
+		})
+		if err != nil {
+			return err
 		}
 	}
 

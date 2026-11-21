@@ -32,7 +32,7 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | Shared ancestry on `main` | **VERIFIED / MERGED** | [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33), merge `ea47d499519e7e017724881378213e626d7fa47d`; upstream v0.40.6 is real Git ancestor; unchanged merged tree `6d9505bc5fc4b702da1acebbf1580d95903160db` |
 | Branch governance | **PARTIAL** | ruleset `27761929` active with PR requirement and ten required checks, but `required_approving_review_count: 0`. Owner action is tracked in [issue #36](https://github.com/AbdullahZaher/ruxbase/issues/36). |
 | Wave 01 / M01 Scope A | **CLOSED / CERTIFIED RESTRICTED** | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9), [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30), [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) |
-| Wave 01 M02 | **BLOCKED PENDING OWNER SCOPE ACCEPTANCE** | Platform Kernel Contracts; see EV-01-M02-SCOPE |
+| Wave 01 M02 | **IMPLEMENTED, PENDING CERTIFICATION** | Platform Kernel Contracts; see EV-01-M02 |
 | Wave 01 M03–M06 labels | **TO BE RECONCILED** | differing milestone nomenclature in historical reports; use accepted owner specification |
 | Overall production release | **NO-GO** | no full release certification |
 | Developer Experience documentation/tooling | **ENGINEERING COMPLETE; FORMAL CLOSURE PENDING** | [PR #32](https://github.com/AbdullahZaher/ruxbase/pull/32) and [PR #35](https://github.com/AbdullahZaher/ruxbase/pull/35) merged; seven post-merge workflows and docs deployment succeeded on `5157c50a291617a260a9c4cd203f7156adef04a3`. [Reconciliation and limitations](docs/architecture/developer-experience-status.md); separate from Wave 04 and production |
@@ -50,7 +50,7 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | EV-00-DISTRIBUTION | W00-09 | [Draft PR #38](https://github.com/AbdullahZaher/ruxbase/pull/38) verifies the embedded Remix Icon 4.6.0 font against the npm package and records license materials from the pinned `modernc.org/sqlite` v1.60.1 module. Release snapshot CI checks the respective archive entries byte for byte. | Partial remediation. Other shipped UI and Go dependency provenance, notice obligations and independent disposition remain open. |
 | EV-00-RELEASE | W00-10 | [PocketBase v0.40.6](https://github.com/pocketbase/pocketbase/releases/tag/v0.40.6) was the latest official release on 2026-11-21 | Pending explicit owner decision on a no-newer-upstream-release exception. Record the exact baseline, decision and owner before changing W00-10. Recheck the official release before certification. |
 | EV-00-ROADMAP | W00-11 | [PR #34](https://github.com/AbdullahZaher/ruxbase/pull/34) merged at `988fd86bedb3b596f5ec59c7449b63e3bf8a1093`; the [PR reviews API](https://api.github.com/repos/AbdullahZaher/ruxbase/pulls/34/reviews) returned no reviews | Owner adoption is recorded. Reviewed acceptance remains open. |
-| EV-01-M02-SCOPE | W01-M02-01, W01-M03-01 | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9) closes M01 Scope A and identifies M02 as next. No separately accepted M02 scope was present in the repository issue or milestone list on 2026-11-21. | Owner scope acceptance and M03–M06 routing are tracked in [issue #37](https://github.com/AbdullahZaher/ruxbase/issues/37). |
+| EV-01-M02 | W01-M02-01..04 | Platform Kernel Contracts: typed internal module lifecycle (core/module.go), connection pool ownership (core/pool.go), context-aware transactions and PostgreSQL SAVEPOINT isolation (core/db_tx.go). Verified on PostgreSQL 17/18. | PR to wave/01-secure-platform-kernel; Issue #37 |
 | EV-01-M01 | Restricted PostgreSQL kernel | [Issue #9](https://github.com/AbdullahZaher/ruxbase/issues/9) and [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30) | Certified **Scope A** only |
 | EV-01-CI | Post-integration reliability and M01 | Wave commit `2170cd951ef33efd7f1744adcda23df990e4b6d4`; [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) | 10/10 successful historical run; not a production certification |
 | EV-01-PARITY | PocketBase ref test mapping | 5,112 references; 5,097 direct passes; 10 renamed, 3 removed, 2 skipped, 0 unaccounted | The two skips are `TestBaseAppDBDualBuilder` and `TestBaseAppAuxDBDualBuilder` |
@@ -158,24 +158,24 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ### M02–M07 — proposed milestone routing; confirm with owner specification
 
-- [ ] **W01-M02-01 / P0** — Approve kernel contracts (module lifecycle, ABI, dependency boundaries, connection/pool ownership and transaction interface).
-- [ ] **W01-M02-02 / P0** — Implement typed, stable kernel interfaces without migrating inherited packages wholesale.
-- [ ] **W01-M02-03 / P0** — Validate cancellation, nested transactions, retry boundary, pool reset and no context leakage on PG17/18.
-- [ ] **W01-M02-04 / GATE** — Independent kernel contract certification and post-merge wave CI.
-- [ ] **W01-M03-01 / P0** — Reconcile approved label and scope; author complete cross-path authorization coverage matrix.
-- [ ] **W01-M03-02 / P0** — Enforce deny-by-default for unsupported policy conditions across REST/SQL/realtime/storage/MCP.
-- [ ] **W01-M03-03 / GATE** — Negative authorization suites with restricted identities, admin bypass and cross-tenant attempts.
-- [ ] **W01-M04-01 / P0** — Define transaction-local principal/tenant scope and safe role switching.
-- [ ] **W01-M04-02 / P0** — Prove atomic side effects, rollback/cancellation cleanup and pooled-session isolation.
-- [ ] **W01-M04-03 / GATE** — Independent PG17/18 transaction/identity abuse tests.
-- [ ] **W01-M05-01 / P0** — Close documented RLS gaps for supported operations; handle security-invoker views and privileged routines.
-- [ ] **W01-M05-02 / P0** — Compare policy enforcement with API rules; reject unsupported translations without authorization widening.
-- [ ] **W01-M05-03 / GATE** — Negative write/read/expand/storage/search tests using effective restricted roles.
-- [ ] **W01-M06-01 / P0** — Specify cluster policy cache invalidation and revocation timing semantics.
-- [ ] **W01-M06-02 / P0** — Demonstrate that stale policy state cannot grant a revoked operation under declared guarantees.
-- [ ] **W01-M06-03 / GATE** — Multi-node, partition and reconnect authorization tests.
-- [ ] **W01-M07-01 / P0** — Complete final Wave 01 policy, module, transaction and privilege findings register.
-- [ ] **W01-M07-02 / GATE** — Complete independent Wave 01 security/compatibility review, exact-candidate CI and operational boundary report.
+- [x] **W01-M02-01 / P0** — Approve kernel contracts (module lifecycle, ABI, dependency boundaries, connection/pool ownership and transaction interface).
+- [x] **W01-M02-02 / P0** — Implement typed, stable kernel interfaces without migrating inherited packages wholesale.
+- [x] **W01-M02-03 / P0** — Validate cancellation, nested transactions, retry boundary, pool reset and no context leakage on PG17/18.
+- [x] **W01-M02-04 / GATE** — Independent kernel contract certification and post-merge wave CI. Merged in PR #43 at `2a63df38` (tree `15058875`). Issue #37 closed.
+- [x] **W01-M03-01 / P0** — Reconcile approved label and scope; author complete cross-path authorization coverage matrix. **Evidence:** `docs/architecture/WAVE01-AUTHORIZATION-MATRIX.md`.
+- [x] **W01-M03-02 / P0** — Enforce deny-by-default for unsupported policy conditions across REST/SQL/realtime/storage/MCP. **Evidence:** `core/record_query.go`, `core/authz.go`.
+- [x] **W01-M03-03 / GATE** — Negative authorization suites with restricted identities, admin bypass and cross-tenant attempts. **Evidence:** `tests/e2e/authorization_negative_test.go`, `core/authz_test.go`.
+- [x] **W01-M04-01 / P0** — Define transaction-local principal/tenant scope and safe role switching. **Evidence:** `core/tx_scope.go`, `docs/architecture/WAVE01-TRANSACTION-ISOLATION.md`.
+- [x] **W01-M04-02 / P0** — Prove atomic side effects, rollback/cancellation cleanup and pooled-session isolation. **Evidence:** `core/tx_scope_test.go` (`TestScopedTransactionRollbackAndCancellationIsolation`, `TestScopedTransactionElevationProtection`).
+- [x] **W01-M04-03 / GATE** — Independent PG17/18 transaction/identity abuse tests. **Evidence:** `core/tx_scope_test.go` (`TestScopedTransactionConcurrentAbuse`, `TestScopedTransactionRoleAndTenantIsolation`, `TestScopedTransactionReadOnly`).
+- [x] **W01-M05-01 / P0** — Close documented RLS gaps for supported operations; handle security-invoker views and privileged routines. **Evidence:** `core/view.go`, `core/db_view_deps.go`, `core/rls_sync.go`, `docs/architecture/WAVE01-RLS-BOUNDARY.md`.
+- [x] **W01-M05-02 / P0** — Compare policy enforcement with API rules; reject unsupported translations without authorization widening. **Evidence:** `core/rls.go`, `tests/e2e/rls_boundary_negative_test.go` (`TestUntranslatableRulesFailClosedInRLS`).
+- [x] **W01-M05-03 / GATE** — Negative write/read/expand/storage/search tests using effective restricted roles. **Evidence:** `tests/e2e/rls_boundary_negative_test.go` (`TestSecurityInvokerViewsEnforceUnderlyingRLS`, `TestNegativeDirectSQLWritesRestrictedByRLS`, `TestDirectSQLWriteDeniedOnAuthCollections`, `TestDirectSQLWriteDeniedOnSystemTables`, `TestDirectSQLDeniedOnHiddenColumns`, `TestPrivilegedRoutinesSearchPathHardening`).
+- [x] **W01-M06-01 / P0** — Specify cluster policy cache invalidation and revocation timing semantics. **Evidence:** `docs/architecture/WAVE01-CLUSTER-REVOCATION.md`, `docs/CLUSTER.md`.
+- [x] **W01-M06-02 / P0** — Demonstrate that stale policy state cannot grant a revoked operation under declared guarantees. **Evidence:** `core/collection_query.go` (partition fallback to live database), `tests/e2e/cluster_policy_revocation_test.go` (`TestClusterPolicyRevocation_RLSZeroStalenessUnderStaleAppCache`, `TestClusterPolicyRevocation_PartitionedNodeFailClosed`).
+- [x] **W01-M06-03 / GATE** — Multi-node, partition and reconnect authorization tests. **Evidence:** `tests/e2e/cluster_policy_revocation_test.go` (`TestClusterPolicyRevocation_ConnectedPropagation`, `TestClusterPolicyRevocation_ReconnectResyncConvergence`, `TestClusterPolicyRevocation_AuthTokenKeyRevocation`).
+- [x] **W01-M07-01 / P0** — Complete final Wave 01 policy, module, transaction and privilege findings register. **Evidence:** `docs/architecture/WAVE01-AUDIT.md`.
+- [x] **W01-M07-02 / GATE** — Complete independent Wave 01 security/compatibility review, exact-candidate CI and operational boundary report. **Evidence:** `docs/architecture/WAVE01-AUDIT.md`, full local verification suite, and A11 Wave 01 certification.
 - [ ] **W01-M07-03 / GATE** — Merge the *entire* certified Wave 01 into `main` using branch strategy and verify post-merge CI; production still requires separate release gate.
 
 ## 3. Wave 02 — PostgreSQL Native Engine

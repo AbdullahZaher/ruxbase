@@ -96,6 +96,22 @@ type DBConnectFunc func(dsn string) (*dbx.DB, error)
 type BaseAppConfig struct {
 	DBConnect DBConnectFunc
 
+	// PreparedRuntimeRole enables experimental metadata-only bootstrap using
+	// the declared restricted PostgreSQL identity. The profile cannot serve HTTP.
+	PreparedRuntimeRole string
+
+	// PreparedManifestJSON optionally requires reviewed main and auxiliary grant
+	// manifests during experimental metadata-only bootstrap. It is not serving approval.
+	PreparedManifestJSON string
+
+	// PreprovisionedRLSRoles forbids role creation/grant repair by the
+	// offline migration process; the roles must have been provisioned separately.
+	PreprovisionedRLSRoles bool
+
+	// OfflineSystemPreparation disables background logging, cluster listeners
+	// and realtime startup for the explicit offline operator process.
+	OfflineSystemPreparation bool
+
 	// ruxbase: the Postgres, cluster, realtime, RLS and pool settings
 	// DatabaseURL is the PostgreSQL connection string of the main database.
 	// If not set, it fallbacks to the DATABASE_URL env variable.
@@ -110,6 +126,10 @@ type BaseAppConfig struct {
 	// or "replication" (the Postgres logical replication, which includes the changes
 	// made outside of the app API). If not set, it fallbacks to the RUXBASE_REALTIME_SOURCE env variable.
 	RealtimeSource string
+
+	// ReplicationIdentity opts into a separately provisioned WAL connection.
+	// It is explicit Go configuration, not an environment fallback.
+	ReplicationIdentity cluster.DedicatedReplication
 
 	// ClusterMode enables the features required to run multiple app instances
 	// (nodes) with the same database behind a load balancer (eg. the rate limits
@@ -163,10 +183,13 @@ type BaseApp struct {
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
 	clusterFingerprints *clusterFingerprints // shared with the transaction app clones
 	logger              *slog.Logger
+	logPrinter          func(*logger.Log) // ruxbase: per-app printer for isolated tests
 	concurrentDB        dbx.Builder
 	nonconcurrentDB     dbx.Builder
 	auxConcurrentDB     dbx.Builder
 	auxNonconcurrentDB  dbx.Builder
+	// ruxbase: platform kernel module registry
+	modules *moduleRegistry
 
 	// app event hooks
 	onBootstrap      *hook.Hook[*BootstrapEvent]
@@ -299,6 +322,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		subscriptionsBroker: subscriptions.NewBroker(),
 		config:              &config,
 		clusterFingerprints: &clusterFingerprints{},
+		modules:             newModuleRegistry(),
 	}
 
 	// ruxbase: the cluster of the app instances (nodes)
@@ -529,6 +553,13 @@ func (app *BaseApp) IsBootstrapped() bool {
 //
 // It calls ClearBootstrap() if the application was already bootstrapped.
 func (app *BaseApp) Bootstrap() error {
+	if app.config.PreparedManifestJSON != "" && app.config.PreparedRuntimeRole == "" {
+		return errors.New("prepared manifest requires an explicit prepared runtime identity")
+	}
+	if app.config.PreparedRuntimeRole != "" {
+		return app.bootstrapPrepared()
+	}
+
 	event := &BootstrapEvent{}
 	event.App = app
 
@@ -550,15 +581,20 @@ func (app *BaseApp) Bootstrap() error {
 		if err := app.initAuxDB(); err != nil {
 			return err
 		}
-
-		if err := app.initLogger(); err != nil {
-			return err
+		if app.config.PreprovisionedRLSRoles {
+			if err := CheckPreprovisionedRLSRoles(app); err != nil {
+				return err
+			}
 		}
 
-		// ruxbase: the cluster LISTEN, the RLS repair and the cluster state fingerprints
-		// listen for the messages of the other nodes before loading the
-		// collections and settings so that no change is missed
-		app.cluster.Start()
+		if !app.config.OfflineSystemPreparation {
+			if err := app.initLogger(); err != nil {
+				return err
+			}
+
+			// ruxbase: listen before loading collections and settings.
+			app.cluster.Start()
+		}
 
 		if err := app.RunSystemMigrations(); err != nil {
 			return err
@@ -579,9 +615,10 @@ func (app *BaseApp) Bootstrap() error {
 		}
 
 		// ruxbase: the cluster state fingerprints and the realtime source
-		app.initClusterFingerprints(fingerprints)
-
-		app.initRealtimeSource()
+		if !app.config.OfflineSystemPreparation {
+			app.initClusterFingerprints(fingerprints)
+			app.initRealtimeSource()
+		}
 
 		// try to cleanup the pb_data temp directory (if any)
 		_ = os.RemoveAll(filepath.Join(app.DataDir(), LocalTempDirName))
@@ -593,6 +630,14 @@ func (app *BaseApp) Bootstrap() error {
 	// e.Next() as part of their bootstrap hook
 	if err == nil && !app.IsBootstrapped() {
 		app.Logger().Warn("OnBootstrap hook didn't fail but the app is still not bootstrapped - maybe missing e.Next()?")
+	}
+
+	// ruxbase: initialize registered platform kernel modules
+	if err == nil && app.IsBootstrapped() {
+		if modErr := app.initModules(); modErr != nil {
+			_ = app.ClearBootstrap()
+			return modErr
+		}
 	}
 
 	return err
@@ -608,6 +653,10 @@ func (app *BaseApp) ResetBootstrapState() error {
 //
 // This method is no-op if the application is not bootstrapped yet.
 func (app *BaseApp) ClearBootstrap() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return app.clearPreparedBootstrap()
+	}
+
 	if !app.IsBootstrapped() {
 		return nil
 	}
@@ -616,6 +665,15 @@ func (app *BaseApp) ClearBootstrap() error {
 	event.App = app
 
 	return app.OnBootstrapClear().Trigger(event, func(e *BootstrapEvent) error {
+		var errs []error
+
+		// ruxbase: gracefully shutdown modules in reverse order
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if modErr := app.shutdownModules(ctx); modErr != nil {
+			errs = append(errs, modErr)
+		}
+
 		type closer interface {
 			Close() error
 		}
@@ -625,8 +683,6 @@ func (app *BaseApp) ClearBootstrap() error {
 		app.cluster.Stop()
 		app.clusterFingerprints.reset()
 		app.dataDB = nil
-
-		var errs []error
 
 		dbs := []*dbx.Builder{
 			&app.concurrentDB,
@@ -1005,12 +1061,18 @@ func (app *BaseApp) Restart() error {
 
 // RunSystemMigrations applies all new migrations registered in the [core.SystemMigrations] list.
 func (app *BaseApp) RunSystemMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	_, err := NewMigrationsRunner(app, SystemMigrations).Up()
 	return err
 }
 
 // RunAppMigrations applies all new migrations registered in the [core.AppMigrations] list.
 func (app *BaseApp) RunAppMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	_, err := NewMigrationsRunner(app, AppMigrations).Up()
 	return err
 }
@@ -1018,6 +1080,9 @@ func (app *BaseApp) RunAppMigrations() error {
 // RunAllMigrations applies all system and app migrations
 // (aka. from both [core.SystemMigrations] and [core.AppMigrations]).
 func (app *BaseApp) RunAllMigrations() error {
+	if app.config.PreparedRuntimeRole != "" {
+		return ErrPreparedBootstrapOnly
+	}
 	list := MigrationsList{}
 	list.Copy(SystemMigrations)
 	list.Copy(AppMigrations)
@@ -1641,6 +1706,12 @@ func getLoggerMinLevel(app App) slog.Level {
 }
 
 func (app *BaseApp) initLogger() error {
+	// ruxbase: capture the printer before starting background work.
+	printer := app.logPrinter
+	if printer == nil {
+		printer = printLog
+	}
+
 	var stopped atomic.Bool
 
 	duration := 3 * time.Second
@@ -1659,8 +1730,9 @@ func (app *BaseApp) initLogger() error {
 		// significant performance difference between small number
 		// of separate write queries vs 1 big INSERT
 		app.AuxRunInTransaction(func(txApp App) error {
-			model := &Log{}
 			for _, l := range logs {
+				// ruxbase: post-commit hooks must retain each saved log's identity.
+				model := &Log{}
 				model.MarkAsNew()
 				model.Id = GenerateDefaultRandomId()
 				model.Level = int(l.Level)
@@ -1682,7 +1754,7 @@ func (app *BaseApp) initLogger() error {
 		BatchSize: 200,
 		BeforeAddFunc: func(ctx context.Context, log *logger.Log) bool {
 			if app.IsDev() {
-				printLog(log)
+				printer(log)
 
 				// manually check the log level and skip if necessary
 				if log.Level < slog.Level(app.Settings().Logs.MinLevel) {

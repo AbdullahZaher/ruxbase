@@ -98,6 +98,12 @@ func (app *BaseApp) FindCollectionByNameOrId(nameOrId string) (*Collection, erro
 //   - The cache is automatically updated on collections db change (create/update/delete).
 //     To manually reload the cache you can call [BaseApp.ReloadCachedCollections].
 func (app *BaseApp) FindCachedCollectionByNameOrId(nameOrId string) (*Collection, error) {
+	// ruxbase: if cluster mode is enabled and the node is disconnected from LISTEN,
+	// fall back to live database query so stale in-memory cached rules cannot grant revoked access
+	if app.cluster != nil && app.cluster.Enabled() && !app.cluster.Connected() {
+		return app.FindCollectionByNameOrId(nameOrId)
+	}
+
 	collections, _ := app.Store().Get(StoreKeyCachedCollections).([]*Collection)
 	if collections == nil {
 		// cache is not initialized yet (eg. run in a system migration)
@@ -182,6 +188,12 @@ func (app *BaseApp) FindCollectionReferences(collection *Collection, excludeIds 
 //   - The cache is automatically updated on collections db change (create/update/delete).
 //     To manually reload the cache you can call [BaseApp.ReloadCachedCollections].
 func (app *BaseApp) FindCachedCollectionReferences(collection *Collection, excludeIds ...string) (map[*Collection][]Field, error) {
+	// ruxbase: if cluster mode is enabled and the node is disconnected from LISTEN,
+	// fall back to live database query to prevent serving stale relation references
+	if app.cluster != nil && app.cluster.Enabled() && !app.cluster.Connected() {
+		return app.FindCollectionReferences(collection, excludeIds...)
+	}
+
 	collections, _ := app.Store().Get(StoreKeyCachedCollections).([]*Collection)
 	if collections == nil {
 		// cache is not initialized yet (eg. run in a system migration)

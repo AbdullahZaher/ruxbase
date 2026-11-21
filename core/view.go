@@ -58,7 +58,9 @@ func (app *BaseApp) SaveView(dangerousViewName string, dangerousSelectQuery stri
 		//
 		// note: the query is wrapped in a secondary SELECT as a rudimentary
 		// measure to discourage multiple inline sql statements execution
-		viewQuery := fmt.Sprintf("CREATE VIEW {{%s}} AS SELECT * FROM (%s)", dangerousViewName, dangerousSelectQuery)
+		// ruxbase: views are created with security_invoker = true so that RLS policies
+		// and permissions on underlying tables are checked with the invoking user's privileges.
+		viewQuery := fmt.Sprintf("CREATE VIEW {{%s}} WITH (security_invoker = true) AS SELECT * FROM (%s)", dangerousViewName, dangerousSelectQuery)
 		_, err = txApp.DB().NewQuery(viewQuery).Execute()
 		if err != nil {
 			return err

@@ -380,3 +380,168 @@ func TestCronClaimFunc(t *testing.T) {
 		}
 	})
 }
+
+// ruxbase: regression tests for RB-CRON-01 deadlock fix
+
+func TestCronStopBeforeStart(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+	// Should not block or panic
+	c.Stop()
+	c.Stop()
+	if c.HasStarted() {
+		t.Fatal("Expected cron not to be started")
+	}
+}
+
+func TestCronRepeatedStop(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		c := New()
+		c.SetInterval(250 * time.Millisecond)
+		c.Start()
+
+		synctest.Sleep(300 * time.Millisecond)
+
+		// Call Stop multiple times consecutively
+		for i := 0; i < 10; i++ {
+			c.Stop()
+		}
+
+		if c.HasStarted() {
+			t.Fatal("Expected cron to be stopped")
+		}
+	})
+}
+
+func TestCronStartThenImmediateStop(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+	c.SetInterval(10 * time.Second) // long interval
+	c.Start()
+	// Immediate stop before the startTimer fires
+	c.Stop()
+
+	if c.HasStarted() {
+		t.Fatal("Expected cron to be stopped immediately")
+	}
+}
+
+func TestCronRestartCycle(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		c := New()
+		c.SetInterval(200 * time.Millisecond)
+
+		var mu sync.Mutex
+		counter := 0
+		c.Add("cycle", "* * * * *", func() {
+			mu.Lock()
+			counter++
+			mu.Unlock()
+		})
+
+		for cycle := 0; cycle < 5; cycle++ {
+			c.Start()
+			synctest.Sleep(250 * time.Millisecond)
+			c.Stop()
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		if counter == 0 {
+			t.Fatal("Expected at least 1 execution across cycles")
+		}
+	})
+}
+
+func TestCronConcurrentStartStop(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+	c.SetInterval(50 * time.Millisecond)
+	c.Add("concurrent", "* * * * *", func() {})
+
+	const goroutines = 20
+	const iterations = 50
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines * 2)
+
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				c.Start()
+				time.Sleep(1 * time.Millisecond)
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				c.Stop()
+				time.Sleep(1 * time.Millisecond)
+			}
+		}()
+	}
+
+	wg.Wait()
+	c.Stop()
+
+	if c.HasStarted() {
+		t.Fatal("Expected cron to be stopped after final Stop")
+	}
+}
+
+func TestCronStopDuringJobExecution(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+	c.SetInterval(50 * time.Millisecond)
+
+	jobStarted := make(chan struct{})
+	jobCanFinish := make(chan struct{})
+	jobFinished := make(chan struct{})
+
+	c.Add("slow_job", "* * * * *", func() {
+		close(jobStarted)
+		<-jobCanFinish
+		close(jobFinished)
+	})
+
+	c.Start()
+
+	// Wait until job has actually started executing
+	select {
+	case <-jobStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Job did not start in time")
+	}
+
+	// While job is running, call Stop(). This must NOT deadlock!
+	stopDone := make(chan struct{})
+	go func() {
+		c.Stop()
+		close(stopDone)
+	}()
+
+	select {
+	case <-stopDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("c.Stop() deadlocked while job was executing!")
+	}
+
+	// Unblock job and verify it cleanly completes
+	close(jobCanFinish)
+
+	select {
+	case <-jobFinished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Job did not finish in time")
+	}
+}

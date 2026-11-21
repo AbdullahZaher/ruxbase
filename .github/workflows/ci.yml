@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'wave/**']
 
 permissions:
   contents: read
@@ -233,12 +233,18 @@ jobs:
             -v app_password="$APP_PASSWORD" -f /tmp/ci-db-setup.sql
           docker exec ruxbase_ci psql -U postgres -d ruxbase_test -Atc \
             "select version(), current_setting('wal_level'), (select string_agg(extname, ',') from pg_extension)"
+          # Test-only WAL login created by the existing disposable container
+          # provisioner, never by the application principal.
+          docker exec -i ruxbase_ci psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE ruxbase_ci_wal LOGIN REPLICATION NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD 'ci-ruxbase-wal';
+          SQL
 
       # The whole suite against RUXBASE_TEST_URL with the non-superuser role
       # ruxbase_app and the parity check with the PocketBase v0.40.6 tests.
       - name: Test
         env:
           RUXBASE_TEST_URL: postgres://ruxbase_app:${{ env.APP_PASSWORD }}@localhost:5432/ruxbase_test?sslmode=disable
+          RUXBASE_TEST_WAL_URL: postgres://ruxbase_ci_wal:ci-ruxbase-wal@localhost:5432/ruxbase_test?sslmode=disable
         run: ./scripts/ci-test.sh
 
       # the list and view rules enforced by the RLS policies (RUXBASE_RLS_STRICT)
