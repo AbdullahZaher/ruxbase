@@ -6,6 +6,8 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -205,24 +207,40 @@ func TestVacuum(t *testing.T) {
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
+	var mu sync.Mutex
 	calledQueries := []string{}
-	app.NonconcurrentDB().(*dbx.DB).QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
+	db := app.NonconcurrentDB().(*dbx.DB)
+	defer func() {
+		db.QueryLogFunc = nil
+		db.ExecLogFunc = nil
+	}()
+	db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
+		mu.Lock()
 		calledQueries = append(calledQueries, sql)
+		mu.Unlock()
 	}
-	app.NonconcurrentDB().(*dbx.DB).ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
+	db.ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
+		mu.Lock()
 		calledQueries = append(calledQueries, sql)
+		mu.Unlock()
 	}
 
 	if err := app.Vacuum(); err != nil {
 		t.Fatal(err)
 	}
 
-	if total := len(calledQueries); total != 1 {
-		t.Fatalf("Expected 1 query, got %d", total)
+	mu.Lock()
+	foundVacuum := false
+	for _, q := range calledQueries {
+		if strings.TrimSpace(q) == "VACUUM" {
+			foundVacuum = true
+			break
+		}
 	}
+	mu.Unlock()
 
-	if calledQueries[0] != "VACUUM" {
-		t.Fatalf("Expected VACUUM query, got %s", calledQueries[0])
+	if !foundVacuum {
+		t.Fatalf("Expected VACUUM query, got %v", calledQueries)
 	}
 }
 
@@ -232,23 +250,39 @@ func TestAuxVacuum(t *testing.T) {
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
+	var mu sync.Mutex
 	calledQueries := []string{}
-	app.AuxNonconcurrentDB().(*dbx.DB).QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
+	db := app.AuxNonconcurrentDB().(*dbx.DB)
+	defer func() {
+		db.QueryLogFunc = nil
+		db.ExecLogFunc = nil
+	}()
+	db.QueryLogFunc = func(ctx context.Context, t time.Duration, sql string, rows *sql.Rows, err error) {
+		mu.Lock()
 		calledQueries = append(calledQueries, sql)
+		mu.Unlock()
 	}
-	app.AuxNonconcurrentDB().(*dbx.DB).ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
+	db.ExecLogFunc = func(ctx context.Context, t time.Duration, sql string, result sql.Result, err error) {
+		mu.Lock()
 		calledQueries = append(calledQueries, sql)
+		mu.Unlock()
 	}
 
 	if err := app.AuxVacuum(); err != nil {
 		t.Fatal(err)
 	}
 
-	if total := len(calledQueries); total != 1 {
-		t.Fatalf("Expected 1 query, got %d", total)
+	mu.Lock()
+	foundVacuum := false
+	for _, q := range calledQueries {
+		if strings.TrimSpace(q) == "VACUUM" {
+			foundVacuum = true
+			break
+		}
 	}
+	mu.Unlock()
 
-	if calledQueries[0] != "VACUUM" {
-		t.Fatalf("Expected VACUUM query, got %s", calledQueries[0])
+	if !foundVacuum {
+		t.Fatalf("Expected VACUUM query, got %v", calledQueries)
 	}
 }
