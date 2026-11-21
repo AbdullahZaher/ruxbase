@@ -1,0 +1,32 @@
+name: docs-brand-review
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install reviewer-only tracing tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends potrace python3-pil
+          /usr/bin/python3 -c 'import PIL; print("Pillow", PIL.__version__)'
+          potrace --version
+      - name: Trace original brand faces
+        run: /usr/bin/python3 website/scripts/trace-brand.py
+      - name: Retain review candidates and original source images
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: docs-brand-review
+          path: |
+            website/brand-evidence
+            assets/brand/*.png
+          if-no-files-found: error

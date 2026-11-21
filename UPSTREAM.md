@@ -19,14 +19,12 @@ The reference baseline is PocketBase v0.40.6, commit
 `9d281ccaba65f2686eb7b0b614ccda72d1116a1b`. See
 [`UPSTREAM.lock.json`](UPSTREAM.lock.json).
 
-The current repository was initialized with snapshot commits. Shared Git
-ancestry with PocketBase has not been established on main. Do not assume
-that a normal merge will work, and do not use unrelated-history merges as a
-shortcut. Before adopting the merge procedure below, reconstruct and verify
-the inherited baseline on a separate candidate branch, preserve the current
-tree and history, and obtain maintainer approval for any main-branch history
-change. Until then, selectively port changes with explicit source commit
-references and reviewed diffs.
+The repository was initialized from snapshots. The official reference is now
+a Git ancestor of canonical `main` through
+[PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33). The reconstruction
+preserved the Ruxbase source tree. Check ancestry on each integration target
+with `git merge-base --is-ancestor <reference-commit> <target-ref>`.
+See the [ancestry record](docs/UPSTREAM-ANCESTRY.md) for the merge evidence.
 
 No automatic upstream merge or deployment is permitted. Every integration
 must preserve PostgreSQL semantics, pass the compatibility tests and receive
@@ -37,9 +35,9 @@ maintainer review.
 Run `python3 scripts/upstream_inventory.py --output evidence/upstream-inventory.json`
 to verify the official reference tag and commit, compare tree entries with the
 current committed Ruxbase HEAD, and identify newer stable-shaped tags. The
-inventory workflow runs on relevant pull requests, manually and weekly once
-merged into the default branch. Its evidence artifact lists every path and
-comparison status. The script uses a temporary repository and never checks out
+inventory workflow runs on relevant pull requests, manually and weekly. Its
+evidence artifact lists every path and comparison status, with separate groups
+for inherited Go annotation review and tracked license and dependency files. The script uses a temporary repository and never checks out
 or executes upstream code or publishes branches. It neither restores ancestry
 nor certifies compatibility. Candidate tags must be checked against official
 release notes and reviewed before any integration. Rename detection, source
@@ -140,28 +138,28 @@ The main changes by area:
   accepted differences are in `tests/golden/accepted.txt` and
   [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
-## Merging a new PocketBase version
+## Porting PocketBase changes
 
-1. **Read the PocketBase changelog** of the new versions. Look for new SQL, new
-   migrations, new field types, new filter functions and new in-memory state
-   (caches, `app.Store()`, timers).
-
-2. **Merge the tag** in an isolated branch only after shared ancestry has been verified:
-
-   Verify the reference baseline with `git merge-base --is-ancestor upstream/v0.40.6 HEAD`.
-   If the check fails, stop the merge procedure and use reviewed selective ports instead.
+1. **Review the official releases and changelog.** Look for new SQL,
+   migrations, field types, filter functions and in-memory state. Fetch
+   candidate tags to local namespaced refs to verify the source commits:
 
    ```bash
    git fetch upstream refs/tags/vX.Y.Z:refs/tags/upstream/vX.Y.Z
-   git switch -c upstream-vX.Y.Z
-   git merge upstream/vX.Y.Z
+   git log upstream/v0.40.6..upstream/vX.Y.Z
    ```
 
-3. **Resolve the conflicts.** Keep the intent of each `// ruxbase:` change:
-   Postgres SQL instead of SQLite SQL, the cluster state instead of the process
-   memory, the RLS sync after the collection changes. Most conflicts are in
-   `core/base.go`, `core/db_table.go`, `core/notify_watcher.go`, `tools/search/`
-   and `tools/dbutils/`.
+2. **Classify candidate changes.** Record the official source commit, reviewer,
+   rationale and expected compatibility impact for each `DIRECT_PORT`,
+   `ADAPTED_PORT`, `RUXBASE_EQUIVALENT`, `NOT_APPLICABLE` or `DEFERRED`
+   disposition.
+
+3. **Prepare selected changes on an isolated integration branch.** Use the
+   [branch strategy](docs/BRANCH-STRATEGY.md) and keep source commit references.
+   Preserve each `// ruxbase:` adaptation, including PostgreSQL SQL, cluster
+   state and collection RLS synchronization. When no newer applicable release
+   exists, record the official release evidence and obtain a gate disposition
+   for the unavailable rehearsal.
 
 4. **Rename the module path** in the new and changed PocketBase files (only
    `pocketbase/pocketbase`, not the other `github.com/pocketbase/*` modules):
@@ -191,10 +189,10 @@ The main changes by area:
 7. **Check the RLS policies** if the change touches the API rules, the record
    field resolver or the auth collections (`core/rls.go`, `tests/rls.go`).
 
-8. **Rebuild the admin dashboard** after merging `ui/src`
+8. **Rebuild the admin dashboard** after changes to `ui/src`
    (`npm --prefix ui ci && npm --prefix ui run build`) and commit `ui/dist`.
 
-9. **Update the test references** with the new PocketBase version:
+9. **Update the test references** when the compatibility baseline advances:
    - run the PocketBase tests of the new tag on SQLite in a Linux container
      (`go test -json -count=1 ./...`) and generate the new list of passing
      tests, with the same format and normalizations as
@@ -209,5 +207,5 @@ The main changes by area:
 10. **Run the checks** as the CI: the whole suite against Postgres 17 and 18,
     the parity, the RLS strict mode, `tests/e2e`, the JS SDK tests and the lint
     (see [CONTRIBUTING.md](CONTRIBUTING.md)). Document every new difference in
-    [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) and add the merge to the
+    [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) and add the reviewed port to the
     [CHANGELOG](CHANGELOG.md).

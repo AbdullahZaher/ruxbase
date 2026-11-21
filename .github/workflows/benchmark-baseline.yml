@@ -29,10 +29,11 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: '1.27.x'
+          go-version: '1.27.4'
       - name: Record environment
         run: |
-          mkdir -p bench/results
+          results_dir=$(mktemp -d "$RUNNER_TEMP/ruxbase-benchmark.XXXXXX")
+          echo "BENCH_RESULTS_DIR=$results_dir" >> "$GITHUB_ENV"
           {
             git rev-parse HEAD
             go version
@@ -41,23 +42,45 @@ jobs:
             free -h
             docker version
             docker compose version
-          } > bench/results/ci-environment.txt
+          } > "$results_dir/ci-environment.txt"
       - name: Run disposable Ruxbase workload
         run: |
           bash -n bench/run.sh
-          touch bench/results/.ci-start
+          touch "$BENCH_RESULTS_DIR/.ci-start"
           bash bench/run.sh
       - name: Check fresh measurement evidence
         run: |
           python3 - <<'PY'
           import json
+          import os
+          import re
+          import subprocess
           from pathlib import Path
-          root = Path("bench/results")
+          root = Path(os.environ["BENCH_RESULTS_DIR"])
           start = (root / ".ci-start").stat().st_mtime
           files = [p for p in root.glob("*.jsonl") if p.stat().st_mtime >= start]
           results = [p for p in files if not p.name.endswith(".resources.jsonl")]
           samples = [p for p in files if p.name.endswith(".resources.jsonl")]
           assert len(results) == len(samples) == 1, (results, samples)
+          profile = results[0].with_suffix(".environment.txt")
+          assert profile.stat().st_mtime >= start
+          profile_lines = profile.read_text().splitlines()
+          for name, ref in (("sourceCommit", "HEAD"), ("sourceTree", "HEAD^{tree}")):
+              expected = subprocess.check_output(["git", "rev-parse", ref], text=True).strip()
+              assert f"{name}={expected}" in profile_lines
+          assert {
+              "sourceClean=true", "targets=ruxbase", "duration=8s", "concurrency=8",
+              "runs=1", "records=1000", "clients=20", "events=20", "rate=5",
+              "wal_level=logical", "shared_buffers=1GB",
+          }.issubset(profile_lines)
+          assert any(re.fullmatch(r"cgroupDriver=(cgroupfs|systemd) cgroupVersion=[12]", line)
+                     for line in profile_lines), "Docker must attribute stats to container cgroups"
+          assert any(line.startswith("server_version=18.") for line in profile_lines)
+          containers = [line for line in profile_lines if line.startswith("container=")]
+          assert len(containers) == 3, containers
+          for line in containers:
+              assert re.search(r"image=\S+@sha256:[a-f0-9]{64} imageID=sha256:[a-f0-9]{64}", line), line
+
           def load(path):
               return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
           rows = load(results[0])
@@ -86,7 +109,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ruxbase-benchmark-smoke
-          path: |
-            bench/results/*.jsonl
-            bench/results/ci-environment.txt
+          path: ${{ env.BENCH_RESULTS_DIR }}/*
+          if-no-files-found: error
           retention-days: 14

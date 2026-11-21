@@ -1,0 +1,59 @@
+# Disposable local Quickstart: Ruxbase + PostgreSQL 18 with pgvector.
+# docker compose --env-file .env.quickstart up -d --build --wait
+# This is not a production configuration.
+name: ruxbase-quickstart
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ruxbase_local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a URL-safe POSTGRES_PASSWORD in .env.quickstart}
+      POSTGRES_DB: ruxbase
+    command: [postgres, -c, wal_level=logical, -c, max_replication_slots=10, -c, max_wal_senders=10, -c, max_slot_wal_keep_size=1GB]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+    # PostgreSQL intentionally has no published host port.
+
+  ruxbase:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ruxbase:quickstart-local
+    environment:
+      # Local disposable DB owner; never use this role model in production.
+      # Use hex/alphanumeric credentials; URL-special characters need encoding.
+      DATABASE_URL: "postgres://${POSTGRES_USER:-ruxbase_local}:${POSTGRES_PASSWORD:?Set a URL-safe POSTGRES_PASSWORD in .env.quickstart}@postgres:5432/ruxbase?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ruxbase_data:/app/ruxbase_data
+    healthcheck:
+      # Debian slim includes bash. Require readiness, not just liveness.
+      # $$ escapes Docker Compose interpolation.
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8090;
+          printf "GET /api/health?ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          IFS= read -r line <&3;
+          [[ "$$line" == HTTP/1.1\ 200* ]]'
+      interval: 5s
+      timeout: 4s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ruxbase_data:

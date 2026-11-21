@@ -10,10 +10,46 @@
 <p align="center">
   <a href="https://github.com/AbdullahZaher/ruxbase/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdullahZaher/ruxbase/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
   <a href="LICENSE.md"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue" /></a>
-  <a href="https://github.com/AbdullahZaher/ruxbase/releases">Releases</a>
+  <a href="https://abdullahzaher.github.io/ruxbase/">Documentation</a>
+  · <a href="https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/">Quickstart</a>
+  · <a href="https://abdullahzaher.github.io/ruxbase/reference/api/">API Reference</a>
+  · <a href="https://github.com/AbdullahZaher/ruxbase/releases">Releases</a>
   · <a href="UPSTREAM.md">Upstream policy</a>
   · <a href="docs/COMPATIBILITY.md">Compatibility</a>
 </p>
+
+## Quickstart with Docker Compose
+
+Use a checked-out repository and Docker Compose v2 to run Ruxbase with PostgreSQL 18 and pgvector locally. Generate a private random password, then start the services:
+
+```sh
+umask 077
+printf 'POSTGRES_USER=ruxbase_local\nPOSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env.quickstart
+docker compose --env-file .env.quickstart up -d --build --wait
+```
+
+Open http://localhost:8090/_/ to initialize the administrator. The app binds to host loopback and PostgreSQL is private to the Compose network. See [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) for persistence, cleanup, troubleshooting and the Go + embedded PostgreSQL alternative. This local development stack is not production-certified.
+
+## Read-only local developer diagnostic
+
+```sh
+node scripts/ruxbase-doctor.mjs --json
+```
+
+Checks local Ruxbase readiness and `posts` accessibility without starting containers, requiring credentials, changing application state or contacting external URLs. See the [developer tooling guide](https://abdullahzaher.github.io/ruxbase/getting-started/developer-tooling/).
+
+## Create a React or Next.js project
+
+Use the two [tested starter templates](https://abdullahzaher.github.io/ruxbase/getting-started/create-app/) or generate a copy from the repository root:
+
+```sh
+node scripts/create-ruxbase-app.mjs react my-react-app
+node scripts/create-ruxbase-app.mjs nextjs my-next-app
+```
+
+Start Ruxbase first using the above Docker Compose Quickstart, then run `npm ci && npm run dev` in the generated project. The starter source is in `starters/react/` and `starters/nextjs/` with Compose overlays for in-repository development. Both use the SDK as an ordinary user and the approved monochrome Ruxbase identity. The templates and generator are development examples, not certified production applications.
+
+Developer tooling delivery and exact-commit verification are documented in the [Developer Experience status report](docs/architecture/developer-experience-status.md). This completed documentation/tooling scope does not certify the broader Wave 04 milestone or a production release.
 
 ## What is Ruxbase?
 
@@ -29,6 +65,22 @@ official PocketBase repository is the **sole ongoing upstream** for inherited
 application code. PostgreSQL integration and Ruxbase-specific features are
 maintained independently. No third-party fork is required as a runtime
 dependency or synchronization source.
+
+## Documentation
+
+**Engineering direction:** [12-wave Master Roadmap](MASTER-ROADMAP.md) · [Evidence-based Master Checklist](MASTER-CHECKLIST.md) · [AI execution and handoff protocol](docs/roadmap/AI-EXECUTION-PROTOCOL.md). These repository files are planning/coordination references, not evidence of production certification.
+
+[SDKs and integrations](https://abdullahzaher.github.io/ruxbase/integrations/overview/) — [JavaScript](https://abdullahzaher.github.io/ruxbase/integrations/javascript/), [REST](https://abdullahzaher.github.io/ruxbase/integrations/rest/), [integration context for AI](https://abdullahzaher.github.io/ruxbase/llms-integrations.txt).
+
+The [public documentation](https://abdullahzaher.github.io/ruxbase/) describes the published development snapshot; it is not a stable release. Check [build identity](https://abdullahzaher.github.io/ruxbase/version.json) against your checkout before relying on version-specific behavior.
+
+- [Quickstart](https://abdullahzaher.github.io/ruxbase/getting-started/quickstart/) and [API reference](https://abdullahzaher.github.io/ruxbase/reference/api/)
+- [Using Ruxbase with AI](https://abdullahzaher.github.io/ruxbase/ai/using-ruxbase-with-ai/) — [llms.txt](https://abdullahzaher.github.io/ruxbase/llms.txt) and [full Markdown context](https://abdullahzaher.github.io/ruxbase/llms-full.txt)
+- [OpenAPI](https://abdullahzaher.github.io/ruxbase/openapi.json), [API coverage](https://abdullahzaher.github.io/ruxbase/api-coverage.json), [feature manifest](https://abdullahzaher.github.io/ruxbase/feature-manifest.json), [CLI reference](https://abdullahzaher.github.io/ruxbase/cli-reference.json), and [configuration reference](https://abdullahzaher.github.io/ruxbase/configuration-reference.json)
+
+The checked-out sources and tests remain authoritative when they differ from a previously published snapshot. API contracts are scoped, and MCP is documented separately.
+
+For application design and server extensions, see [core concepts](https://abdullahzaher.github.io/ruxbase/concepts/collections/), [local tutorial](https://abdullahzaher.github.io/ruxbase/tutorials/posts-app/), [Go extensions](https://abdullahzaher.github.io/ruxbase/extend-go/overview/) and [JavaScript extensions](https://abdullahzaher.github.io/ruxbase/extend-js/overview/).
 
 ## Current capabilities
 

@@ -10,7 +10,10 @@
 #
 # Options (env variables): BENCH_DURATION (20s), BENCH_CONCURRENCY ("50 200"),
 # BENCH_RUNS (3), BENCH_RECORDS (10000), BENCH_CLIENTS (500), BENCH_EVENTS (200),
-# BENCH_RATE (20), BENCH_BASE_IMAGE (the base image of the containers),
+# BENCH_RATE (20), BENCH_BASE_IMAGE and BENCH_POSTGRES_IMAGE (image overrides),
+# BENCH_POSTGRES_CPUS and BENCH_RUNNER_CPUS (4 each by default),
+# BENCH_PROJECT_NAME (ruxbase-bench; use a dedicated project for isolated runs),
+# BENCH_RESULTS_DIR (results relative to bench/, or an absolute directory),
 # BENCH_KEEP (keep the services running), BENCH_TARGETS ("pocketbase ruxbase ruxbase-3-nodes").
 
 set -euo pipefail
@@ -28,29 +31,54 @@ RECORDS="${BENCH_RECORDS:-10000}"
 CLIENTS="${BENCH_CLIENTS:-500}"
 EVENTS="${BENCH_EVENTS:-200}"
 RATE="${BENCH_RATE:-20}"
+PROJECT="${BENCH_PROJECT_NAME:-ruxbase-bench}"
 EMAIL="bench@example.com"
 PASSWORD="bench-password-123"
 
-mkdir -p .bin results
-RESULTS="results/$(date +%Y%m%d-%H%M%S).jsonl"
+results_dir="${BENCH_RESULTS_DIR:-results}"
+mkdir -p .bin "$results_dir"
+results_dir="$(cd "$results_dir" && pwd -P)"
+RESULTS="$results_dir/$(date -u +%Y%m%d-%H%M%S).jsonl"
 RESOURCES="${RESULTS%.jsonl}.resources.jsonl"
+ENVIRONMENT="${RESULTS%.jsonl}.environment.txt"
 
 compose() {
-  docker compose -f docker-compose.yml "$@"
+  docker compose --project-name "$PROJECT" -f docker-compose.yml "$@"
 }
 
 cleanup() {
-  if [ -n "${BENCH_KEEP:-}" ]; then
-    echo "the services are kept running (docker compose -f bench/docker-compose.yml down -v)"
-    return
-  fi
-  compose down -v >/dev/null 2>&1 || true
   if [ -n "${PB_SOURCE:-}" ]; then rm -rf -- "$PB_SOURCE"; fi
+  if [ "${compose_started:-false}" = false ]; then return; fi
+  if [ -n "${BENCH_KEEP:-}" ]; then
+    echo "the services are kept running (docker compose --project-name $PROJECT -f bench/docker-compose.yml down -v)"
+  else
+    compose down -v >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
 
 echo "== building the binaries"
 export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+
+source_status=$(git -C .. status --porcelain -- . ':!bench/results')
+{
+  printf 'sourceCommit=%s\n' "$(git rev-parse HEAD)"
+  printf 'sourceTree=%s\n' "$(git rev-parse 'HEAD^{tree}')"
+  if [ -n "$source_status" ]; then
+    printf 'sourceClean=false\n%s\n' "$source_status"
+  else
+    printf 'sourceClean=true\n'
+  fi
+  printf 'targets=%s\n' "$TARGETS"
+  printf 'duration=%s\nconcurrency=%s\nruns=%s\nrecords=%s\n' "$DURATION" "$CONCURRENCY" "$RUNS" "$RECORDS"
+  printf 'clients=%s\nevents=%s\nrate=%s\n' "$CLIENTS" "$EVENTS" "$RATE"
+  printf 'startedAt=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  go version
+  uname -srm
+  docker info --format 'docker={{.ServerVersion}} architecture={{.Architecture}} cpus={{.NCPU}} memoryBytes={{.MemTotal}}'
+  docker info --format 'cgroupDriver={{.CgroupDriver}} cgroupVersion={{.CgroupVersion}}'
+  docker compose version
+} > "$ENVIRONMENT"
 
 (cd .. && go build -trimpath -ldflags "-s -w" -o bench/.bin/ruxbase ./examples/base)
 (cd .. && go build -trimpath -ldflags "-s -w" -o bench/.bin/bench ./bench)
@@ -63,6 +91,7 @@ if [[ " $TARGETS " == *" pocketbase "* ]]; then
   git -C "$PB_SOURCE" fetch --no-tags --depth=1 https://github.com/pocketbase/pocketbase.git refs/tags/v0.40.6
   PB_COMMIT="9d281ccaba65f2686eb7b0b614ccda72d1116a1b"
   test "$(git -C "$PB_SOURCE" rev-parse 'FETCH_HEAD^{commit}')" = "$PB_COMMIT"
+  printf 'pocketbaseCommit=%s\n' "$PB_COMMIT" >> "$ENVIRONMENT"
   git -C "$PB_SOURCE" checkout --detach "$PB_COMMIT"
   PB_BINARY="$(pwd)/.bin/pocketbase"
   (cd "$PB_SOURCE" && go build -trimpath -ldflags "-s -w" -o "$PB_BINARY" ./examples/base)
@@ -73,22 +102,32 @@ fi
 unset CGO_ENABLED GOOS GOARCH
 
 echo "== starting the services"
+compose_started=true
 compose down -v >/dev/null 2>&1 || true
-compose up -d postgres
-for _ in $(seq 1 60); do
-  compose exec -T postgres pg_isready -U postgres -q && break
-  sleep 1
-done
-compose exec -T postgres psql -U postgres -qc "CREATE DATABASE single" -c "CREATE DATABASE cluster"
 
-# the superusers (the ruxbase command also applies the migrations)
-if [[ " $TARGETS " == *" pocketbase "* ]]; then
-  compose run --rm -T pocketbase /bench/pocketbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data >/dev/null
-fi
-compose run --rm -T ruxbase /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
-compose run --rm -T node1 /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
+record_containers() {
+  docker inspect --format 'container={{.Name}} image={{.Config.Image}} imageID={{.Image}} nanoCPUs={{.HostConfig.NanoCpus}} memoryBytes={{.HostConfig.Memory}}' "$@" >> "$ENVIRONMENT"
+}
+
+prepare_postgres() {
+  compose up -d postgres
+  for _ in $(seq 1 60); do
+    if compose exec -T postgres pg_isready -h 127.0.0.1 -U postgres -q; then
+      compose exec -T postgres psql -XAt -U postgres -v ON_ERROR_STOP=1 -c "
+        SELECT name || '=' || current_setting(name)
+        FROM pg_settings
+        WHERE name IN ('server_version', 'wal_level', 'max_connections', 'shared_buffers', 'effective_cache_size')
+        ORDER BY name" >> "$ENVIRONMENT"
+      return
+    fi
+    sleep 1
+  done
+  echo "timeout waiting for PostgreSQL" >&2
+  return 1
+}
 
 compose up -d runner
+record_containers "$(compose ps -q runner)"
 
 wait_http() {
   for _ in $(seq 1 60); do
@@ -134,6 +173,24 @@ run_target() {
     *) return 0 ;;
   esac
 
+  # Initialize only the selected target. Do not run PostgreSQL during the
+  # PocketBase reference workload. Ruxbase upsert also applies its migrations.
+  case "$name" in
+    pocketbase)
+      compose run --rm -T pocketbase /bench/pocketbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data >/dev/null
+      ;;
+    ruxbase)
+      prepare_postgres
+      compose exec -T postgres psql -Xq -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE single"
+      compose run --rm -T ruxbase /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
+      ;;
+    ruxbase-3-nodes)
+      prepare_postgres
+      compose exec -T postgres psql -Xq -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE cluster"
+      compose run --rm -T node1 /bench/ruxbase superuser upsert "$EMAIL" "$PASSWORD" --dir=/data --dev=false >/dev/null
+      ;;
+  esac
+
   compose up -d "${services[@]}"
   for service in "${services[@]}"; do wait_http "$service" 8090; done
 
@@ -147,6 +204,8 @@ run_target() {
     echo "missing benchmark containers for $name" >&2
     return 1
   fi
+  printf 'measurementTarget=%s\n' "$name" >> "$ENVIRONMENT"
+  record_containers "${ids[@]}"
   capture_stats() {
     local phase="$1" raw sampled
     raw=$(docker stats --no-stream --format '{{json .}}' "${ids[@]}")
@@ -203,6 +262,7 @@ run_target "ruxbase" "http://ruxbase:8090" ruxbase
 # the load generator spreads the requests over the 3 nodes (client side load balancing)
 run_target "ruxbase-3-nodes" "http://node1:8090,http://node2:8090,http://node3:8090" node1 node2 node3
 
-echo "== results: bench/$RESULTS"
-echo "== resource samples: bench/$RESOURCES"
-(cd .. && go run ./bench -scenario report -in "bench/$RESULTS")
+echo "== results: $RESULTS"
+echo "== resource samples: $RESOURCES"
+echo "== environment and workload: $ENVIRONMENT"
+bench -scenario report -in /dev/stdin < "$RESULTS"

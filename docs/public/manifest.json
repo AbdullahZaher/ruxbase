@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "pages": [
+    {
+      "source": "docs/public/index.md",
+      "target": "index.md"
+    },
+    {
+      "source": "docs/public/quickstart.md",
+      "target": "getting-started/quickstart.md"
+    },
+    {
+      "source": "docs/DEV.md",
+      "target": "getting-started/development.md",
+      "title": "Development mode",
+      "description": "Run Ruxbase locally with embedded PostgreSQL."
+    },
+    {
+      "source": "docs/COMPATIBILITY.md",
+      "target": "migration/compatibility.md",
+      "title": "PocketBase compatibility",
+      "description": "Review compatibility targets and documented differences."
+    },
+    {
+      "source": "docs/CLUSTER.md",
+      "target": "operations/clustering.md",
+      "title": "Running multiple instances",
+      "description": "Understand multi-instance coordination and operational constraints."
+    },
+    {
+      "source": "docs/RLS.md",
+      "target": "authorization/row-level-security.md",
+      "title": "Row-level security",
+      "description": "Understand supported PostgreSQL RLS rules, roles and limitations."
+    },
+    {
+      "source": "docs/REALTIME.md",
+      "target": "guides/realtime.md",
+      "title": "Realtime events",
+      "description": "Understand realtime event sources and deployment constraints."
+    },
+    {
+      "source": "docs/SEARCH.md",
+      "target": "data/full-text-search.md",
+      "title": "Full-text search",
+      "description": "Use and understand PostgreSQL text search."
+    },
+    {
+      "source": "docs/VECTOR.md",
+      "target": "data/vector-search.md",
+      "title": "Vector search",
+      "description": "Understand pgvector search and supported behavior."
+    },
+    {
+      "source": "docs/MCP.md",
+      "target": "ai/mcp.md",
+      "title": "MCP server",
+      "description": "Understand the optional Model Context Protocol integration."
+    },
+    {
+      "source": "docs/OPERATIONS.md",
+      "target": "operations/overview.md",
+      "title": "Operations",
+      "description": "Review health checks, database connectivity and operations."
+    },
+    {
+      "source": "docs/MIGRATING.md",
+      "target": "migration/from-pocketbase.md",
+      "title": "Migrating from PocketBase",
+      "description": "Review supported import and migration requirements."
+    },
+    {
+      "source": "docs/public/using-ai.md",
+      "target": "ai/using-ruxbase-with-ai.md"
+    },
+    {
+      "source": "docs/public/reference/api.md",
+      "target": "reference/api.md"
+    },
+    {
+      "source": "docs/public/reference/cli.md",
+      "target": "reference/cli.md"
+    },
+    {
+      "source": "docs/public/reference/configuration.md",
+      "target": "reference/configuration.md"
+    },
+    {
+      "source": "docs/public/reference/features.md",
+      "target": "reference/features.md"
+    },
+    {
+      "source": "docs/public/integrations/overview.md",
+      "target": "integrations/overview.md"
+    },
+    {
+      "source": "docs/public/integrations/example-app.md",
+      "target": "integrations/example-app.md"
+    },
+    {
+      "source": "docs/public/integrations/javascript.md",
+      "target": "integrations/javascript.md"
+    },
+    {
+      "source": "docs/public/integrations/server-side.md",
+      "target": "integrations/server-side.md"
+    },
+    {
+      "source": "docs/public/integrations/rest.md",
+      "target": "integrations/rest.md"
+    },
+    {
+      "source": "docs/public/integrations/mobile.md",
+      "target": "integrations/mobile.md"
+    },
+    {
+      "source": "docs/public/concepts/collections.md",
+      "target": "concepts/collections.md"
+    },
+    {
+      "source": "docs/public/concepts/fields.md",
+      "target": "concepts/fields.md"
+    },
+    {
+      "source": "docs/public/concepts/records.md",
+      "target": "concepts/records.md"
+    },
+    {
+      "source": "docs/public/concepts/authentication.md",
+      "target": "concepts/authentication.md"
+    },
+    {
+      "source": "docs/public/concepts/rules.md",
+      "target": "concepts/rules.md"
+    },
+    {
+      "source": "docs/public/concepts/relations.md",
+      "target": "concepts/relations.md"
+    },
+    {
+      "source": "docs/public/concepts/files.md",
+      "target": "concepts/files.md"
+    },
+    {
+      "source": "docs/public/integrations/react.md",
+      "target": "integrations/react.md"
+    },
+    {
+      "source": "docs/public/integrations/nextjs.md",
+      "target": "integrations/nextjs.md"
+    },
+    {
+      "source": "docs/public/reference/records-api.md",
+      "target": "reference/records-api.md"
+    },
+    {
+      "source": "docs/public/reference/account-api.md",
+      "target": "reference/account-api.md"
+    },
+    {
+      "source": "docs/public/reference/file-api.md",
+      "target": "reference/file-api.md"
+    },
+    {
+      "source": "docs/public/extend-go/overview.md",
+      "target": "extend-go/overview.md"
+    },
+    {
+      "source": "docs/public/extend-go/data-hooks.md",
+      "target": "extend-go/data-hooks.md"
+    },
+    {
+      "source": "docs/public/extend-js/overview.md",
+      "target": "extend-js/overview.md"
+    },
+    {
+      "source": "docs/public/extend-js/data-migrations.md",
+      "target": "extend-js/data-migrations.md"
+    },
+    {
+      "source": "docs/public/postgresql/overview.md",
+      "target": "postgresql/overview.md"
+    },
+    {
+      "source": "docs/public/operations/deployment.md",
+      "target": "operations/deployment.md"
+    },
+    {
+      "source": "docs/public/operations/recovery.md",
+      "target": "operations/recovery.md"
+    },
+    {
+      "source": "docs/public/tutorials/posts-app.md",
+      "target": "tutorials/posts-app.md"
+    },
+    {
+      "source": "docs/public/getting-started/create-app.md",
+      "target": "getting-started/create-app.md"
+    },
+    {
+      "source": "docs/public/tutorials/starter-react.md",
+      "target": "tutorials/starter-react.md"
+    },
+    {
+      "source": "docs/public/tutorials/starter-nextjs.md",
+      "target": "tutorials/starter-nextjs.md"
+    },
+    {
+      "source": "docs/public/getting-started/developer-tooling.md",
+      "target": "getting-started/developer-tooling.md"
+    },
+    {
+      "source": "docs/public/tutorials/nextjs-protected-sessions.md",
+      "target": "tutorials/nextjs-protected-sessions.md"
+    }
+  ]
+}

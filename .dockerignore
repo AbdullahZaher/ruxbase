@@ -1,5 +1,8 @@
-# Only the Go sources and the embedded assets are needed to build the ruxbase binary.
+# Limit the context to build inputs and the runtime attribution files.
 *
+!LICENSE.md
+!NOTICE.md
+!THIRD-PARTY-LICENSES/**
 !go.mod
 !go.sum
 !**/*.go

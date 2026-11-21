@@ -1,0 +1,69 @@
+{
+  "scope": "AI starter project generation and real integration",
+  "questions": [
+    {
+      "id": "dx-generator-react",
+      "query": "Generate a working React Ruxbase application using deterministic create-ruxbase-app script",
+      "target": "getting-started/create-app.md",
+      "evidence": [
+        "scripts/create-ruxbase-app.mjs react",
+        "npm install",
+        "npm run dev"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx-generator-next",
+      "query": "Generate a working Next.js Ruxbase project with create-ruxbase-app command",
+      "target": "getting-started/create-app.md",
+      "evidence": [
+        "scripts/create-ruxbase-app.mjs nextjs",
+        "npm install"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx-react-ownership",
+      "query": "React starter private draft browser tested against Ruxbase PostgreSQL with owner only access",
+      "target": "tutorials/starter-react.md",
+      "evidence": [
+        "Alice",
+        "Bob",
+        "draft"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx-next-client",
+      "query": "Next.js starter App Router request client-only PocketBase trusted rewrite SSR",
+      "target": "tutorials/starter-nextjs.md",
+      "evidence": [
+        "client",
+        "rewrite",
+        "/api"
+      ],
+      "critical": false
+    },
+    {
+      "id": "dx-compose-overlay",
+      "query": "Docker Compose Ruxbase starter React Nextjs frontend overlay postgres stack",
+      "target": "getting-started/create-app.md",
+      "evidence": [
+        "starters/react/compose.yaml",
+        "starters/nextjs/compose.yaml"
+      ],
+      "critical": false
+    },
+    {
+      "id": "dx-errors",
+      "query": "React Nextjs starter errors backend not connected posts collection missing password rejected",
+      "target": "getting-started/create-app.md",
+      "evidence": [
+        "Backend not connected",
+        "Posts collection missing",
+        "Login rejected"
+      ],
+      "critical": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruxbase local posts demo</title>
+<h1>Posts demo</h1>
+<p>Disposable local development only. Configure posts and users according to the documentation.</p>
+<form id="login"><label>Email <input name="email" type="email" required></label><label>Password <input name="password" type="password" required></label><button>Sign in</button></form>
+<button id="logout" type="button">Sign out</button>
+<form id="post"><label>Title <input name="title" required></label><button>Create draft</button></form>
+<button id="refresh" type="button">Refresh posts</button>
+<p id="status" role="status"></p><ul id="items"></ul>
+<script type="module" src="./app.mjs"></script>
+</html>

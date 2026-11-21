@@ -1,0 +1,67 @@
+{
+  "scope": "Phase 3 Batch 02 developer tooling and protected Next.js sessions",
+  "questions": [
+    {
+      "id": "dx2-npm-lock",
+      "query": "Ruxbase reproducible npm ci lockfile package lock integrity project generation",
+      "target": "getting-started/developer-tooling.md",
+      "evidence": [
+        "package-lock.json",
+        "npm ci"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx2-cli-json",
+      "query": "Ruxbase generator CLI machine readable dry run JSON no overwrite",
+      "target": "getting-started/developer-tooling.md",
+      "evidence": [
+        "--dry-run",
+        "--json"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx2-cli-errors",
+      "query": "Ruxbase development project FRAMEWORK NAME EXISTS CLI error and port diagnostics",
+      "target": "getting-started/developer-tooling.md",
+      "evidence": [
+        "FRAMEWORK",
+        "EXISTS"
+      ],
+      "critical": false
+    },
+    {
+      "id": "dx2-ai-model",
+      "query": "Ruxbase opt in real model evaluation credentials four hostile instruction plans running AI app",
+      "target": "getting-started/developer-tooling.md",
+      "evidence": [
+        "RUXBASE_AI_EVAL_API_KEY",
+        "actual model"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx2-server-csrf",
+      "query": "Nextjs protected cookie session strict Origin cross site CSRF Fetch Metadata",
+      "target": "tutorials/nextjs-protected-sessions.md",
+      "evidence": [
+        "Origin",
+        "Fetch Metadata",
+        "SameSite=Lax"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dx2-server-isolation",
+      "query": "Nextjs protected server route concurrent request scoped cookie authRefresh two users logout SSR",
+      "target": "tutorials/nextjs-protected-sessions.md",
+      "evidence": [
+        "authRefresh()",
+        "/protected",
+        "logout"
+      ],
+      "critical": true
+    }
+  ]
+}
