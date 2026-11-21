@@ -300,7 +300,7 @@ func TestRLSRejectedTokens(t *testing.T) {
 	}
 
 	// an expired token (checked with the clock time, also inside a transaction)
-	shortToken, err := f.user2.NewRLSToken(time.Second)
+	shortToken, err := f.user2.NewRLSToken(3 * time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestRLSRejectedTokens(t *testing.T) {
 		if total := countRows(t, txApp, "rls_posts"); total != 1 {
 			t.Fatalf("Expected 1 visible post before the token expiration, got %d", total)
 		}
-		time.Sleep(1500 * time.Millisecond)
+		time.Sleep(3500 * time.Millisecond)
 		if total := countRows(t, txApp, "rls_posts"); total != 0 {
 			t.Fatalf("Expected no visible posts after the token expiration, got %d", total)
 		}
