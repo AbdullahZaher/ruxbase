@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/tools/security"
@@ -49,7 +48,6 @@ type FunctionInvocation struct {
 // FunctionManager manages isolated compute functions and runs them within a strict sandbox.
 type FunctionManager struct {
 	app App
-	mu  sync.RWMutex
 }
 
 // NewFunctionManager creates a new FunctionManager instance.

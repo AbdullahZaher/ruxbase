@@ -14,7 +14,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/tools/security"
@@ -79,7 +78,6 @@ type StorageUploadSession struct {
 // StorageManager manages storage buckets, objects, and permissions.
 type StorageManager struct {
 	app App
-	mu  sync.RWMutex
 }
 
 // NewStorageManager creates a new StorageManager instance.
