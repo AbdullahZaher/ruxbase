@@ -121,8 +121,16 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
 
         # Exercise the exact deterministic generator, not a manually copied
         # frontend. The output directory is outside the repository.
-        for framework, port in [("react", 5173), ("nextjs", 3000)]:
-            project = base / ("generated-" + framework)
+        specs = [("react", "generated-react", 5173), ("nextjs", "generated-nextjs", 3000)]
+        if os.environ.get("RUXBASE_AI_PLAN_FILE"):
+            artifact = pathlib.Path(os.environ["RUXBASE_AI_PLAN_FILE"])
+            subprocess.run(["node", str(ROOT / "scripts/eval-ai-projects.mjs"), "verify",
+                            "--input", str(artifact)], check=True, cwd=ROOT)
+            data = json.loads(artifact.read_text())
+            specs = [(p["framework"], p["name"], 5173 if p["framework"] == "react" else 3000)
+                     for p in data["plans"]]
+        for framework, name, port in specs:
+            project = base / name
             subprocess.run([
                 "node", str(ROOT / "scripts/create-ruxbase-app.mjs"),
                 framework, project.name, "--output", str(base),
@@ -130,7 +138,7 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
             assert project.is_dir()
             pkg = json.loads((project / "package.json").read_text())
             assert pkg["name"] == project.name
-            subprocess.run(["npm", "install", "--no-audit", "--no-fund"], cwd=project, check=True)
+            subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=project, check=True)
             subprocess.run(["npm", "audit", "--audit-level=high", "--omit=dev"], cwd=project, check=True)
             subprocess.run(["npm", "run", "build"], cwd=project, check=True, env={
                 **os.environ, "NEXT_TELEMETRY_DISABLED": "1",
@@ -139,6 +147,7 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
                 **os.environ,
                 "RUXBASE_INTERNAL_URL": SERVER,
                 "NEXT_TELEMETRY_DISABLED": "1",
+                "RUXBASE_APP_ORIGIN": "http://127.0.0.1:3000",
             }
             # Next.js production start exercises the built App Router bundle
             # without on-demand Turbopack recompilation during browser tests.
@@ -170,6 +179,19 @@ with tempfile.TemporaryDirectory(prefix="ruxbase-phase3-") as td:
                         "RUXBASE_TEST_PASSWORD": alice["password"],
                     },
                 )
+                if framework == "nextjs":
+                    subprocess.run(
+                        ["python3", str(ROOT / "scripts/check-nextjs-session.py")],
+                        check=True, cwd=ROOT, env={
+                            **server_env,
+                            "RUXBASE_TEST_ALICE_EMAIL": alice["email"],
+                            "RUXBASE_TEST_ALICE_PASSWORD": alice["password"],
+                            "RUXBASE_TEST_ALICE_ID": alice["id"],
+                            "RUXBASE_TEST_BOB_EMAIL": bob["email"],
+                            "RUXBASE_TEST_BOB_PASSWORD": bob["password"],
+                            "RUXBASE_TEST_BOB_ID": bob["id"],
+                        },
+                    )
                 _, own = request(origin, "GET", "/api/collections/posts/records",
                                  token=alice["token"])
                 assert any(x["title"] == draft for x in own["items"]), "Owner draft not persisted"

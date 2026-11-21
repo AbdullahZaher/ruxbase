@@ -1,33 +1,59 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, stat, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, stat, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-
 const root=fileURLToPath(new URL("../",import.meta.url));
 const cli=join(root,"scripts/create-ruxbase-app.mjs");
-const run=(args)=>spawnSync(process.execPath,[cli,...args],{encoding:"utf8",cwd:root});
+const run=args=>spawnSync(process.execPath,[cli,...args],{encoding:"utf8",cwd:root});
+const json=r=>JSON.parse(r.status===0?r.stdout:r.stderr);
 
-test("AI can deterministically create complete React and Next.js projects without secrets",async()=>{
-  const dir=await mkdtemp(join(tmpdir(),"ruxbase-ai-scaffold-"));
+test("CLI gives actionable help, framework list and explicit errors",()=>{
+  assert.match(run(["--help"]).stdout,/npm ci/);
+  assert.deepEqual(json(run(["--list","--json"])).templates,["react","nextjs"]);
+  for(const args of [["wrong","demo"],["react","../../escape"],["react","UPPER"],["react","ends-"],
+    ["react","a"],["--framework","nextjs","--name","bad?"],["--unknown"],
+    ["react","demo","--output"],["react","demo","--output",".","--output",".."]]){
+    const response=run([...args,"--json"]);
+    assert.equal(response.status,2,"Unexpected accepted arguments: "+args.join(" "));
+    assert.equal(json(response).ok,false);
+  }
+});
+test("Both starters scaffold deterministically with portable lock and no secrets",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"ruxbase-scaffold-b02-"));
   try{
     for(const framework of ["react","nextjs"]){
-      const name="demo-"+framework;
-      const response=run([framework,name,"--output",dir]);
-      assert.equal(response.status,0,response.stderr);
-      const dst=join(dir,name);
-      const pkg=JSON.parse(await readFile(join(dst,"package.json"),"utf8"));
+      const name="generated-"+framework;
+      const dry=run(["--framework",framework,"--name",name,"--output",dir,"--dry-run","--json"]);
+      assert.equal(dry.status,0,dry.stderr);
+      assert.equal(json(dry).dryRun,true);
+      assert.ok(!(await readdir(dir)).includes(name),"dry-run must not create this target");
+      const proc=run([framework,name,"--output",dir,"--json"]);
+      assert.equal(proc.status,0,proc.stderr);
+      const target=join(dir,name);
+      assert.equal(json(proc).target,target);
+      const pkg=JSON.parse(await readFile(join(target,"package.json"),"utf8"));
+      const lock=JSON.parse(await readFile(join(target,"package-lock.json"),"utf8"));
       assert.equal(pkg.name,name);
+      assert.equal(lock.name,name);
+      assert.equal(lock.packages[""].name,name);
+      assert.equal(lock.lockfileVersion,3);
       assert.equal(pkg.dependencies.pocketbase,"0.28.1");
-      await stat(join(dst,framework==="react"?"src/main.jsx":"app/page.jsx"));
-      for(const file of ["public/ruxbase-horizontal-white.svg","public/ruxbase-horizontal-black.svg",".env.example","RUXBASE_AI_CONTEXT.md","README.md"])await stat(join(dst,file));
-      assert.match(await readFile(join(dst,"RUXBASE_AI_CONTEXT.md"),"utf8"),/llms-integrations/);
-      assert.equal(run([framework,name,"--output",dir]).status,2,"Must not overwrite existing projects");
-    }
-    for(const invalid of ["../../escape","UPPER","a","ends-"]){
-      assert.equal(run(["react",invalid,"--output",dir]).status,2,"Rejected unsafe project name: "+invalid);
+      assert.ok(Object.keys(lock.packages).length>=15);
+      await stat(join(target,framework==="react"?"src/main.jsx":"app/page.jsx"));
+      for(const f of ["public/ruxbase-horizontal-white.svg","public/ruxbase-horizontal-black.svg",
+        ".env.example","RUXBASE_AI_CONTEXT.md","README.md"])await stat(join(target,f));
+      assert.match(await readFile(join(target,"RUXBASE_AI_CONTEXT.md"),"utf8"),/npm ci/);
+      const readme=await readFile(join(target,"README.md"),"utf8");
+      assert.doesNotMatch(readme,/\.\.\/\.\.\/docs\//,"Generated standalone README must not contain broken in-repository links");
+      assert.match(readme,/https:\/\/abdullahzaher\.github\.io\/ruxbase\/getting-started\/quickstart\//);
+      assert.match(readme,/https:\/\/abdullahzaher\.github\.io\/ruxbase\/integrations\/example-app\//);
+      assert.ok(!JSON.stringify(pkg).includes("POSTGRES_PASSWORD"));
+      assert.equal(run([framework,name,"--output",dir,"--json"]).status,2,"No overwrite on existing directory");
+      // Existing project must never be changed by rejected invocations.
+      assert.equal(JSON.parse(await readFile(join(target,"package.json"),"utf8")).name,name);
     }
   }finally{await rm(dir,{recursive:true,force:true});}
 });
