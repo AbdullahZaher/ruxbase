@@ -35,7 +35,7 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | Wave 01 M02 | **BLOCKED PENDING OWNER SCOPE ACCEPTANCE** | Platform Kernel Contracts; see EV-01-M02-SCOPE |
 | Wave 01 M03–M06 labels | **TO BE RECONCILED** | differing milestone nomenclature in historical reports; use accepted owner specification |
 | Overall production release | **NO-GO** | no full release certification |
-| Developer docs | **ACTIVE, separate stream** | current `main`, published docs and active PRs; do not conflate with Wave 01 |
+| Developer Experience documentation/tooling | **ENGINEERING COMPLETE; FORMAL CLOSURE PENDING** | [PR #32](https://github.com/AbdullahZaher/ruxbase/pull/32) and [PR #35](https://github.com/AbdullahZaher/ruxbase/pull/35) merged; seven post-merge workflows and docs deployment succeeded on `5157c50a291617a260a9c4cd203f7156adef04a3`. [Reconciliation and limitations](docs/architecture/developer-experience-status.md); separate from Wave 04 and production |
 
 ### Evidence register — update when a checkbox changes
 
@@ -55,6 +55,7 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 | EV-01-CI | Post-integration reliability and M01 | Wave commit `2170cd951ef33efd7f1744adcda23df990e4b6d4`; [CI #44820224648](https://github.com/AbdullahZaher/ruxbase/actions/runs/44820224648) | 10/10 successful historical run; not a production certification |
 | EV-01-PARITY | PocketBase ref test mapping | 5,112 references; 5,097 direct passes; 10 renamed, 3 removed, 2 skipped, 0 unaccounted | The two skips are `TestBaseAppDBDualBuilder` and `TestBaseAppAuxDBDualBuilder` |
 | EV-01-CRON | Scheduler stabilization | [PR #30](https://github.com/AbdullahZaher/ruxbase/pull/30); `tools/cron/cron.go` | Reported targeted race tests and successful post-merge CI; preserve regression contract |
+| EV-DX-MERGE | Developer Experience Batch 01 and Batch 02 | [PR #32](https://github.com/AbdullahZaher/ruxbase/pull/32), [PR #35](https://github.com/AbdullahZaher/ruxbase/pull/35), post-merge [starter CI](https://github.com/AbdullahZaher/ruxbase/actions/runs/44863974539), [full CI](https://github.com/AbdullahZaher/ruxbase/actions/runs/44863974491) and [docs deployment](https://github.com/AbdullahZaher/ruxbase/actions/runs/44883189387) at `5157c50a291617a260a9c4cd203f7156adef04a3` | Engineering implemented and merged; all seven required post-merge workflows successful. Formal maintainer milestone closure pending; manual external-model evaluation NOT RUN; does not close Wave 04 or authorize production. [Full evidence](docs/architecture/developer-experience-status.md) |
 
 ### Wave 00 closure review packet
 
@@ -194,6 +195,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 - [ ] **W04-04 / P1 / CORE** — CLI for init, dev, migration, check, deploy guidance and safe project configuration.
 - [ ] **W04-05 / P1 / CORE** — Typed SDKs and compatibility tests for supported PocketBase clients.
 - [ ] **W04-06 / P1 / CORE** — Working React/Next.js starter projects, Docker Compose examples and AI generation smoke tests.
+  - **Existing partial evidence only:** the merged developer-documentation work supplies tested React/Next.js templates, Compose overlays, deterministic AI scaffolding and onboarding tooling ([engineering status](docs/architecture/developer-experience-status.md)). This does **not** establish unrestricted AI-generated-project quality, the full Wave 04 data/API/security contract or independent W04-06 acceptance. Keep W04-04, W04-06 and W04-08 unchecked until their respective wave-level gates are certified.
 - [ ] **W04-07 / P2 / ADV** — Optional GraphQL API sharing the same policy and transaction contracts.
 - [ ] **W04-08 / GATE / CORE** — Fresh developer journey on supported OS/PG versions; contract, SDK, CLI and documentation tests.
 

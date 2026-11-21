@@ -12,9 +12,10 @@ application code. PostgreSQL-specific functionality is maintained in Ruxbase.
 
 Powerful by design. Lightweight by default.
 
-The documentation site is being established. Current installation instructions,
-supported capabilities and constraints are maintained in the
-[project README](https://github.com/AbdullahZaher/ruxbase/blob/main/README.md).
+The development documentation is published from reviewed GitHub Pages snapshots.
+For checkout-specific installation guidance and compatibility limits, consult the
+[project README](https://github.com/AbdullahZaher/ruxbase/blob/main/README.md)
+and the published [version identity](https://abdullahzaher.github.io/ruxbase/version.json).
 Review [compatibility](/ruxbase/migration/compatibility/)
 and [operational guidance](/ruxbase/operations/overview/)
 before choosing a deployment configuration.
