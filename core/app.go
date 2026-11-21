@@ -314,6 +314,18 @@ type App interface {
 	// DropNativeIndex safely drops a named index.
 	DropNativeIndex(indexName string) error
 
+	// ExecuteMigrationPlan executes a versioned migration plan inside an advisory-locked transaction.
+	ExecuteMigrationPlan(plan *MigrationPlan) error
+
+	// RevertMigrationPlan reverses a previously applied migration plan using its DownSQL.
+	RevertMigrationPlan(plan *MigrationPlan) error
+
+	// VerifyMigrationIntegrity verifies that all applied migrations match the expected checksums.
+	VerifyMigrationIntegrity(plans []*MigrationPlan) ([]*MigrationIntegrityWarning, error)
+
+	// DetectSchemaDrift compares registered Collections against the physical PostgreSQL catalog.
+	DetectSchemaDrift(schema string) (*SchemaDriftReport, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
