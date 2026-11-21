@@ -188,6 +188,8 @@ type BaseApp struct {
 	nonconcurrentDB     dbx.Builder
 	auxConcurrentDB     dbx.Builder
 	auxNonconcurrentDB  dbx.Builder
+	// ruxbase: platform kernel module registry
+	modules *moduleRegistry
 
 	// app event hooks
 	onBootstrap      *hook.Hook[*BootstrapEvent]
@@ -320,6 +322,7 @@ func NewBaseApp(config BaseAppConfig) *BaseApp {
 		subscriptionsBroker: subscriptions.NewBroker(),
 		config:              &config,
 		clusterFingerprints: &clusterFingerprints{},
+		modules:             newModuleRegistry(),
 	}
 
 	// ruxbase: the cluster of the app instances (nodes)
@@ -629,6 +632,14 @@ func (app *BaseApp) Bootstrap() error {
 		app.Logger().Warn("OnBootstrap hook didn't fail but the app is still not bootstrapped - maybe missing e.Next()?")
 	}
 
+	// ruxbase: initialize registered platform kernel modules
+	if err == nil && app.IsBootstrapped() {
+		if modErr := app.initModules(); modErr != nil {
+			_ = app.ClearBootstrap()
+			return modErr
+		}
+	}
+
 	return err
 }
 
@@ -654,6 +665,15 @@ func (app *BaseApp) ClearBootstrap() error {
 	event.App = app
 
 	return app.OnBootstrapClear().Trigger(event, func(e *BootstrapEvent) error {
+		var errs []error
+
+		// ruxbase: gracefully shutdown modules in reverse order
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if modErr := app.shutdownModules(ctx); modErr != nil {
+			errs = append(errs, modErr)
+		}
+
 		type closer interface {
 			Close() error
 		}
@@ -663,8 +683,6 @@ func (app *BaseApp) ClearBootstrap() error {
 		app.cluster.Stop()
 		app.clusterFingerprints.reset()
 		app.dataDB = nil
-
-		var errs []error
 
 		dbs := []*dbx.Builder{
 			&app.concurrentDB,

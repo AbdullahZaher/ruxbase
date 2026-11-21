@@ -67,6 +67,25 @@ type App interface {
 	// Deprecated: use ClearBootstrap().
 	ResetBootstrapState() error
 
+	// RegisterModule registers an internal platform module with the application.
+	// If the application is already bootstrapped, Init is called immediately.
+	// Otherwise, module initialization is deferred to Bootstrap().
+	RegisterModule(module Module) error
+
+	// Modules returns all registered modules in registration order.
+	Modules() []Module
+
+	// Module returns the registered module with the given name, if found.
+	Module(name string) (Module, bool)
+
+	// ResetDBPool closes all existing database connection pools and re-establishes
+	// them cleanly without resetting loaded settings or registered hooks.
+	// Fails with ErrTransactionalPoolReset if invoked during an active transaction.
+	ResetDBPool() error
+
+	// CloseDBPool closes the application's database connection pools.
+	CloseDBPool() error
+
 	// DataDir returns the app data directory path.
 	DataDir() string
 
@@ -377,10 +396,18 @@ type App interface {
 	// It is safe to nest RunInTransaction calls as long as you use the callback's txApp.
 	RunInTransaction(fn func(txApp App) error) error
 
+	// RunInTransactionWithContext wraps fn into a transaction for the regular app database
+	// with explicit context and cancellation boundary support.
+	RunInTransactionWithContext(ctx context.Context, fn func(txApp App) error) error
+
 	// AuxRunInTransaction wraps fn into a transaction for the auxiliary app database.
 	//
 	// It is safe to nest RunInTransaction calls as long as you use the callback's txApp.
 	AuxRunInTransaction(fn func(txApp App) error) error
+
+	// AuxRunInTransactionWithContext wraps fn into a transaction for the auxiliary app database
+	// with explicit context and cancellation boundary support.
+	AuxRunInTransactionWithContext(ctx context.Context, fn func(txApp App) error) error
 
 	// ---------------------------------------------------------------
 
