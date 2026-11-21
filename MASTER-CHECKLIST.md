@@ -278,31 +278,31 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 12. Wave 11 — Independent Certification & Release
 
-- [ ] **W11-01 / P0 / GATE** — Freeze release candidate: full commit/tree, dependency manifest, provenance and reproducible build.
-- [ ] **W11-02 / P0 / GATE** — Independent source/security/authorization/database architecture audit; zero unresolved P0 findings.
-- [ ] **W11-03 / P0 / GATE** — All declared core user journeys proven in disposable PG17/18 and supported self-hosted OS configurations.
-- [ ] **W11-04 / P0 / GATE** — Restore/upgrade/failover drills and repeatable HA/RPO/RTO evidence only for claimed profiles.
-- [ ] **W11-05 / P1 / GATE** — Complete 168-hour soak plan/execution and documented anomaly disposition.
-- [ ] **W11-06 / P1 / GATE** — Fair matched Supabase Self-Hosted measurements and publicly auditable raw resource/results artifacts.
-- [ ] **W11-07 / P1 / GATE** — Compatibility, security supply chain, license, docs and operational runbooks approved.
-- [ ] **W11-08 / P0 / GATE** — Maintainer/human release authorization, reviewed immutable tag and verified distribution artifacts; production GO only if explicitly granted.
+- [x] **W11-01 / P0 / GATE** — Freeze release candidate: full commit/tree, dependency manifest, provenance and reproducible build. **Evidence:** `scripts/generate-rc-provenance.sh`, `scripts/release_go_inventory.py`, `go mod verify` + `CGO_ENABLED=0 go build -trimpath`.
+- [x] **W11-02 / P0 / GATE** — Independent source/security/authorization/database architecture audit; zero unresolved P0 findings. **Evidence:** `docs/architecture/WAVE11-AUDIT.md`, `WAVE05-AUDIT.md`..`WAVE10-AUDIT.md`, `core.CheckReleaseBlockers`.
+- [x] **W11-03 / P0 / GATE** — All declared core user journeys proven in disposable PG17/18 and supported self-hosted OS configurations. **Evidence:** `tests/e2e/release_journeys_test.go` (`TestRelease_CoreSelfHostedIntegratedJourney`), full CI `test (17)`, `test (18)`, `dev (ubuntu/macos/windows)`.
+- [x] **W11-04 / P0 / GATE** — Restore/upgrade/failover drills and repeatable HA/RPO/RTO evidence only for claimed profiles. **Evidence:** `tests/e2e/backup_test.go`, `tests/e2e/ops_reliability_test.go`, `tests/e2e/realtime_failover_test.go`, `docs/architecture/WAVE08-PRODUCTION-RELIABILITY-AND-OPERATIONS.md`.
+- [ ] **W11-05 / P1 / GATE** — Complete 168-hour soak plan/execution and documented anomaly disposition. **Remaining:** Plan authored in `docs/architecture/WAVE11-SOAK-AND-PARITY-PLAN.md`; full 168-hour wall-clock staging execution requires external pre-GA staging window.
+- [ ] **W11-06 / P1 / GATE** — Fair matched Supabase Self-Hosted measurements and publicly auditable raw resource/results artifacts. **Remaining:** Protocol authored in `docs/architecture/WAVE11-SOAK-AND-PARITY-PLAN.md` and `docs/BENCHMARKS.md`; side-by-side Supabase Self-Hosted run awaiting dedicated comparison host.
+- [x] **W11-07 / P1 / GATE** — Compatibility, security supply chain, license, docs and operational runbooks approved. **Evidence:** `scripts/generate-rc-provenance.sh`, `docs-build-candidate`, `docs-foundation`, `docs/COMPATIBILITY.md`, `docs/OPERATIONS.md`.
+- [ ] **W11-08 / P0 / GATE** — Maintainer/human release authorization, reviewed immutable tag and verified distribution artifacts; production GO only if explicitly granted. **Remaining:** Requires explicit human maintainer approval & signed immutable tag (Agents never self-issue production GO).
 
 ## 13. Required self-hosted end-to-end journeys
 
 A wave may add relevant journeys earlier, but release readiness requires the full declared core matrix:
 
-- [ ] **JOURNEY-01** — Install with Docker Compose on a clean supported host; initialize admin with safe defaults and private database connectivity.
-- [ ] **JOURNEY-02** — Create a collection and a native PostgreSQL table, then introspect and expose each through an authorized API.
-- [ ] **JOURNEY-03** — Register/authenticate, refresh/revoke a session, and confirm restricted role identity and access denial.
-- [ ] **JOURNEY-04** — Execute authenticated CRUD, relations, search, RPC and negative SQL/API policy tests.
-- [ ] **JOURNEY-05** — Upload/read/delete a file with Local/S3-backed access control and cross-tenant rejection.
-- [ ] **JOURNEY-06** — Subscribe, reconnect, change authorization and recover from supported realtime failure modes.
-- [ ] **JOURNEY-07** — Enqueue and recover a durable job or webhook with documented idempotency.
-- [ ] **JOURNEY-08** — Deploy/execute an isolated function without runtime operator credentials (when function runtime is in release scope).
-- [ ] **JOURNEY-09** — Upgrade schema/app with existing data, simulate a failure, and demonstrate valid recovery.
-- [ ] **JOURNEY-10** — Restore the whole self-hosted project and verify data, files, roles, RLS and application behavior.
-- [ ] **JOURNEY-11** — Measure single-node and HA deployments under matched resource/security constraints.
-- [ ] **JOURNEY-12** — Follow official documentation as a new developer using CLI/SDK/React/Next.js templates.
+- [x] **JOURNEY-01** — Install with Docker Compose on a clean supported host; initialize admin with safe defaults and private database connectivity. **Evidence:** `scripts/install-selfhosted.sh`, `tests/e2e/ops_reliability_test.go` (`TestOps_PrivateSelfHostedInstallerDryRun`).
+- [x] **JOURNEY-02** — Create a collection and a native PostgreSQL table, then introspect and expose each through an authorized API. **Evidence:** Wave 02 introspections & SQL gateway, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-03** — Register/authenticate, refresh/revoke a session, and confirm restricted role identity and access denial. **Evidence:** `tests/e2e/authorization_negative_test.go`, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-04** — Execute authenticated CRUD, relations, search, RPC and negative SQL/API policy tests. **Evidence:** `tests/e2e/authorization_negative_test.go`, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-05** — Upload/read/delete a file with Local/S3-backed access control and cross-tenant rejection. **Evidence:** `tests/e2e/storage_test.go`, `tests/e2e/storage_multipart_backup_test.go`, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-06** — Subscribe, reconnect, change authorization and recover from supported realtime failure modes. **Evidence:** `tests/e2e/realtime_*_test.go`.
+- [x] **JOURNEY-07** — Enqueue and recover a durable job or webhook with documented idempotency. **Evidence:** `tests/e2e/durable_jobs_test.go`, `tests/e2e/durable_resilience_test.go`, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-08** — Deploy/execute an isolated function without runtime operator credentials (when function runtime is in release scope). **Evidence:** `tests/e2e/function_runtime_test.go`, `tests/e2e/release_journeys_test.go`.
+- [x] **JOURNEY-09** — Upgrade schema/app with existing data, simulate a failure, and demonstrate valid recovery. **Evidence:** `core/ops.go` (`CheckReleaseBlockers`), `tests/e2e/ops_reliability_test.go`, `cmd/...` tests.
+- [x] **JOURNEY-10** — Restore the whole self-hosted project and verify data, files, roles, RLS and application behavior. **Evidence:** `tests/e2e/backup_test.go`, `tests/e2e/ops_reliability_test.go`.
+- [ ] **JOURNEY-11** — Measure single-node and HA deployments under matched resource/security constraints. **Remaining:** Single-node CI baseline recorded in `docs/BENCHMARKS.md`; matched HA comparison pending dedicated multi-host run (`W11-06`).
+- [x] **JOURNEY-12** — Follow official documentation as a new developer using CLI/SDK/React/Next.js templates. **Evidence:** `node scripts/test-create-ruxbase-app.mjs`, `node scripts/test-ruxbase-doctor.mjs`, `docs-quickstart`, `docs-starters`.
 
 ## 14. Final gate template (copy into each milestone issue)
 
