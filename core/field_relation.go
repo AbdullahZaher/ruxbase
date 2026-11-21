@@ -99,6 +99,17 @@ type RelationField struct {
 
 	// Required will require the field value to be non-empty.
 	Required bool `form:"required" json:"required"`
+
+	// NativeFK indicates whether a native PostgreSQL foreign key constraint is enforced in the database.
+	NativeFK bool `form:"nativeFK" json:"nativeFK,omitzero"`
+
+	// OnDelete specifies the native foreign key referential action on parent deletion
+	// (eg. "CASCADE", "RESTRICT", "SET NULL", "NO ACTION").
+	OnDelete string `form:"onDelete" json:"onDelete,omitzero"`
+
+	// OnUpdate specifies the native foreign key referential action on parent update
+	// (eg. "CASCADE", "RESTRICT", "SET NULL", "NO ACTION").
+	OnUpdate string `form:"onUpdate" json:"onUpdate,omitzero"`
 }
 
 // Type implements [Field.Type] interface method.

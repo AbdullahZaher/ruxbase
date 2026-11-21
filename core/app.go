@@ -269,6 +269,93 @@ type App interface {
 	// Note: This method doesn't return an error on nonexisting table.
 	TableIndexes(tableName string) (map[string]string, error)
 
+	// IntrospectTable returns detailed PostgreSQL catalog metadata, columns, constraints and indexes for a table.
+	IntrospectTable(tableName string) (*NativeTable, error)
+
+	// IntrospectSchemaTables returns all tables and views within the specified PostgreSQL schema.
+	IntrospectSchemaTables(schema string) ([]*NativeTable, error)
+
+	// IntrospectTableConstraints returns all constraints defined on the specified table.
+	IntrospectTableConstraints(tableName string) ([]*NativeConstraint, error)
+
+	// IntrospectTableIndexes returns all indexes defined on the specified table with detailed definitions.
+	IntrospectTableIndexes(tableName string) ([]*NativeIndexInfo, error)
+
+	// ListExposableTables returns summaries of all candidate native tables in the specified schema.
+	ListExposableTables(schema string) ([]*NativeTableSummary, error)
+
+	// IntrospectAndBuildCollection inspects an existing native table and constructs a candidate Collection.
+	IntrospectAndBuildCollection(tableName string) (*Collection, error)
+
+	// ExposeNativeTable registers an existing native PostgreSQL table as an exposed Collection.
+	ExposeNativeTable(opts ExposeTableOptions) (*Collection, error)
+
+	// FindRecordByCompositeKey searches for a single record in the specified collection matching all composite key pairs.
+	FindRecordByCompositeKey(collectionNameOrId string, keys map[string]any) (*Record, error)
+
+	// ListAvailableExtensions returns all PostgreSQL extensions available in the cluster.
+	ListAvailableExtensions() ([]*NativeExtension, error)
+
+	// ListInstalledExtensions returns only currently active/installed extensions.
+	ListInstalledExtensions() ([]*NativeExtension, error)
+
+	// EnableExtension activates an approved extension in PostgreSQL.
+	EnableExtension(name string) error
+
+	// DisableExtension drops an approved extension from PostgreSQL.
+	DisableExtension(name string) error
+
+	// IntrospectPartitionInfo inspects declarative partitioning metadata for a table.
+	IntrospectPartitionInfo(tableName string) (*PartitionInfo, error)
+
+	// CreateNativeIndex creates a reviewed index on a table using PostgreSQL native DDL.
+	CreateNativeIndex(opts CreateIndexOptions) error
+
+	// DropNativeIndex safely drops a named index.
+	DropNativeIndex(indexName string) error
+
+	// ExecuteMigrationPlan executes a versioned migration plan inside an advisory-locked transaction.
+	ExecuteMigrationPlan(plan *MigrationPlan) error
+
+	// RevertMigrationPlan reverses a previously applied migration plan using its DownSQL.
+	RevertMigrationPlan(plan *MigrationPlan) error
+
+	// VerifyMigrationIntegrity verifies that all applied migrations match the expected checksums.
+	VerifyMigrationIntegrity(plans []*MigrationPlan) ([]*MigrationIntegrityWarning, error)
+
+	// DetectSchemaDrift compares registered Collections against the physical PostgreSQL catalog.
+	DetectSchemaDrift(schema string) (*SchemaDriftReport, error)
+
+	// ExecuteOnlineDDL executes an online schema evolution DDL step under bounded lock timeouts.
+	ExecuteOnlineDDL(step OnlineEvolutionStep) error
+
+	// RevertOnlineDDL reverses an online schema evolution DDL step under bounded lock timeouts.
+	RevertOnlineDDL(step OnlineEvolutionStep) error
+
+	// ExecuteChunkedBackfill populates target column values in primary-key ordered slices.
+	ExecuteChunkedBackfill(cfg BackfillConfig) (*BackfillResult, error)
+
+	// ValidateConstraintNonBlocking validates an existing NOT VALID constraint with bounded locks.
+	ValidateConstraintNonBlocking(tableName, constraintName string) error
+
+	// ListRPCFunctions lists all candidate user-defined functions in the specified PostgreSQL schema.
+	ListRPCFunctions(schema string) ([]*RPCFunction, error)
+
+	// IntrospectRPCFunction inspects a single named stored procedure.
+	IntrospectRPCFunction(name string) (*RPCFunction, error)
+
+	// ExposeRPCFunction registers a function in the exposure ledger with an access rule.
+	ExposeRPCFunction(opts ExposeFunctionOptions) (*RPCFunction, error)
+
+	// UnexposeRPCFunction revokes API exposure for a function.
+	UnexposeRPCFunction(name string) error
+
+	// ExecuteRPC executes an exposed PostgreSQL function with parameter binding and authorization.
+	ExecuteRPC(name string, args map[string]any, authRecord *Record, hasSuperuserAuth bool) (any, error)
+
+	// AuditDatabaseRoutineSecurity inspects PostgreSQL catalogs for privilege escalation or RLS bypass risks.
+	AuditDatabaseRoutineSecurity(schema string) (*RoutineSecurityAuditReport, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.

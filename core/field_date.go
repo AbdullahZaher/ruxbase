@@ -56,8 +56,16 @@ type DateField struct {
 	// Leave it empty to skip the validator.
 	Max types.DateTime `form:"max" json:"max"`
 
+	// Generated marks the column as a PostgreSQL generated/computed column.
+	Generated bool `form:"generated" json:"generated,omitzero"`
+
 	// Required will require the field value to be non-zero [types.DateTime].
 	Required bool `form:"required" json:"required"`
+}
+
+// IsGenerated reports whether the field is computed by PostgreSQL.
+func (f *DateField) IsGenerated() bool {
+	return f.Generated
 }
 
 // Type implements [Field.Type] interface method.
@@ -121,6 +129,10 @@ func (f *DateField) PrepareValue(record *Record, raw any) (any, error) {
 
 // ValidateValue implements [Field.ValidateValue] interface method.
 func (f *DateField) ValidateValue(ctx context.Context, app App, record *Record) error {
+	if f.Generated {
+		return nil // computed by PostgreSQL
+	}
+
 	val, ok := record.GetRaw(f.Name).(types.DateTime)
 	if !ok {
 		return validators.ErrUnsupportedValueType
