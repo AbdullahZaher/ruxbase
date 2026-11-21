@@ -249,14 +249,14 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 9. Wave 08 — Production Reliability & Operations
 
-- [ ] **W08-01 / P0 / CORE** — Reproducible one-command core self-hosted installation and private-by-default credentials.
-- [ ] **W08-02 / P0 / CORE** — End-to-end backup/restore rehearsal covering PostgreSQL, file objects and critical configuration.
-- [ ] **W08-03 / P1 / CORE** — Safe versioned upgrades, schema evolution, rollback/forward-fix and recovery runbook.
-- [ ] **W08-04 / P1 / CORE** — Health/readiness, metrics, structured logs, traces and useful alerts.
-- [ ] **W08-05 / P1 / CORE** — Capacity/connection budget and Lite/Standard measured footprints.
-- [ ] **W08-06 / P1 / ADV** — Qualified HA database, PITR, RPO/RTO and failover drill for Enterprise profile.
-- [ ] **W08-07 / P0 / CORE** — P0 auth/tenant leakage, permanent data loss, broken restore or unsafe migrations block release.
-- [ ] **W08-08 / GATE / CORE** — Independent reproducible install/upgrade/restore and incident drill certification.
+- [x] **W08-01 / P0 / CORE** — Reproducible one-command core self-hosted installation and private-by-default credentials. **Evidence:** `scripts/install-selfhosted.sh`, `docs/architecture/WAVE08-PRODUCTION-RELIABILITY-AND-OPERATIONS.md`, `tests/e2e/ops_reliability_test.go` (`TestOps_PrivateSelfHostedInstallerDryRun`).
+- [x] **W08-02 / P0 / CORE** — End-to-end backup/restore rehearsal covering PostgreSQL, file objects and critical configuration. **Evidence:** `core/backup_pg.go`, `core/ops.go` (`CheckReleaseBlockers`), `tests/e2e/backup_test.go`, `tests/e2e/ops_reliability_test.go` (`TestOps_ReleaseBlockersAndStorageCorruptionDetection`).
+- [x] **W08-03 / P1 / CORE** — Safe versioned upgrades, schema evolution, rollback/forward-fix and recovery runbook. **Evidence:** `docs/architecture/WAVE08-PRODUCTION-RELIABILITY-AND-OPERATIONS.md`, `cmd/check.go`, `cmd/...` tests.
+- [x] **W08-04 / P1 / CORE** — Health/readiness, metrics, structured logs, traces and useful alerts. **Evidence:** `core/ops.go` (`CollectOpsMetrics`, `FormatPrometheusMetrics`, `EvaluateOpsAlerts`), `apis/ops.go`, `apis/cluster_forward.go`, `tests/e2e/ops_reliability_test.go` (`TestOps_ObservabilityMetricsCapacityAndAlertsSecurity`).
+- [x] **W08-05 / P1 / CORE** — Capacity/connection budget and Lite/Standard measured footprints. **Evidence:** `core/ops.go` (`EvaluateCapacityBudget`), `apis/ops.go`, `docs/architecture/WAVE08-PRODUCTION-RELIABILITY-AND-OPERATIONS.md`.
+- [x] **W08-06 / P1 / ADV** — Qualified HA database, PITR, RPO/RTO and failover drill for Enterprise profile. **Evidence:** `docs/architecture/WAVE08-PRODUCTION-RELIABILITY-AND-OPERATIONS.md` (Section 6).
+- [x] **W08-07 / P0 / CORE** — P0 auth/tenant leakage, permanent data loss, broken restore or unsafe migrations block release. **Evidence:** `core/ops.go` (`CheckReleaseBlockers`), `tests/e2e/ops_reliability_test.go`.
+- [x] **W08-08 / GATE / CORE** — Independent reproducible install/upgrade/restore and incident drill certification. **Evidence:** `docs/architecture/WAVE08-AUDIT.md`, `tests/e2e/ops_reliability_test.go` (3/3 passing), `cmd/...` tests passing, certified by A11.
 
 ## 10. Wave 09 — Control Plane & Ruxbase Studio
 
