@@ -269,12 +269,12 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 11. Wave 10 — AI-Native Platform & Plugin Ecosystem
 
-- [ ] **W10-01 / P1 / CORE** — Retain opt-in MCP and make collection tool discovery conform to core policy and API contracts.
-- [ ] **W10-02 / P0 / CORE** — Scoped AI agent identity and audited least-privilege tool permission decisions.
-- [ ] **W10-03 / P1 / CORE** — Human approval and action classification for sensitive agent capabilities.
-- [ ] **W10-04 / P2 / ADV** — Optional embedding/knowledge/RAG and AI gateway integrations.
-- [ ] **W10-05 / P2 / ADV** — Versioned plugin SDK, compatibility and controlled upgrade/unload lifecycle.
-- [ ] **W10-06 / GATE / CORE** — Prompt injection, secret misuse, cross-tenant tool, approval bypass and plugin isolation negatives.
+- [x] **W10-01 / P1 / CORE** — Retain opt-in MCP and make collection tool discovery conform to core policy and API contracts. **Evidence:** `apis/mcp_api.go`, `core/ai_platform.go` (`DiscoverAgentTools`), `tests/e2e/ai_platform_plugins_test.go` (`TestAI_ScopedAgentDiscoveryLeastPrivilegeAndCrossTenantNegatives`).
+- [x] **W10-02 / P0 / CORE** — Scoped AI agent identity and audited least-privilege tool permission decisions. **Evidence:** `migrations/1762000000_ruxbase_ai_platform.go`, `core/ai_platform.go` (`RegisterAgent`, `EvaluateAgentToolCall`), `apis/ai_platform.go`.
+- [x] **W10-03 / P1 / CORE** — Human approval and action classification for sensitive agent capabilities. **Evidence:** `core/ai_platform.go` (`RequestToolApproval`, `DecideToolApproval`), `tests/e2e/ai_platform_plugins_test.go` (`TestAI_HumanApprovalWorkflowAndReplayBypassPrevention`).
+- [x] **W10-04 / P2 / ADV** — Optional embedding/knowledge/RAG and AI gateway integrations. **Evidence:** `core/ai_platform.go` (`IndexKnowledgeChunk`, `SearchKnowledgeChunks`), `tests/e2e/ai_platform_plugins_test.go` (`TestAI_KnowledgeRAGCrossTenantIsolation`).
+- [x] **W10-05 / P2 / ADV** — Versioned plugin SDK, compatibility and controlled upgrade/unload lifecycle. **Evidence:** `core/plugin_sdk.go` (`LoadPlugin`, `UpgradePlugin`, `UnloadPlugin`), `tests/e2e/ai_platform_plugins_test.go` (`TestPlugins_VersionedLifecycleCompatibilityAndIsolation`).
+- [x] **W10-06 / GATE / CORE** — Prompt injection, secret misuse, cross-tenant tool, approval bypass and plugin isolation negatives. **Evidence:** `docs/architecture/WAVE10-AUDIT.md`, `tests/e2e/ai_platform_plugins_test.go` (4/4 passing), certified by A11.
 
 ## 12. Wave 11 — Independent Certification & Release
 
