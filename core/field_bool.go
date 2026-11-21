@@ -46,8 +46,16 @@ type BoolField struct {
 	// It is usually shown in Dashboard UI under the field input.
 	Help string `form:"help" json:"help"`
 
+	// Generated marks the column as a PostgreSQL generated/computed column.
+	Generated bool `form:"generated" json:"generated,omitzero"`
+
 	// Required will require the field value to be always "true".
 	Required bool `form:"required" json:"required"`
+}
+
+// IsGenerated reports whether the field is computed by PostgreSQL.
+func (f *BoolField) IsGenerated() bool {
+	return f.Generated
 }
 
 // Type implements [Field.Type] interface method.
@@ -107,6 +115,10 @@ func (f *BoolField) PrepareValue(record *Record, raw any) (any, error) {
 
 // ValidateValue implements [Field.ValidateValue] interface method.
 func (f *BoolField) ValidateValue(ctx context.Context, app App, record *Record) error {
+	if f.Generated {
+		return nil // computed by PostgreSQL
+	}
+
 	v, ok := record.GetRaw(f.Name).(bool)
 	if !ok {
 		return validators.ErrUnsupportedValueType

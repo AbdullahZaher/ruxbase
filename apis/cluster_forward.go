@@ -210,6 +210,11 @@ func (w *waiters) notify(id string) {
 
 // bindClusterForwarding registers the handlers of the requests forwarded by the other nodes.
 func bindClusterForwarding(app core.App, pbRouter *router.Router[*core.RequestEvent]) {
+	// ruxbase: register PostgreSQL native table introspection and SQL RPC endpoints
+	apiGroup := pbRouter.Group("/api")
+	bindTableIntrospection(app, apiGroup)
+	bindSQLRPC(app, apiGroup)
+
 	var muxOnce sync.Once
 	var mux http.Handler
 	var muxErr error
