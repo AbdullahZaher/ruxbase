@@ -6,11 +6,16 @@ import json
 import re
 import subprocess
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 UPSTREAM = "https://github.com/pocketbase/pocketbase"
+UPSTREAM_MODULE = b"github.com/pocketbase/pocketbase"
+RUXBASE_MODULE = b"github.com/AbdullahZaher/ruxbase"
 VERSION = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 SHA = re.compile(r"[0-9a-f]{40}")
+NOTICE_NAME = re.compile(r"(?:licen[cs]e|notice|copying|copyright|third[-_]party)(?:$|[._-])",
+                         re.IGNORECASE)
+DEPENDENCY_FILES = {"go.mod", "go.sum", "package.json", "package-lock.json"}
 
 
 def version(tag):
@@ -99,6 +104,58 @@ def classify(base, local, future=None):
     return rows
 
 
+def annotated_paths(directory, ref):
+    result = subprocess.run(
+        ["git", "-C", str(directory), "grep", "--full-name", "-z", "-l", "-E",
+         "//[[:blank:]]*ruxbase:[[:blank:]]*[^[:space:]]", ref, "--", "*.go"],
+        stdout=subprocess.PIPE, timeout=180,
+    )
+    if result.returncode == 1:  # git grep found no matching paths.
+        return set()
+    result.check_returncode()
+    prefix = ref.encode("ascii") + b":"
+    return {
+        path.removeprefix(prefix).decode("utf-8", errors="surrogateescape")
+        for path in result.stdout.split(b"\0") if path
+    }
+
+
+def module_path_only(baseline, root, row):
+    before_mode, before_kind, before_sha = row["baseline"]
+    after_mode, after_kind, after_sha = row["ruxbase"]
+    if before_mode != after_mode or before_kind != "blob" or after_kind != "blob":
+        return False
+    original = git(baseline, "cat-file", "blob", before_sha)
+    current = git(root, "cat-file", "blob", after_sha)
+    return original.replace(UPSTREAM_MODULE, RUXBASE_MODULE) == current
+
+
+def source_review(rows, annotations, is_module_path_only):
+    review = {
+        "inherited_go_with_annotation": [],
+        "inherited_go_without_annotation": [],
+        "inherited_go_module_path_only": [],
+        "inherited_go_tests": [],
+        "license_and_dependency_files": [],
+    }
+    for row in rows:
+        path = row["path"]
+        name = PurePosixPath(path).name
+        if name in DEPENDENCY_FILES or NOTICE_NAME.match(name):
+            review["license_and_dependency_files"].append(row)
+        if row["status"] != "RUXBASE_MODIFIED" or not name.endswith(".go"):
+            continue
+        if name.endswith("_test.go"):
+            review["inherited_go_tests"].append(path)
+        elif path in annotations:
+            review["inherited_go_with_annotation"].append(path)
+        elif is_module_path_only(row):
+            review["inherited_go_module_path_only"].append(path)
+        else:
+            review["inherited_go_without_annotation"].append(path)
+    return review
+
+
 def fetch_tag(directory, tag, ref):
     version(tag)
     git(directory, "fetch", "--no-tags", "--depth=1", UPSTREAM + ".git",
@@ -133,6 +190,7 @@ def report(root):
         return {
             "schema_version": 1,
             "ruxbase_head": head,
+            "ruxbase_tree": git(root, "rev-parse", head + "^{tree}").decode().strip(),
             "upstream": UPSTREAM,
             "reference_version": reference,
             "reference_commit": verified,
@@ -141,11 +199,17 @@ def report(root):
             "candidate_tag": candidate,
             "candidate_commit": candidate_commit,
             "counts": counts,
+            "source_review": source_review(
+                rows, annotated_paths(root, head), lambda row: module_path_only(tmp, root, row)
+            ),
             "files": rows,
             "limitations": [
                 "Path and tree-entry comparison only; renames are not inferred.",
                 "Candidate tags require release, provenance and compatibility review.",
-                "No ancestry, license, merge readiness or runtime certification implied.",
+                "A marker is text evidence; its presence does not establish that all changes are annotated.",
+                "Module-path-only classification requires byte equality after the exact module substitution.",
+                "License and dependency entries identify tracked files for review, not their dependency license obligations.",
+                "No ancestry verification, license acceptance, merge readiness or runtime certification implied.",
                 "No upstream code was checked out, executed, pushed or merged.",
             ],
         }
@@ -160,7 +224,11 @@ def main():
     options.output.parent.mkdir(parents=True, exist_ok=True)
     options.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n",
                               encoding="utf-8")
-    print(json.dumps({k: v for k, v in evidence.items() if k != "files"}, indent=2))
+    summary = {key: value for key, value in evidence.items() if key not in {"files", "source_review"}}
+    summary["source_review_counts"] = {
+        key: len(paths) for key, paths in evidence["source_review"].items()
+    }
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
