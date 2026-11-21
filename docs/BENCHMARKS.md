@@ -35,7 +35,9 @@ JSON output, zero request errors, delivery counts, resource samples, and source
 and image provenance. It uploads the environment and measurement artifacts.
 
 The benchmark Compose file pins the default Debian and PostgreSQL 18 image
-digests. Use Go 1.27.4 to reproduce the CI profile. To repeat the same workload on
+digests. Use Go 1.27.4 to reproduce the CI profile. On a Docker host with fewer
+than four CPUs, set `BENCH_POSTGRES_CPUS` and `BENCH_RUNNER_CPUS` to limits the
+daemon supports. Keep them identical across the runs being compared. To repeat the same workload on
 PostgreSQL 17, also set
 `BENCH_POSTGRES_IMAGE=pgvector/pgvector:0.8.7-pg17-trixie@sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7`.
 The companion `*.environment.txt` records the source commit and tree, source

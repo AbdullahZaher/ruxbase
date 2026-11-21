@@ -11,6 +11,7 @@
 # Options (env variables): BENCH_DURATION (20s), BENCH_CONCURRENCY ("50 200"),
 # BENCH_RUNS (3), BENCH_RECORDS (10000), BENCH_CLIENTS (500), BENCH_EVENTS (200),
 # BENCH_RATE (20), BENCH_BASE_IMAGE and BENCH_POSTGRES_IMAGE (image overrides),
+# BENCH_POSTGRES_CPUS and BENCH_RUNNER_CPUS (4 each by default),
 # BENCH_PROJECT_NAME (ruxbase-bench; use a dedicated project for isolated runs),
 # BENCH_KEEP (keep the services running), BENCH_TARGETS ("pocketbase ruxbase ruxbase-3-nodes").
 

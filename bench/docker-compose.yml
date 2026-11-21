@@ -36,7 +36,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "${BENCH_POSTGRES_CPUS:-4}"
           memory: 4g
 
   pocketbase:
@@ -81,7 +81,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "4"
+          cpus: "${BENCH_RUNNER_CPUS:-4}"
           memory: 2g
 
 volumes:
