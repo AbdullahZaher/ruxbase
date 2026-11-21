@@ -83,8 +83,6 @@ func newClusterNodes(t *testing.T, count int) []*tests.TestApp {
 }
 
 func TestRealtimeAuth_InstantTokenRevocationAcrossNodes(t *testing.T) {
-	t.Parallel()
-
 	nodes := newClusterNodes(t, 2)
 	nodeA, nodeB := nodes[0], nodes[1]
 
@@ -147,8 +145,6 @@ func TestRealtimeAuth_InstantTokenRevocationAcrossNodes(t *testing.T) {
 }
 
 func TestRealtimeAuth_UserDeletionAcrossNodes(t *testing.T) {
-	t.Parallel()
-
 	nodes := newClusterNodes(t, 2)
 	nodeA, nodeB := nodes[0], nodes[1]
 
@@ -205,8 +201,6 @@ func TestRealtimeAuth_UserDeletionAcrossNodes(t *testing.T) {
 }
 
 func TestRealtimeAuth_TenantIsolationAcrossNodes(t *testing.T) {
-	t.Parallel()
-
 	nodes := newClusterNodes(t, 2)
 	nodeA, nodeB := nodes[0], nodes[1]
 
@@ -289,8 +283,6 @@ func TestRealtimeAuth_TenantIsolationAcrossNodes(t *testing.T) {
 }
 
 func TestRealtimeAuth_RuleChangeRevokesAccess(t *testing.T) {
-	t.Parallel()
-
 	nodes := newClusterNodes(t, 2)
 	nodeA, nodeB := nodes[0], nodes[1]
 
@@ -341,8 +333,6 @@ func TestRealtimeAuth_RuleChangeRevokesAccess(t *testing.T) {
 }
 
 func TestRealtimeAuth_RecordUpdateViolatingRuleDropsDelivery(t *testing.T) {
-	t.Parallel()
-
 	nodes := newClusterNodes(t, 2)
 	nodeA, nodeB := nodes[0], nodes[1]
 
