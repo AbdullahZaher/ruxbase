@@ -338,6 +338,21 @@ type App interface {
 	// ValidateConstraintNonBlocking validates an existing NOT VALID constraint with bounded locks.
 	ValidateConstraintNonBlocking(tableName, constraintName string) error
 
+	// ListRPCFunctions lists all candidate user-defined functions in the specified PostgreSQL schema.
+	ListRPCFunctions(schema string) ([]*RPCFunction, error)
+
+	// IntrospectRPCFunction inspects a single named stored procedure.
+	IntrospectRPCFunction(name string) (*RPCFunction, error)
+
+	// ExposeRPCFunction registers a function in the exposure ledger with an access rule.
+	ExposeRPCFunction(opts ExposeFunctionOptions) (*RPCFunction, error)
+
+	// UnexposeRPCFunction revokes API exposure for a function.
+	UnexposeRPCFunction(name string) error
+
+	// ExecuteRPC executes an exposed PostgreSQL function with parameter binding and authorization.
+	ExecuteRPC(name string, args map[string]any, authRecord *Record, hasSuperuserAuth bool) (any, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
