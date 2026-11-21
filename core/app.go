@@ -418,6 +418,27 @@ type App interface {
 	// EvaluateAccess evaluates whether a principal is authorized to perform an action on a resource under RBAC/ABAC rules.
 	EvaluateAccess(ctx context.Context, principal Principal, resource *ResourceContext, action string) (bool, error)
 
+	// EnableTenantRLS enables and forces Row-Level Security on the specified table with tenant isolation policy.
+	EnableTenantRLS(tableName string) error
+
+	// DisableTenantRLS drops the tenant isolation policy and disables RLS on the table.
+	DisableTenantRLS(tableName string) error
+
+	// EnsureTenantCollection ensures that a collection has a tenant_id field and enforces tenant RLS on its table.
+	EnsureTenantCollection(collection *Collection) error
+
+	// ValidateTenantRelation verifies that two related records belong to the same tenant.
+	ValidateTenantRelation(sourceTenantId, targetTenantId string) error
+
+	// ValidateRecordTenant ensures that a record being saved adheres to the authorized tenant context.
+	ValidateRecordTenant(record *Record, activeTenantId string) error
+
+	// ValidateTenantFileAccess verifies that a principal is authorized to access a tenant file path.
+	ValidateTenantFileAccess(principal Principal, storagePath string) error
+
+	// FilterTenantRealtimeEvent evaluates whether a realtime event should be dispatched to a principal.
+	FilterTenantRealtimeEvent(principal Principal, eventTenantId string) bool
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
