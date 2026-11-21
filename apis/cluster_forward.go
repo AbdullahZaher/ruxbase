@@ -219,6 +219,7 @@ func bindClusterForwarding(app core.App, pbRouter *router.Router[*core.RequestEv
 	bindRealtimeSync(app, apiGroup)
 	bindOpsApi(app, apiGroup)
 	bindStudioControlPlaneApi(app, apiGroup)
+	bindAIPlatformApi(app, apiGroup)
 
 	var muxOnce sync.Once
 	var mux http.Handler
