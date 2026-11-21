@@ -177,10 +177,13 @@ func (validator *collectionValidator) checkUniqueName(value any) error {
 		return validation.NewError("validation_collection_name_id_duplicate", "The name must not match an existing collection id.")
 	}
 
-	// ensure that there is no existing internal table with the provided name
+	// ruxbase: ensure that there is no existing internal system table with the provided name.
+	// In PostgreSQL, user tables can exist prior to collection exposure, so only internal
+	// system tables (_*, pg_*, sqlite_*) are disallowed.
 	if validator.original.Name != v && // has changed
 		validator.app.IsCollectionNameUnique(v) && // is not a collection (in case it was presaved)
-		validator.app.HasTable(v) {
+		validator.app.HasTable(v) &&
+		(strings.HasPrefix(v, "_") || strings.HasPrefix(strings.ToLower(v), "pg_") || strings.HasPrefix(strings.ToLower(v), "sqlite_")) {
 		return validation.NewError("validation_collection_name_invalid", "The name shouldn't match with an existing internal table.")
 	}
 

@@ -50,7 +50,9 @@ func NewRouter(app core.App) (*router.Router[*core.RequestEvent], error) {
 	bindRealtimeApi(app, apiGroup)
 	bindHealthApi(app, apiGroup)
 	bindSQLApi(app, apiGroup)
-	bindRLSTokenApi(app, apiGroup) // ruxbase
+	bindRLSTokenApi(app, apiGroup)           // ruxbase
+	bindTableIntrospectionApi(app, apiGroup) // ruxbase: native table introspection & exposure
+	bindSQLRPCApi(app, apiGroup)             // ruxbase: SQL RPC integration & exposure
 
 	// UI routes
 	bindUIExtensions(app)

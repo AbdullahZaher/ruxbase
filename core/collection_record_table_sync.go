@@ -33,18 +33,22 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 		if oldCollection == nil || !app.HasTable(oldCollection.Name) {
 			tableName := newCollection.Name
 
-			fields := newCollection.Fields
+			// ruxbase: if the table already exists (eg. native PostgreSQL table exposed as a collection),
+			// skip CreateTable and preserve existing native schema and data
+			if !app.HasTable(tableName) {
+				fields := newCollection.Fields
 
-			cols := make(map[string]string, len(fields))
+				cols := make(map[string]string, len(fields))
 
-			// add fields definition
-			for _, field := range fields {
-				cols[field.GetName()] = field.ColumnType(app)
-			}
+				// add fields definition
+				for _, field := range fields {
+					cols[field.GetName()] = field.ColumnType(app)
+				}
 
-			// create table
-			if _, err := txApp.DB().CreateTable(tableName, cols).Execute(); err != nil {
-				return err
+				// create table
+				if _, err := txApp.DB().CreateTable(tableName, cols).Execute(); err != nil {
+					return err
+				}
 			}
 
 			// ruxbase: the realtime events of the new table
@@ -52,7 +56,11 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 				return err
 			}
 
-			return createCollectionIndexes(txApp, newCollection)
+			if err := createCollectionIndexes(txApp, newCollection); err != nil {
+				return err
+			}
+
+			return syncNativeForeignKeys(txApp, newCollection)
 		}
 
 		// update
@@ -191,10 +199,12 @@ func (app *BaseApp) SyncRecordTableSchema(newCollection *Collection, oldCollecti
 		}
 
 		if needIndexesUpdate {
-			return createCollectionIndexes(txApp, newCollection)
+			if err := createCollectionIndexes(txApp, newCollection); err != nil {
+				return err
+			}
 		}
 
-		return nil
+		return syncNativeForeignKeys(txApp, newCollection)
 	})
 	return txErr
 }
@@ -403,4 +413,66 @@ func createCollectionIndexes(app App, collection *Collection) error {
 		}
 		return createSearchIndexes(txApp, collection)
 	})
+}
+
+// syncNativeForeignKeys ensures that single RelationField instances marked with NativeFK: true
+// have corresponding PostgreSQL foreign key constraints in pg_constraint.
+func syncNativeForeignKeys(txApp App, collection *Collection) error {
+	if collection.IsView() {
+		return nil
+	}
+
+	for _, field := range collection.Fields {
+		relField, ok := field.(*RelationField)
+		if !ok || !relField.NativeFK || relField.IsMultiple() {
+			continue
+		}
+
+		targetCol, err := txApp.FindCollectionByNameOrId(relField.CollectionId)
+		if err != nil || targetCol == nil {
+			continue // target collection not yet saved or not found
+		}
+
+		targetTable := targetCol.Name
+		fkName := fmt.Sprintf("fk_%s_%s", collection.Name, relField.Name)
+
+		// Check if constraint already exists
+		var exists int
+		err = txApp.DB().NewQuery(`
+			SELECT (1)
+			FROM {{pg_constraint}}
+			WHERE [[conrelid]] = to_regclass(quote_ident({:sourceTable}))
+			  AND [[conname]] = {:fkName}
+			LIMIT 1
+		`).Bind(dbx.Params{
+			"sourceTable": collection.Name,
+			"fkName":      fkName,
+		}).Row(&exists)
+
+		if err == nil && exists > 0 {
+			continue // already exists
+		}
+
+		onDelete := "RESTRICT"
+		if relField.CascadeDelete || strings.EqualFold(relField.OnDelete, "CASCADE") {
+			onDelete = "CASCADE"
+		} else if strings.EqualFold(relField.OnDelete, "SET NULL") {
+			onDelete = "SET NULL"
+		}
+
+		onUpdate := "CASCADE"
+		if strings.EqualFold(relField.OnUpdate, "RESTRICT") {
+			onUpdate = "RESTRICT"
+		}
+
+		addFKQuery := fmt.Sprintf(
+			"ALTER TABLE {{%s}} ADD CONSTRAINT {{%s}} FOREIGN KEY ({{%s}}) REFERENCES {{%s}}([[id]]) ON DELETE %s ON UPDATE %s",
+			collection.Name, fkName, relField.Name, targetTable, onDelete, onUpdate,
+		)
+		if _, err := txApp.DB().NewQuery(addFKQuery).Execute(); err != nil {
+			return fmt.Errorf("failed to add native foreign key %s: %w", fkName, err)
+		}
+	}
+
+	return nil
 }
