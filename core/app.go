@@ -293,6 +293,27 @@ type App interface {
 	// FindRecordByCompositeKey searches for a single record in the specified collection matching all composite key pairs.
 	FindRecordByCompositeKey(collectionNameOrId string, keys map[string]any) (*Record, error)
 
+	// ListAvailableExtensions returns all PostgreSQL extensions available in the cluster.
+	ListAvailableExtensions() ([]*NativeExtension, error)
+
+	// ListInstalledExtensions returns only currently active/installed extensions.
+	ListInstalledExtensions() ([]*NativeExtension, error)
+
+	// EnableExtension activates an approved extension in PostgreSQL.
+	EnableExtension(name string) error
+
+	// DisableExtension drops an approved extension from PostgreSQL.
+	DisableExtension(name string) error
+
+	// IntrospectPartitionInfo inspects declarative partitioning metadata for a table.
+	IntrospectPartitionInfo(tableName string) (*PartitionInfo, error)
+
+	// CreateNativeIndex creates a reviewed index on a table using PostgreSQL native DDL.
+	CreateNativeIndex(opts CreateIndexOptions) error
+
+	// DropNativeIndex safely drops a named index.
+	DropNativeIndex(indexName string) error
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
