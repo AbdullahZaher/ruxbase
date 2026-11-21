@@ -174,8 +174,8 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 - [x] **W01-M06-01 / P0** — Specify cluster policy cache invalidation and revocation timing semantics. **Evidence:** `docs/architecture/WAVE01-CLUSTER-REVOCATION.md`, `docs/CLUSTER.md`.
 - [x] **W01-M06-02 / P0** — Demonstrate that stale policy state cannot grant a revoked operation under declared guarantees. **Evidence:** `core/collection_query.go` (partition fallback to live database), `tests/e2e/cluster_policy_revocation_test.go` (`TestClusterPolicyRevocation_RLSZeroStalenessUnderStaleAppCache`, `TestClusterPolicyRevocation_PartitionedNodeFailClosed`).
 - [x] **W01-M06-03 / GATE** — Multi-node, partition and reconnect authorization tests. **Evidence:** `tests/e2e/cluster_policy_revocation_test.go` (`TestClusterPolicyRevocation_ConnectedPropagation`, `TestClusterPolicyRevocation_ReconnectResyncConvergence`, `TestClusterPolicyRevocation_AuthTokenKeyRevocation`).
-- [ ] **W01-M07-01 / P0** — Complete final Wave 01 policy, module, transaction and privilege findings register.
-- [ ] **W01-M07-02 / GATE** — Complete independent Wave 01 security/compatibility review, exact-candidate CI and operational boundary report.
+- [x] **W01-M07-01 / P0** — Complete final Wave 01 policy, module, transaction and privilege findings register. **Evidence:** `docs/architecture/WAVE01-AUDIT.md`.
+- [x] **W01-M07-02 / GATE** — Complete independent Wave 01 security/compatibility review, exact-candidate CI and operational boundary report. **Evidence:** `docs/architecture/WAVE01-AUDIT.md`, full local verification suite, and A11 Wave 01 certification.
 - [ ] **W01-M07-03 / GATE** — Merge the *entire* certified Wave 01 into `main` using branch strategy and verify post-merge CI; production still requires separate release gate.
 
 ## 3. Wave 02 — PostgreSQL Native Engine

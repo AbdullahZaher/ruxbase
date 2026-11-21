@@ -95,6 +95,19 @@ For a status change, update the row and evidence register in the same reviewed P
 
 ## 6. Testing, implementation and evidence
 
+### Wave-Level Execution, Testing & Integration Policy
+Under the project owner's execution directive:
+- **Milestones are local-only engineering checkpoints**: Read accepted requirements, implement functionality locally, write automated tests, run focused safety/static checks, and commit to the local wave branch. Do not open milestone PRs, push milestone branches, or trigger CI. Automatically proceed to the next milestone in the wave.
+- **Complete Waves are the units of delivery**: Once all milestones in a wave are implemented locally:
+  1. Integrate all milestones into one complete local wave candidate and freeze the candidate SHA/tree.
+  2. Execute the full local wave acceptance test suite across PostgreSQL 17/18, RLS, and compatibility matrix.
+  3. Remediate any blocking defects and repeat required verification.
+  4. Appoint A11 for independent wave engineering certification.
+  5. Push the complete wave branch to GitHub and open one integrated Wave PR into `main`.
+  6. Verify all mandatory GitHub Actions CI checks on the wave PR.
+  7. Obtain required independent human review and merge into `main`.
+  8. Verify post-merge CI on `main` and advance to the next wave.
+
 - Write all relevant code and test cases first when working on a large batch, then execute the comprehensive test campaign on the complete candidate, unless an earlier targeted check is required to safely proceed.
 - Run the repository-defined real checks, using disposable PostgreSQL 17 and 18 for DB tests; use `make test-accept`, SDK/UI/strict RLS and CI jobs as appropriate.
 - Run targeted regressions after fixes and full mandatory gates again on the final candidate. Never hide failures by modifying expectations or raising timeouts without an actual reason.
