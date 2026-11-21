@@ -15,7 +15,7 @@ Powerful by design. Lightweight by default.
 The development documentation is published from reviewed GitHub Pages snapshots.
 For checkout-specific installation guidance and compatibility limits, consult the
 [project README](https://github.com/AbdullahZaher/ruxbase/blob/main/README.md)
-and the published [version identity](/ruxbase/version.json/).
+and the published [version identity](https://abdullahzaher.github.io/ruxbase/version.json).
 Review [compatibility](/ruxbase/migration/compatibility/)
 and [operational guidance](/ruxbase/operations/overview/)
 before choosing a deployment configuration.
