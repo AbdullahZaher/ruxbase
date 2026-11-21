@@ -439,6 +439,24 @@ type App interface {
 	// FilterTenantRealtimeEvent evaluates whether a realtime event should be dispatched to a principal.
 	FilterTenantRealtimeEvent(principal Principal, eventTenantId string) bool
 
+	// EnsureServiceAccountsSystemTable initializes the _service_accounts physical table.
+	EnsureServiceAccountsSystemTable() error
+
+	// CreateServiceAccount registers a new service account and returns the one-time raw API key.
+	CreateServiceAccount(name, tenantId, description string, scopes, allowedTenants []string, expiresAt *time.Time) (*ServiceAccount, string, error)
+
+	// GetServiceAccount retrieves a service account by its ID.
+	GetServiceAccount(id string) (*ServiceAccount, error)
+
+	// RotateServiceAccountKey rotates the API key for an active service account, invalidating the previous key.
+	RotateServiceAccountKey(id string) (string, error)
+
+	// RevokeServiceAccount permanently marks a service account as revoked.
+	RevokeServiceAccount(id string) error
+
+	// AuthenticateServiceAccount validates a raw API key and constructs an authorized ServicePrincipal.
+	AuthenticateServiceAccount(rawKey, requestedTenantId string) (*ServicePrincipal, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
