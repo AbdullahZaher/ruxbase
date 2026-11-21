@@ -41,6 +41,7 @@ ENV RUXBASE_PG_DUMP=/usr/lib/postgresql/18/bin/pg_dump \
     RUXBASE_PG_RESTORE=/usr/lib/postgresql/18/bin/pg_restore
 
 COPY --from=build /out/ruxbase /out/ruxbase-import /usr/local/bin/
+COPY LICENSE.md NOTICE.md /usr/share/doc/ruxbase/
 
 WORKDIR /app
 
