@@ -30,3 +30,16 @@ The reference is a verified Git ancestor of canonical `main` through
 [Ruxbase PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33).
 See [UPSTREAM.md](UPSTREAM.md) for the verification and selective-port policy.
 All applicable inherited copyright and license notices must be retained.
+
+## Bundled component notices
+
+- The server embeds the Remix Icon 4.6.0 font. Its Apache 2.0 license is in
+  `THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE`, copied from the npm package
+  whose font matches the embedded file. [Remix Icon package](https://www.npmjs.com/package/remixicon/v/4.6.0)
+- The standalone importer links `modernc.org/sqlite` v1.60.1. Its BSD 3-Clause
+  license and upstream third-party notices are in
+  `THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/`, copied from the pinned Go
+  module. [SQLite Go module](https://pkg.go.dev/modernc.org/sqlite@v1.60.1)
+
+The server and importer archives include their respective notices. The runtime
+container includes both binaries and both sets of notices.

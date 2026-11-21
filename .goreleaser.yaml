@@ -70,6 +70,7 @@ archives:
       - LICENSE.md
       - NOTICE.md
       - CHANGELOG.md
+      - THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE
 
   - id: archive_import
     ids: [build_import]
@@ -78,6 +79,8 @@ archives:
     files:
       - LICENSE.md
       - NOTICE.md
+      - THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/LICENSE
+      - THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/LICENSE-3RD-PARTY.md
 
 checksum:
   name_template: "checksums.txt"

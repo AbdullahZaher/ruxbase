@@ -2,6 +2,7 @@
 *
 !LICENSE.md
 !NOTICE.md
+!THIRD-PARTY-LICENSES/**
 !go.mod
 !go.sum
 !**/*.go

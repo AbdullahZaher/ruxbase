@@ -107,15 +107,25 @@ jobs:
 
       - name: Check the binaries
         run: |
-          go version -m .builds/build_import_linux_amd64_v1/ruxbase-import | grep -q modernc.org/sqlite
+          importer_version=$(go version -m .builds/build_import_linux_amd64_v1/ruxbase-import |
+            awk '$1 == "dep" && $2 == "modernc.org/sqlite" { print $3 }')
+          sqlite_notices="THIRD-PARTY-LICENSES/modernc-sqlite/$importer_version"
+          remixicon_license=THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE
+          printf '%s  %s\n' 7ea90bbc7c505b98dd7d3a089a6fa32067e353150192951cedb05e26820936cf \
+            ui/dist/fonts/remixicon/remixicon.woff2 | sha256sum --check
           if go version -m .builds/build_noncgo_linux_amd64_v1/ruxbase | grep modernc.org/sqlite; then
             echo "the ruxbase binary must not link SQLite"
             exit 1
           fi
           for archive in .builds/*.zip; do
-            entries=$(unzip -Z1 "$archive")
-            grep -Fx 'LICENSE.md' <<< "$entries"
-            grep -Fx 'NOTICE.md' <<< "$entries"
+            notices=(LICENSE.md NOTICE.md)
+            case "${archive##*/}" in
+              ruxbase-import_*) notices+=("$sqlite_notices/LICENSE" "$sqlite_notices/LICENSE-3RD-PARTY.md") ;;
+              *) notices+=("$remixicon_license") ;;
+            esac
+            for notice in "${notices[@]}"; do
+              unzip -p "$archive" "$notice" | cmp "$notice" -
+            done
           done
 
   # the official PocketBase JS SDK against a ruxbase server (tests/sdk/js)

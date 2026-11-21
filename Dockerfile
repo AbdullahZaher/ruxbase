@@ -42,6 +42,7 @@ ENV RUXBASE_PG_DUMP=/usr/lib/postgresql/18/bin/pg_dump \
 
 COPY --from=build /out/ruxbase /out/ruxbase-import /usr/local/bin/
 COPY LICENSE.md NOTICE.md /usr/share/doc/ruxbase/
+COPY THIRD-PARTY-LICENSES/ /usr/share/doc/ruxbase/THIRD-PARTY-LICENSES/
 
 WORKDIR /app
 
