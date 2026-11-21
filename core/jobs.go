@@ -1,0 +1,665 @@
+package core
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/AbdullahZaher/ruxbase/tools/security"
+	"github.com/AbdullahZaher/ruxbase/tools/types"
+	"github.com/pocketbase/dbx"
+)
+
+const (
+	JobStatusPending   = "pending"
+	JobStatusRunning   = "running"
+	JobStatusCompleted = "completed"
+	JobStatusFailed    = "failed"
+	JobStatusDead      = "dead"
+
+	OutboxStatusPending   = "pending"
+	OutboxStatusPublished = "published"
+	OutboxStatusFailed    = "failed"
+)
+
+// Job represents a durable background job stored in PostgreSQL.
+type Job struct {
+	Id             string             `db:"id" json:"id"`
+	Queue          string             `db:"queue" json:"queue"`
+	Task           string             `db:"task" json:"task"`
+	Payload        types.JSONMap[any] `db:"payload" json:"payload"`
+	Status         string             `db:"status" json:"status"`
+	Attempts       int                `db:"attempts" json:"attempts"`
+	MaxRetries     int                `db:"max_retries" json:"maxRetries"`
+	BackoffSeconds int                `db:"backoff_seconds" json:"backoffSeconds"`
+	IdempotencyKey string             `db:"idempotency_key" json:"idempotencyKey,omitempty"`
+	LastError      string             `db:"last_error" json:"lastError,omitempty"`
+	Result         types.JSONMap[any] `db:"result" json:"result,omitempty"`
+	RunAt          types.DateTime     `db:"run_at" json:"runAt"`
+	LeasedAt       types.DateTime     `db:"leased_at" json:"leasedAt,omitempty"`
+	LeasedUntil    types.DateTime     `db:"leased_until" json:"leasedUntil,omitempty"`
+	LeasedBy       string             `db:"leased_by" json:"leasedBy,omitempty"`
+	Created        types.DateTime     `db:"created" json:"created"`
+	Updated        types.DateTime     `db:"updated" json:"updated"`
+}
+
+// OutboxEvent represents a transactional outbox event.
+type OutboxEvent struct {
+	Id          string             `db:"id" json:"id"`
+	Event       string             `db:"event" json:"event"`
+	Topic       string             `db:"topic" json:"topic"`
+	Payload     types.JSONMap[any] `db:"payload" json:"payload"`
+	Status      string             `db:"status" json:"status"`
+	Attempts    int                `db:"attempts" json:"attempts"`
+	LastError   string             `db:"last_error" json:"lastError,omitempty"`
+	Created     types.DateTime     `db:"created" json:"created"`
+	PublishedAt types.DateTime     `db:"published_at" json:"publishedAt,omitempty"`
+}
+
+// Webhook defines a configured webhook destination.
+type Webhook struct {
+	Id      string                  `db:"id" json:"id"`
+	Name    string                  `db:"name" json:"name"`
+	URL     string                  `db:"url" json:"url"`
+	Secret  string                  `db:"secret" json:"secret"`
+	Events  types.JSONArray[string] `db:"events" json:"events"`
+	Active  bool                    `db:"active" json:"active"`
+	Created types.DateTime          `db:"created" json:"created"`
+	Updated types.DateTime          `db:"updated" json:"updated"`
+}
+
+// WebhookAttempt records a single delivery attempt to a webhook URL.
+type WebhookAttempt struct {
+	Id           string         `db:"id" json:"id"`
+	WebhookId    string         `db:"webhook_id" json:"webhookId"`
+	EventId      string         `db:"event_id" json:"eventId"`
+	StatusCode   int            `db:"status_code" json:"statusCode"`
+	ResponseBody string         `db:"response_body" json:"responseBody"`
+	Error        string         `db:"error" json:"error"`
+	DurationMs   int            `db:"duration_ms" json:"durationMs"`
+	Created      types.DateTime `db:"created" json:"created"`
+}
+
+// JobHandler executes a claimed job.
+type JobHandler func(ctx context.Context, job *Job) error
+
+// JobsManager manages durable background jobs, leasing, worker execution, and the transactional outbox.
+type JobsManager struct {
+	app        App
+	mu         sync.RWMutex
+	handlers   map[string]JobHandler
+	httpClient *http.Client
+}
+
+// NewJobsManager creates a new JobsManager.
+func NewJobsManager(app App) *JobsManager {
+	return &JobsManager{
+		app:      app,
+		handlers: make(map[string]JobHandler),
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}
+}
+
+// RegisterHandler registers a handler function for a specific job task name.
+func (jm *JobsManager) RegisterHandler(task string, handler JobHandler) {
+	jm.mu.Lock()
+	defer jm.mu.Unlock()
+	jm.handlers[task] = handler
+}
+
+// Enqueue inserts a new job into the _jobs table atomically within the active db transaction.
+func (jm *JobsManager) Enqueue(job *Job) (*Job, error) {
+	if job == nil {
+		return nil, errors.New("cannot enqueue nil job")
+	}
+
+	if job.Id == "" {
+		job.Id = security.RandomStringWithAlphabet(15, "abcdefghijklmnopqrstuvwxyz0123456789")
+	}
+	if job.Queue == "" {
+		job.Queue = "default"
+	}
+	if job.Task == "" {
+		return nil, errors.New("job task name is required")
+	}
+	if job.Status == "" {
+		job.Status = JobStatusPending
+	}
+	if job.MaxRetries <= 0 {
+		job.MaxRetries = 3
+	}
+	if job.BackoffSeconds <= 0 {
+		job.BackoffSeconds = 10
+	}
+	if job.RunAt.IsZero() {
+		job.RunAt = types.NowDateTime()
+	}
+	now := types.NowDateTime()
+	job.Created = now
+	job.Updated = now
+
+	// Check idempotency key if specified
+	if job.IdempotencyKey != "" {
+		existing := &Job{}
+		err := jm.app.DB().NewQuery(`
+			SELECT [[id]], [[queue]], [[task]], [[payload]], [[status]], [[attempts]], [[max_retries]],
+			       [[backoff_seconds]], [[idempotency_key]], [[last_error]], [[result]], [[run_at]],
+			       [[leased_at]], [[leased_until]], [[leased_by]], [[created]], [[updated]]
+			FROM {{_jobs}}
+			WHERE [[idempotency_key]] = {:key}
+		`).Bind(dbx.Params{"key": job.IdempotencyKey}).One(existing)
+
+		if err == nil {
+			return existing, nil // Return existing job without creating duplicate
+		}
+	}
+
+	payloadBytes, _ := json.Marshal(job.Payload)
+
+	var runAtVal any
+	if !job.RunAt.IsZero() {
+		runAtVal = job.RunAt.String()
+	}
+
+	insertQuery := `
+		INSERT INTO {{_jobs}} (
+			[[id]], [[queue]], [[task]], [[payload]], [[status]], [[attempts]], [[max_retries]],
+			[[backoff_seconds]], [[idempotency_key]], [[run_at]], [[created]], [[updated]]
+		) VALUES (
+			{:id}, {:queue}, {:task}, {:payload}::jsonb, {:status}, {:attempts}, {:maxRetries},
+			{:backoff}, {:idempotencyKey}, COALESCE({:runAt}, now()), {:created}, {:updated}
+		)
+	`
+	if job.IdempotencyKey != "" {
+		insertQuery += ` ON CONFLICT ([[idempotency_key]]) WHERE [[idempotency_key]] != '' DO NOTHING`
+	}
+
+	res, err := jm.app.DB().NewQuery(insertQuery).Bind(dbx.Params{
+		"id":             job.Id,
+		"queue":          job.Queue,
+		"task":           job.Task,
+		"payload":        string(payloadBytes),
+		"status":         job.Status,
+		"attempts":       job.Attempts,
+		"maxRetries":     job.MaxRetries,
+		"backoff":        job.BackoffSeconds,
+		"idempotencyKey": job.IdempotencyKey,
+		"runAt":          runAtVal,
+		"created":        job.Created.String(),
+		"updated":        job.Updated.String(),
+	}).Execute()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to enqueue job: %w", err)
+	}
+
+	if job.IdempotencyKey != "" && res != nil {
+		if affected, _ := res.RowsAffected(); affected == 0 {
+			existing := &Job{}
+			err := jm.app.DB().NewQuery(`
+				SELECT [[id]], [[queue]], [[task]], [[payload]], [[status]], [[attempts]], [[max_retries]],
+				       [[backoff_seconds]], [[idempotency_key]], [[last_error]], [[result]], [[run_at]],
+				       [[leased_at]], [[leased_until]], [[leased_by]], [[created]], [[updated]]
+				FROM {{_jobs}}
+				WHERE [[idempotency_key]] = {:key}
+			`).Bind(dbx.Params{"key": job.IdempotencyKey}).One(existing)
+			if err == nil {
+				return existing, nil
+			}
+		}
+	}
+
+	return job, nil
+}
+
+// ClaimNext atomically acquires a lease on the next pending or stale job using FOR UPDATE SKIP LOCKED.
+func (jm *JobsManager) ClaimNext(queue string, workerId string, leaseDuration time.Duration) (*Job, error) {
+	if queue == "" {
+		queue = "default"
+	}
+	if leaseDuration <= 0 {
+		leaseDuration = 30 * time.Second
+	}
+	leaseSec := int(leaseDuration.Seconds())
+
+	job := &Job{}
+	err := jm.app.DB().NewQuery(`
+		UPDATE {{_jobs}}
+		SET [[status]] = 'running',
+		    [[leased_at]] = now(),
+		    [[leased_until]] = now() + ({:leaseSec} * INTERVAL '1 second'),
+		    [[leased_by]] = {:workerId},
+		    [[attempts]] = [[attempts]] + 1,
+		    [[updated]] = now()
+		WHERE [[id]] = (
+			SELECT [[id]]
+			FROM {{_jobs}}
+			WHERE [[queue]] = {:queue}
+			  AND ([[status]] IN ('pending', 'failed') OR ([[status]] = 'running' AND [[leased_until]] < now()))
+			  AND [[run_at]] <= now() + INTERVAL '1 second'
+			ORDER BY [[run_at]] ASC
+			FOR UPDATE SKIP LOCKED
+			LIMIT 1
+		)
+		RETURNING [[id]], [[queue]], [[task]], [[payload]], [[status]], [[attempts]], [[max_retries]],
+		          [[backoff_seconds]], [[idempotency_key]], [[last_error]], [[result]], [[run_at]],
+		          [[leased_at]], [[leased_until]], [[leased_by]], [[created]], [[updated]]
+	`).Bind(dbx.Params{
+		"queue":    queue,
+		"workerId": workerId,
+		"leaseSec": leaseSec,
+	}).One(job)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No jobs available
+		}
+		return nil, fmt.Errorf("failed to claim next job: %w", err)
+	}
+
+	return job, nil
+}
+
+// Complete marks a job as successfully completed and stores the optional result.
+func (jm *JobsManager) Complete(jobId string, result map[string]any) error {
+	resultBytes, _ := json.Marshal(result)
+
+	res, err := jm.app.DB().NewQuery(`
+		UPDATE {{_jobs}}
+		SET [[status]] = {:status},
+		    [[result]] = {:result}::jsonb,
+		    [[leased_by]] = '',
+		    [[leased_until]] = NULL,
+		    [[updated]] = now()
+		WHERE [[id]] = {:id}
+	`).Bind(dbx.Params{
+		"id":     jobId,
+		"status": JobStatusCompleted,
+		"result": string(resultBytes),
+	}).Execute()
+
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("job %s not found", jobId)
+	}
+	return nil
+}
+
+// Fail transitions a job to failed (with exponential backoff) or dead (DLQ) if max retries exceeded.
+func (jm *JobsManager) Fail(jobId string, jobErr error) error {
+	job, err := jm.GetJob(jobId)
+	if err != nil {
+		return err
+	}
+
+	errMsg := ""
+	if jobErr != nil {
+		errMsg = jobErr.Error()
+	}
+
+	if job.Attempts >= job.MaxRetries {
+		// Exhausted retries -> Dead Letter Queue
+		_, err = jm.app.DB().NewQuery(`
+			UPDATE {{_jobs}}
+			SET [[status]] = {:status},
+			    [[last_error]] = {:err},
+			    [[leased_by]] = '',
+			    [[leased_until]] = NULL,
+			    [[updated]] = now()
+			WHERE [[id]] = {:id}
+		`).Bind(dbx.Params{
+			"id":     jobId,
+			"status": JobStatusDead,
+			"err":    errMsg,
+		}).Execute()
+		return err
+	}
+
+	// Exponential backoff: backoff_seconds * 2^(attempts - 1)
+	backoffSec := job.BackoffSeconds * (1 << (job.Attempts - 1))
+	if backoffSec > 3600 {
+		backoffSec = 3600 // Cap at 1 hour
+	}
+
+	_, err = jm.app.DB().NewQuery(`
+		UPDATE {{_jobs}}
+		SET [[status]] = {:status},
+		    [[last_error]] = {:err},
+		    [[leased_by]] = '',
+		    [[leased_until]] = NULL,
+		    [[run_at]] = now() + ({:backoffSec} * INTERVAL '1 second'),
+		    [[updated]] = now()
+		WHERE [[id]] = {:id}
+	`).Bind(dbx.Params{
+		"id":         jobId,
+		"status":     JobStatusFailed,
+		"err":        errMsg,
+		"backoffSec": backoffSec,
+	}).Execute()
+
+	return err
+}
+
+// ReclaimStaleLeases resets crashed worker jobs whose lease has expired.
+func (jm *JobsManager) ReclaimStaleLeases() (int64, error) {
+	res, err := jm.app.DB().NewQuery(`
+		UPDATE {{_jobs}}
+		SET [[status]] = 'pending',
+		    [[leased_by]] = '',
+		    [[leased_until]] = NULL,
+		    [[updated]] = now()
+		WHERE [[status]] = 'running'
+		  AND [[leased_until]] < now()
+	`).Execute()
+
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// ReplayDeadJob resets a dead job from DLQ back to pending status for controlled operator replay.
+func (jm *JobsManager) ReplayDeadJob(jobId string) error {
+	res, err := jm.app.DB().NewQuery(`
+		UPDATE {{_jobs}}
+		SET [[status]] = {:status},
+		    [[attempts]] = 0,
+		    [[last_error]] = '',
+		    [[run_at]] = now(),
+		    [[updated]] = now()
+		WHERE [[id]] = {:id}
+		  AND [[status]] = 'dead'
+	`).Bind(dbx.Params{
+		"id":     jobId,
+		"status": JobStatusPending,
+	}).Execute()
+
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("dead job %s not found or not in dead status", jobId)
+	}
+	return nil
+}
+
+// GetJob returns a job by ID.
+func (jm *JobsManager) GetJob(jobId string) (*Job, error) {
+	job := &Job{}
+	err := jm.app.DB().NewQuery(`
+		SELECT [[id]], [[queue]], [[task]], [[payload]], [[status]], [[attempts]], [[max_retries]],
+		       [[backoff_seconds]], [[idempotency_key]], [[last_error]], [[result]], [[run_at]],
+		       [[leased_at]], [[leased_until]], [[leased_by]], [[created]], [[updated]]
+		FROM {{_jobs}}
+		WHERE [[id]] = {:id}
+	`).Bind(dbx.Params{"id": jobId}).One(job)
+
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+// ListJobs returns jobs filtered by queue and status.
+func (jm *JobsManager) ListJobs(queue string, status string, limit int) ([]*Job, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	q := jm.app.DB().Select(
+		"id", "queue", "task", "payload", "status", "attempts", "max_retries",
+		"backoff_seconds", "idempotency_key", "last_error", "result", "run_at",
+		"leased_at", "leased_until", "leased_by", "created", "updated",
+	).From("_jobs").Limit(int64(limit)).OrderBy("created DESC")
+
+	if queue != "" {
+		q.AndWhere(dbx.HashExp{"queue": queue})
+	}
+	if status != "" {
+		q.AndWhere(dbx.HashExp{"status": status})
+	}
+
+	var jobs []*Job
+	err := q.All(&jobs)
+	return jobs, err
+}
+
+// ProcessNext claims and processes the next eligible job on the queue.
+func (jm *JobsManager) ProcessNext(ctx context.Context, queue string, workerId string, leaseDuration time.Duration) (bool, error) {
+	job, err := jm.ClaimNext(queue, workerId, leaseDuration)
+	if err != nil {
+		return false, err
+	}
+	if job == nil {
+		return false, nil // No job to process
+	}
+
+	jm.mu.RLock()
+	handler, ok := jm.handlers[job.Task]
+	jm.mu.RUnlock()
+
+	if !ok {
+		_ = jm.Fail(job.Id, fmt.Errorf("no handler registered for task: %s", job.Task))
+		return true, fmt.Errorf("unregistered task handler: %s", job.Task)
+	}
+
+	execErr := handler(ctx, job)
+	if execErr != nil {
+		_ = jm.Fail(job.Id, execErr)
+		return true, execErr
+	}
+
+	_ = jm.Complete(job.Id, nil)
+	return true, nil
+}
+
+// PublishOutbox writes an outbox event atomically within the active db transaction.
+func (jm *JobsManager) PublishOutbox(event string, topic string, payload map[string]any) (*OutboxEvent, error) {
+	outbox := &OutboxEvent{
+		Id:       security.RandomStringWithAlphabet(15, "abcdefghijklmnopqrstuvwxyz0123456789"),
+		Event:    event,
+		Topic:    topic,
+		Payload:  payload,
+		Status:   OutboxStatusPending,
+		Attempts: 0,
+		Created:  types.NowDateTime(),
+	}
+
+	payloadBytes, _ := json.Marshal(outbox.Payload)
+
+	_, err := jm.app.DB().NewQuery(`
+		INSERT INTO {{_outbox_events}} (
+			[[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[created]]
+		) VALUES (
+			{:id}, {:event}, {:topic}, {:payload}::jsonb, {:status}, {:attempts}, {:created}
+		)
+	`).Bind(dbx.Params{
+		"id":       outbox.Id,
+		"event":    outbox.Event,
+		"topic":    outbox.Topic,
+		"payload":  string(payloadBytes),
+		"status":   outbox.Status,
+		"attempts": outbox.Attempts,
+		"created":  outbox.Created.String(),
+	}).Execute()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish outbox event: %w", err)
+	}
+
+	return outbox, nil
+}
+
+// ProcessPendingOutbox fetches and dispatches pending outbox events using the provided publisher.
+func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *OutboxEvent) error) (int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var events []*OutboxEvent
+	err := jm.app.DB().NewQuery(`
+		SELECT [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[created]], [[published_at]]
+		FROM {{_outbox_events}}
+		WHERE [[status]] = 'pending'
+		ORDER BY [[created]] ASC
+		LIMIT {:limit}
+		FOR UPDATE SKIP LOCKED
+	`).Bind(dbx.Params{"limit": limit}).All(&events)
+
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, evt := range events {
+		pubErr := publisher(evt)
+		if pubErr != nil {
+			_, _ = jm.app.DB().NewQuery(`
+				UPDATE {{_outbox_events}}
+				SET [[status]] = 'failed',
+				    [[attempts]] = [[attempts]] + 1,
+				    [[last_error]] = {:err}
+				WHERE [[id]] = {:id}
+			`).Bind(dbx.Params{
+				"id":  evt.Id,
+				"err": pubErr.Error(),
+			}).Execute()
+		} else {
+			_, _ = jm.app.DB().NewQuery(`
+				UPDATE {{_outbox_events}}
+				SET [[status]] = 'published',
+				    [[published_at]] = now()
+				WHERE [[id]] = {:id}
+			`).Bind(dbx.Params{"id": evt.Id}).Execute()
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// RegisterWebhook creates or updates a webhook target.
+func (jm *JobsManager) RegisterWebhook(name, url, secret string, events []string) (*Webhook, error) {
+	wb := &Webhook{
+		Id:      security.RandomStringWithAlphabet(15, "abcdefghijklmnopqrstuvwxyz0123456789"),
+		Name:    name,
+		URL:     url,
+		Secret:  secret,
+		Events:  events,
+		Active:  true,
+		Created: types.NowDateTime(),
+		Updated: types.NowDateTime(),
+	}
+
+	eventsBytes, _ := json.Marshal(wb.Events)
+
+	_, err := jm.app.DB().NewQuery(`
+		INSERT INTO {{_webhooks}} ([[id]], [[name]], [[url]], [[secret]], [[events]], [[active]], [[created]], [[updated]])
+		VALUES ({:id}, {:name}, {:url}, {:secret}, {:events}::jsonb, {:active}, {:created}, {:updated})
+	`).Bind(dbx.Params{
+		"id":      wb.Id,
+		"name":    wb.Name,
+		"url":     wb.URL,
+		"secret":  wb.Secret,
+		"events":  string(eventsBytes),
+		"active":  wb.Active,
+		"created": wb.Created.String(),
+		"updated": wb.Updated.String(),
+	}).Execute()
+
+	if err != nil {
+		return nil, err
+	}
+	return wb, nil
+}
+
+// DeliverWebhook delivers an outbox event to a webhook endpoint with HMAC-SHA256 signature.
+func (jm *JobsManager) DeliverWebhook(ctx context.Context, webhook *Webhook, event *OutboxEvent) (*WebhookAttempt, error) {
+	start := time.Now()
+	attempt := &WebhookAttempt{
+		Id:        security.RandomStringWithAlphabet(15, "abcdefghijklmnopqrstuvwxyz0123456789"),
+		WebhookId: webhook.Id,
+		EventId:   event.Id,
+		Created:   types.NowDateTime(),
+	}
+
+	payloadBytes, _ := json.Marshal(map[string]any{
+		"id":        event.Id,
+		"event":     event.Event,
+		"topic":     event.Topic,
+		"payload":   event.Payload,
+		"timestamp": event.Created.String(),
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook.URL, strings.NewReader(string(payloadBytes)))
+	if err != nil {
+		attempt.Error = err.Error()
+		attempt.DurationMs = int(time.Since(start).Milliseconds())
+		jm.recordWebhookAttempt(attempt)
+		return attempt, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Ruxbase-Webhook/1.0")
+
+	// Sign payload if secret is configured
+	if webhook.Secret != "" {
+		mac := hmac.New(sha256.New, []byte(webhook.Secret))
+		mac.Write(payloadBytes)
+		signature := hex.EncodeToString(mac.Sum(nil))
+		req.Header.Set("X-Ruxbase-Signature", signature)
+	}
+
+	resp, err := jm.httpClient.Do(req)
+	attempt.DurationMs = int(time.Since(start).Milliseconds())
+	if err != nil {
+		attempt.Error = err.Error()
+		jm.recordWebhookAttempt(attempt)
+		return attempt, err
+	}
+	defer resp.Body.Close()
+
+	attempt.StatusCode = resp.StatusCode
+	bodySnippet, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	attempt.ResponseBody = string(bodySnippet)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		attempt.Error = fmt.Sprintf("webhook returned non-2xx status: %d", resp.StatusCode)
+		jm.recordWebhookAttempt(attempt)
+		return attempt, errors.New(attempt.Error)
+	}
+
+	jm.recordWebhookAttempt(attempt)
+	return attempt, nil
+}
+
+func (jm *JobsManager) recordWebhookAttempt(attempt *WebhookAttempt) {
+	_, _ = jm.app.DB().NewQuery(`
+		INSERT INTO {{_webhook_attempts}} ([[id]], [[webhook_id]], [[event_id]], [[status_code]], [[response_body]], [[error]], [[duration_ms]], [[created]])
+		VALUES ({:id}, {:webhookId}, {:eventId}, {:statusCode}, {:responseBody}, {:error}, {:durationMs}, {:created})
+	`).Bind(dbx.Params{
+		"id":           attempt.Id,
+		"webhookId":    attempt.WebhookId,
+		"eventId":      attempt.EventId,
+		"statusCode":   attempt.StatusCode,
+		"responseBody": attempt.ResponseBody,
+		"error":        attempt.Error,
+		"durationMs":   attempt.DurationMs,
+		"created":      attempt.Created.String(),
+	}).Execute()
+}

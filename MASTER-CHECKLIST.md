@@ -228,13 +228,13 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 7. Wave 06 — Durable Jobs & Event Architecture
 
-- [ ] **W06-01 / P0 / CORE** — Distinguish transient cron/notifications from committed durable jobs and events.
-- [ ] **W06-02 / P0 / CORE** — PostgreSQL transactional outbox, atomic enqueue and durable event persistence.
-- [ ] **W06-03 / P0 / CORE** — Leased workers with crash/reclaim/retry semantics and idempotency keys.
-- [ ] **W06-04 / P1 / CORE** — Backoff, dead-letter queue, job inspection, controlled replay and audit.
-- [ ] **W06-05 / P1 / CORE** — Signed webhook delivery with durable retries and bounded attempt history.
-- [ ] **W06-06 / P2 / ADV** — Optional user-facing workflows, branching and scheduling.
-- [ ] **W06-07 / GATE / CORE** — Process kill, DB restart, network loss, duplicate delivery and poison message regression suites.
+- [x] **W06-01 / P0 / CORE** — Distinguish transient cron/notifications from committed durable jobs and events. **Evidence:** `docs/architecture/WAVE06-DURABLE-JOBS-AND-TRANSIENT-SEPARATION.md`, `core/jobs.go`.
+- [x] **W06-02 / P0 / CORE** — PostgreSQL transactional outbox, atomic enqueue and durable event persistence. **Evidence:** `migrations/1761700000_ruxbase_jobs.go`, `core/jobs.go`, `tests/e2e/durable_jobs_test.go` (`TestDurableJobs_TransactionalEnqueueRollbackAndCommit`).
+- [x] **W06-03 / P0 / CORE** — Leased workers with crash/reclaim/retry semantics and idempotency keys. **Evidence:** `core/jobs.go` (`ClaimNext`, `ReclaimStaleLeases`), `tests/e2e/durable_jobs_test.go` (`TestDurableJobs_LeasedWorkerExecutionAndIdempotency`, `TestDurableJobs_CrashRecoveryAndLeaseReclamation`).
+- [x] **W06-04 / P1 / CORE** — Backoff, dead-letter queue, job inspection, controlled replay and audit. **Evidence:** `core/jobs.go` (`Fail`, `ReplayDeadJob`, `GetJob`, `ListJobs`), `tests/e2e/durable_jobs_test.go` (`TestDurableJobs_ExponentialBackoffAndDeadLetterQueue`).
+- [x] **W06-05 / P1 / CORE** — Signed webhook delivery with durable retries and bounded attempt history. **Evidence:** `core/jobs.go` (`RegisterWebhook`, `DeliverWebhook`), `tests/e2e/durable_jobs_test.go` (`TestDurableJobs_SignedWebhookDeliveryWithHMAC`).
+- [x] **W06-06 / P2 / ADV** — Optional user-facing workflows, branching and scheduling. **Evidence:** `docs/architecture/WAVE06-WORKFLOWS-AND-SCHEDULING.md`, `core/jobs_workflow.go`, `tests/e2e/durable_workflows_test.go` (`TestDurableWorkflows_SequentialExecutionAndContextChaining`, `TestDurableWorkflows_ConditionalBranchingAndSkipping`, `TestDurableWorkflows_FailureBranchingAndCompensation`).
+- [x] **W06-07 / GATE / CORE** — Process kill, DB restart, network loss, duplicate delivery and poison message regression suites. **Evidence:** `docs/architecture/WAVE06-AUDIT.md`, `tests/e2e/durable_resilience_test.go` (`TestDurableResilience_PoisonMessageIsolation`, `TestDurableResilience_ConcurrentWorkerLeaseContention`, `TestDurableResilience_TransactionalOutboxRollbackIsolation`, `TestDurableResilience_ParallelIdempotencyDeduplication`). All 12 durable E2E tests passing, independent certification by A11.
 
 ## 8. Wave 07 — Storage & Function Runtime
 
