@@ -36,6 +36,7 @@ import (
 const (
 	clusterTopicRealtimeRecord         = "rt_record"
 	clusterTopicRealtimeAuthCollection = "rt_auth_collection"
+	clusterTopicRealtimeAuthRevoke     = "rt_auth_revoke"
 
 	realtimeEventsTable = "_realtime_events"
 	realtimeSourceHooks = "hooks"
@@ -82,6 +83,24 @@ func bindRealtimeClusterEvents(app core.App) {
 				slog.String("collectionName", msg.Payload),
 				slog.String("error", err.Error()),
 			)
+		}
+	})
+
+	app.Cluster().Subscribe(clusterTopicRealtimeAuthRevoke, func(msg cluster.Message) {
+		if msg.NodeId == app.Cluster().NodeId() {
+			return // already handled locally
+		}
+
+		parts := strings.Split(msg.Payload, "|")
+		if len(parts) == 2 {
+			if err := realtimeUnsetClientsAuthById(app, parts[0], parts[1]); err != nil {
+				app.Logger().Warn(
+					"Failed to unset clients auth on cluster revocation",
+					slog.String("collection", parts[0]),
+					slog.String("id", parts[1]),
+					slog.String("error", err.Error()),
+				)
+			}
 		}
 	})
 
@@ -253,6 +272,26 @@ func realtimeNotifyAuthCollectionChange(app core.App, collectionName string) {
 	})
 }
 
+// realtimeNotifyAuthRevoke notifies the other nodes (after the
+// transaction commit, if any) to reset the auth state of their clients
+// related to the revoked auth record (eg. on tokenKey change or user deletion).
+func realtimeNotifyAuthRevoke(app core.App, collectionName string, recordId string) {
+	if !app.Cluster().Enabled() {
+		return
+	}
+	execAfterSuccessTx(true, app, func() error {
+		if err := app.Cluster().Notify(clusterTopicRealtimeAuthRevoke, collectionName+"|"+recordId); err != nil {
+			app.Logger().Warn(
+				"Failed to publish the realtime auth revoke cluster event",
+				slog.String("collectionName", collectionName),
+				slog.String("recordId", recordId),
+				slog.String("error", err.Error()),
+			)
+		}
+		return nil
+	})
+}
+
 // realtimeRecordPayload returns the create/update cluster message payload
 // (action|collectionId|collectionName|recordId).
 func realtimeRecordPayload(action string, collection *core.Collection, pk any) string {
@@ -369,7 +408,7 @@ func realtimeBroadcastClusterDeleteEvent(app core.App, eventId string, collectio
 func realtimeBroadcastDeletedSnapshot(app core.App, collection *core.Collection, snapshot string) error {
 	withFrom, params := realtimeSnapshotCTE(collection.Name, collection.Name, snapshot)
 
-	record := &core.Record{}
+	record := core.NewRecord(collection)
 	err := app.RecordQuery(collection).PreFragment(withFrom).Bind(params).Limit(1).One(record)
 	if err != nil {
 		return err

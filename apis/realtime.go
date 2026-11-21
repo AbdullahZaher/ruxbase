@@ -31,6 +31,9 @@ const RealtimeClientAuthKey = "auth"
 // RealtimeClientIPKey is the name of the realtime client store key that holds the IP of the connected client.
 const RealtimeClientIPKey = "pbRealtimeClientIP"
 
+// RealtimeClientTenantKey is the name of the realtime client store key that holds its active tenant ID.
+const RealtimeClientTenantKey = "pbRealtimeClientTenant"
+
 // bindRealtimeApi registers the realtime api endpoints.
 func bindRealtimeApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	sub := rg.Group("/realtime")
@@ -252,6 +255,13 @@ func realtimeSetSubscriptions(e *core.RequestEvent) error {
 		// update auth state
 		e.Client.Set(RealtimeClientAuthKey, e.Auth)
 
+		// ruxbase: bind active tenant context if available
+		activeTenant := e.Request.Header.Get("X-Tenant-Id")
+		if activeTenant == "" && e.Auth != nil {
+			activeTenant = e.Auth.GetString(core.TenantIdField)
+		}
+		e.Client.Set(RealtimeClientTenantKey, activeTenant)
+
 		// unsubscribe from any previous existing subscriptions
 		e.Client.Unsubscribe()
 
@@ -349,6 +359,30 @@ func realtimeUnsetClientsAuthByCollection(app core.App, collection *core.Collect
 	return group.Wait()
 }
 
+// realtimeUnsetClientsAuthById unsets the auth state of all clients matching the given collection name and record ID.
+func realtimeUnsetClientsAuthById(app core.App, collectionName string, recordId string) error {
+	chunks := app.SubscriptionsBroker().ChunkedClients(clientsChunkSize)
+
+	group := new(errgroup.Group)
+
+	for _, chunk := range chunks {
+		group.Go(routine.SafeWrap(func() error {
+			for _, client := range chunk {
+				clientAuth, _ := client.Get(RealtimeClientAuthKey).(*core.Record)
+				if clientAuth != nil &&
+					clientAuth.Id == recordId &&
+					clientAuth.Collection().Name == collectionName {
+					client.Unset(RealtimeClientAuthKey)
+				}
+			}
+
+			return nil
+		}))
+	}
+
+	return group.Wait()
+}
+
 func bindRealtimeEvents(app core.App) {
 	// reset the clients auth on collection secret change
 	// (@todo with the future tracking of old collections data consider replacing with *AfterUpdateSuccess to account for transaction rollback)
@@ -413,6 +447,8 @@ func bindRealtimeEvents(app core.App) {
 						slog.String("error", err.Error()),
 					)
 				}
+				// ruxbase: notify cluster nodes of auth update / tokenKey rotation
+				realtimeNotifyAuthRevoke(e.App, authRecord.Collection().Name, authRecord.Id)
 			}
 
 			return e.Next()
@@ -434,6 +470,8 @@ func bindRealtimeEvents(app core.App) {
 						slog.String("error", err.Error()),
 					)
 				}
+				// ruxbase: notify cluster nodes of auth model deletion
+				realtimeNotifyAuthRevoke(e.App, collection.Name, fmt.Sprint(e.Model.PK()))
 			}
 
 			return e.Next()
@@ -694,6 +732,35 @@ func realtimeBroadcastRecordWithAccessCheck(
 			for _, client := range chunk {
 				// note: not executed concurrently to avoid races and to ensure
 				// that the access checks are applied for the current record db state
+				clientAuth, _ = client.Get(RealtimeClientAuthKey).(*core.Record)
+
+				// ruxbase: verify client auth freshness and instant token revocation
+				if clientAuth != nil && !clientAuth.IsSuperuser() {
+					currentAuth, err := app.FindRecordById(clientAuth.Collection().Id, clientAuth.Id)
+					if err != nil || currentAuth == nil || currentAuth.TokenKey() != clientAuth.TokenKey() {
+						client.Unset(RealtimeClientAuthKey)
+						clientAuth = nil
+					} else {
+						clientAuth = currentAuth
+						client.Set(RealtimeClientAuthKey, currentAuth)
+					}
+				}
+
+				// ruxbase: tenant isolation check for tenant-scoped collections
+				recordTenant := record.GetString(core.TenantIdField)
+				if recordTenant != "" {
+					if clientAuth == nil {
+						continue // unauthenticated guest cannot access tenant-scoped records
+					}
+					clientTenant, _ := client.Get(RealtimeClientTenantKey).(string)
+					if !clientAuth.IsSuperuser() && clientTenant != recordTenant {
+						membership, err := app.GetTenantMembership(recordTenant, clientAuth.Id)
+						if err != nil || membership == nil || membership.Status != core.MembershipStatusActive {
+							continue // cross-tenant event isolation
+						}
+					}
+				}
+
 				for prefix, rule := range subscriptionRuleMap {
 					subs := client.Subscriptions(prefix)
 					if len(subs) == 0 {

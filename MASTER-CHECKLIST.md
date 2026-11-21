@@ -219,7 +219,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 ## 6. Wave 05 — Realtime & Offline Synchronization
 
 - [x] **W05-01 / P0 / CORE** — Declare committed-event boundaries, ordering, source-switch and data-loss semantics for existing SSE/WAL. **Evidence:** `docs/architecture/WAVE05-EVENT-BOUNDARIES-AND-ORDERING.md`, `core/cluster/replication.go`, `apis/realtime.go`, `tests/e2e/realtime_event_boundaries_test.go` (`TestRealtime_RollbackEmitsNoEvents`, `TestRealtime_CommittedTransactionEmitsInOrder`, `TestRealtime_ClusterDeduplication`).
-- [ ] **W05-02 / P0 / CORE** — Authorization/revocation enforced for subscriptions and event delivery across nodes.
+- [x] **W05-02 / P0 / CORE** — Authorization/revocation enforced for subscriptions and event delivery across nodes. **Evidence:** `docs/architecture/WAVE05-SUBSCRIPTION-AUTHORIZATION-REVOCATION.md`, `apis/realtime.go`, `apis/realtime_cluster.go`, `tests/e2e/realtime_authorization_revocation_test.go` (`TestRealtimeAuth_InstantTokenRevocationAcrossNodes`, `TestRealtimeAuth_UserDeletionAcrossNodes`, `TestRealtimeAuth_TenantIsolationAcrossNodes`, `TestRealtimeAuth_RuleChangeRevokesAccess`, `TestRealtimeAuth_RecordUpdateViolatingRuleDropsDelivery`).
 - [ ] **W05-03 / P1 / CORE** — Reconnect, cursor/resync and bounded replay semantics with measurable retention and backpressure.
 - [ ] **W05-04 / P1 / CORE** — Test node failover, PostgreSQL reconnect, slot invalidation, duplicate events and event filtering.
 - [ ] **W05-05 / P1 / CORE** — Decide and implement secure WebSocket Broadcast/Presence when self-hosted parity requires them.
