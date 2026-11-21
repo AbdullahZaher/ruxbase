@@ -6,8 +6,16 @@ import (
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/core"
+	"github.com/AbdullahZaher/ruxbase/tools/router"
 	"github.com/pocketbase/dbx"
 )
+
+// bindRealtimeSync registers delta sync and batch sync endpoints on the API router group.
+func bindRealtimeSync(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
+	sub := rg.Group("/realtime")
+	sub.GET("/sync", realtimeDeltaSync)
+	sub.POST("/sync", realtimeBatchSync)
+}
 
 func realtimeDeltaSync(e *core.RequestEvent) error {
 	collectionName := strings.TrimSpace(e.Request.URL.Query().Get("collection"))

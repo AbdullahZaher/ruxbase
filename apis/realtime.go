@@ -41,10 +41,6 @@ func bindRealtimeApi(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
 	sub := rg.Group("/realtime")
 	sub.GET("", realtimeConnect).Bind(SkipSuccessActivityLog())
 	sub.POST("", realtimeSetSubscriptions)
-	sub.POST("/broadcast", realtimeBroadcast)
-	sub.POST("/presence", realtimePresence)
-	sub.GET("/sync", realtimeDeltaSync)
-	sub.POST("/sync", realtimeBatchSync)
 
 	bindRealtimeEvents(app)
 	bindRealtimeClusterEvents(app)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AbdullahZaher/ruxbase/core"
+	"github.com/AbdullahZaher/ruxbase/tools/router"
 	"github.com/AbdullahZaher/ruxbase/tools/routine"
 	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/AbdullahZaher/ruxbase/tools/subscriptions"
@@ -18,6 +19,13 @@ const (
 	clusterTopicRealtimeBroadcast = "rt_broadcast"
 	clusterTopicRealtimePresence  = "rt_presence"
 )
+
+// bindRealtimeBroadcastPresence registers broadcast and presence endpoints on the API router group.
+func bindRealtimeBroadcastPresence(app core.App, rg *router.RouterGroup[*core.RequestEvent]) {
+	sub := rg.Group("/realtime")
+	sub.POST("/broadcast", realtimeBroadcast)
+	sub.POST("/presence", realtimePresence)
+}
 
 type broadcastRequestForm struct {
 	Channel string `json:"channel"`
@@ -110,9 +118,10 @@ func realtimePresence(e *core.RequestEvent) error {
 		}
 	}
 
-	if form.Action == "track" {
+	switch form.Action {
+	case "track":
 		e.App.Presence().Track(form.Channel, form.ClientId, userId, tenantId, form.State)
-	} else if form.Action == "untrack" {
+	case "untrack":
 		e.App.Presence().Untrack(form.Channel, form.ClientId)
 	}
 
