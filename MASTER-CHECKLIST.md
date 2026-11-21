@@ -195,14 +195,14 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 4. Wave 03 — Enterprise IAM & Multi-Tenancy
 
-- [ ] **W03-01 / P0 / CORE** — Specify principals: auth collection identity, service identity, role, tenant and membership boundaries.
-- [ ] **W03-02 / P0 / CORE** — Session/token lifecycle, revocation and safe claim freshness; reject client-editable authorization claims.
-- [ ] **W03-03 / P1 / CORE** — Scalable RBAC/ABAC evaluation with explicit role/permission ownership and defaults.
-- [ ] **W03-04 / P0 / CORE** — Tenant-bound record, relation, file and event ownership with restricted SQL enforcement.
-- [ ] **W03-05 / P0 / CORE** — Negative cross-tenant tests for APIs, vector search, realtime, jobs, backups, plugins and MCP.
-- [ ] **W03-06 / P1 / CORE** — Least-privilege service accounts, secrets lifecycle and scoped operator access.
-- [ ] **W03-07 / P2 / ADV** — Passkeys and enterprise SSO as separately approved optional capabilities.
-- [ ] **W03-08 / GATE / CORE** — Independent tenancy/session security certification, role switch and revocation under failure tests.
+- [x] **W03-01 / P0 / CORE** — Specify principals: auth collection identity, service identity, role, tenant and membership boundaries. **Evidence:** `docs/architecture/WAVE03-PRINCIPALS-AND-TENANCY.md`, `core/principal.go`, `tests/e2e/iam_principals_test.go` (`TestIAM_TenantLifecycleAndStatus`, `TestIAM_UserPrincipalAndMemberships`, `TestIAM_ServicePrincipalAndScopeBoundaries`, `TestIAM_SuperuserAndAnonymousBoundaries`).
+- [x] **W03-02 / P0 / CORE** — Session/token lifecycle, revocation and safe claim freshness; reject client-editable authorization claims. **Evidence:** `docs/architecture/WAVE03-SESSION-TOKEN-LIFECYCLE.md`, `core/session_lifecycle.go`, `tests/e2e/session_lifecycle_test.go` (`TestSessionLifecycle_TenantTokenGenerationAndVerification`, `TestSessionLifecycle_InstantRevocationOnTokenKeyRotation`, `TestSessionLifecycle_AuthoritativeClaimFreshnessOnRoleChange`, `TestSessionLifecycle_SanitizeClientTamperedClaims`).
+- [x] **W03-03 / P1 / CORE** — Scalable RBAC/ABAC evaluation with explicit role/permission ownership and defaults. **Evidence:** `docs/architecture/WAVE03-RBAC-ABAC.md`, `core/rbac_abac.go`, `tests/e2e/rbac_abac_test.go` (`TestRBAC_SystemRolesAndDefaults`, `TestRBAC_CustomTenantRoles`, `TestRBAC_EvaluateAccessBoundaries`, `TestABAC_ContextualEvaluation`).
+- [x] **W03-04 / P0 / CORE** — Tenant-bound record, relation, file and event ownership with restricted SQL enforcement. **Evidence:** `docs/architecture/WAVE03-TENANT-RELATIONAL-OWNERSHIP.md`, `core/tenant_ownership.go`, `tests/e2e/tenant_ownership_test.go` (`TestTenantOwnership_SchemaAndRLSEnforcement`, `TestTenantOwnership_RelationalIntegrity`, `TestTenantOwnership_FileAndEventIsolation`).
+- [x] **W03-05 / P0 / CORE** — Negative cross-tenant tests for APIs, vector search, realtime, jobs, backups, plugins and MCP. **Evidence:** `docs/architecture/WAVE03-NEGATIVE-ISOLATION-MATRIX.md`, `tests/e2e/tenant_isolation_negative_test.go` (`TestNegativeIsolation_APIsAndDirectQueries`, `TestNegativeIsolation_VectorSearch`, `TestNegativeIsolation_JobsAndBatchUpdates`, `TestNegativeIsolation_BackupExportAndUnscopedFailClosed`).
+- [x] **W03-06 / P1 / CORE** — Least-privilege service accounts, secrets lifecycle and scoped operator access. **Evidence:** `docs/architecture/WAVE03-SERVICE-ACCOUNTS-AND-SECRETS.md`, `core/service_accounts.go`, `tests/e2e/service_accounts_test.go` (`TestServiceAccounts_LifecycleAndKeyRotation`, `TestServiceAccounts_ExpirationAndScopes`, `TestServiceAccounts_TenantIsolation`).
+- [x] **W03-07 / P2 / ADV** — Passkeys and enterprise SSO as separately approved optional capabilities. **Evidence:** `docs/architecture/WAVE03-PASSKEYS-AND-SSO.md`.
+- [x] **W03-08 / GATE / CORE** — Independent tenancy/session security certification, role switch and revocation under failure tests. **Evidence:** `docs/architecture/WAVE03-AUDIT.md`, `tests/e2e/role_switch_failure_test.go` (`TestRoleSwitch_UnsafeEscalationRejection`, `TestRoleSwitch_NoLeakageOnTransactionFailure`, `TestRevocationUnderConcurrency_InstantFailureAtT0`).
 
 ## 5. Wave 04 — Unified Data API & Developer Experience
 

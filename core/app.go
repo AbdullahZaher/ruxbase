@@ -356,6 +356,107 @@ type App interface {
 	// AuditDatabaseRoutineSecurity inspects PostgreSQL catalogs for privilege escalation or RLS bypass risks.
 	AuditDatabaseRoutineSecurity(schema string) (*RoutineSecurityAuditReport, error)
 
+	// --- Wave 03: Enterprise IAM & Multi-Tenancy ---
+
+	// EnsureIAMSystemTables ensures that _tenants and _tenant_memberships exist with proper constraints and indexes.
+	EnsureIAMSystemTables() error
+
+	// CreateTenant creates a new organizational tenant.
+	CreateTenant(name, slug string) (*Tenant, error)
+
+	// GetTenant retrieves a tenant by its ID or unique slug.
+	GetTenant(idOrSlug string) (*Tenant, error)
+
+	// UpdateTenantStatus updates a tenant's lifecycle status (active, suspended, archived).
+	UpdateTenantStatus(id string, status TenantStatus) error
+
+	// AddTenantMember adds a user to a tenant with an assigned role.
+	AddTenantMember(tenantId, userId, role string) (*TenantMembership, error)
+
+	// UpdateTenantMemberRole updates the role assigned to a tenant member.
+	UpdateTenantMemberRole(tenantId, userId, newRole string) error
+
+	// RemoveTenantMember removes a user from a tenant.
+	RemoveTenantMember(tenantId, userId string) error
+
+	// GetTenantMembership retrieves a specific user's membership within a tenant.
+	GetTenantMembership(tenantId, userId string) (*TenantMembership, error)
+
+	// ListUserTenants lists all active tenants for a given user.
+	ListUserTenants(userId string) ([]*Tenant, error)
+
+	// ValidateTenantAccess verifies that the given principal is authorized to access the specified tenant.
+	ValidateTenantAccess(p Principal, tenantId string) error
+
+	// GenerateTenantAuthToken generates a signed JWT token bound to a user record and optional active tenant.
+	GenerateTenantAuthToken(record *Record, tenantId string, duration time.Duration) (string, error)
+
+	// VerifyTenantAuthToken verifies a JWT token and constructs an authoritative UserPrincipal with fresh database state.
+	VerifyTenantAuthToken(tokenStr string) (*UserPrincipal, *Record, error)
+
+	// RevokeUserSession rotates the user record's tokenKey, instantly invalidating all issued tokens.
+	RevokeUserSession(record *Record) error
+
+	// EnsureRBACSystemTables initializes the _roles physical table and default system roles.
+	EnsureRBACSystemTables() error
+
+	// CreateRole creates a new custom role within a tenant.
+	CreateRole(tenantId, name, description string, permissions []string) (*Role, error)
+
+	// GetRole retrieves a role by tenant ID and name.
+	GetRole(tenantId, name string) (*Role, error)
+
+	// UpdateRole updates the description and permissions of a custom role.
+	UpdateRole(tenantId, name, description string, permissions []string) error
+
+	// DeleteRole removes a custom role from a tenant. System roles cannot be deleted.
+	DeleteRole(tenantId, name string) error
+
+	// ListRoles lists all roles available for a tenant (including custom roles and system defaults).
+	ListRoles(tenantId string) ([]*Role, error)
+
+	// EvaluateAccess evaluates whether a principal is authorized to perform an action on a resource under RBAC/ABAC rules.
+	EvaluateAccess(ctx context.Context, principal Principal, resource *ResourceContext, action string) (bool, error)
+
+	// EnableTenantRLS enables and forces Row-Level Security on the specified table with tenant isolation policy.
+	EnableTenantRLS(tableName string) error
+
+	// DisableTenantRLS drops the tenant isolation policy and disables RLS on the table.
+	DisableTenantRLS(tableName string) error
+
+	// EnsureTenantCollection ensures that a collection has a tenant_id field and enforces tenant RLS on its table.
+	EnsureTenantCollection(collection *Collection) error
+
+	// ValidateTenantRelation verifies that two related records belong to the same tenant.
+	ValidateTenantRelation(sourceTenantId, targetTenantId string) error
+
+	// ValidateRecordTenant ensures that a record being saved adheres to the authorized tenant context.
+	ValidateRecordTenant(record *Record, activeTenantId string) error
+
+	// ValidateTenantFileAccess verifies that a principal is authorized to access a tenant file path.
+	ValidateTenantFileAccess(principal Principal, storagePath string) error
+
+	// FilterTenantRealtimeEvent evaluates whether a realtime event should be dispatched to a principal.
+	FilterTenantRealtimeEvent(principal Principal, eventTenantId string) bool
+
+	// EnsureServiceAccountsSystemTable initializes the _service_accounts physical table.
+	EnsureServiceAccountsSystemTable() error
+
+	// CreateServiceAccount registers a new service account and returns the one-time raw API key.
+	CreateServiceAccount(name, tenantId, description string, scopes, allowedTenants []string, expiresAt *time.Time) (*ServiceAccount, string, error)
+
+	// GetServiceAccount retrieves a service account by its ID.
+	GetServiceAccount(id string) (*ServiceAccount, error)
+
+	// RotateServiceAccountKey rotates the API key for an active service account, invalidating the previous key.
+	RotateServiceAccountKey(id string) (string, error)
+
+	// RevokeServiceAccount permanently marks a service account as revoked.
+	RevokeServiceAccount(id string) error
+
+	// AuthenticateServiceAccount validates a raw API key and constructs an authorized ServicePrincipal.
+	AuthenticateServiceAccount(rawKey, requestedTenantId string) (*ServicePrincipal, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.

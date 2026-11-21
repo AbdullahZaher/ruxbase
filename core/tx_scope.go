@@ -80,7 +80,7 @@ func RunInScopedTransactionWithContext(ctx context.Context, app App, scope Trans
 	// 2. Reject unsafe or elevated role escalation attempts
 	if role != "" {
 		lowerRole := strings.ToLower(role)
-		if lowerRole == "postgres" || lowerRole == "admin" || lowerRole == "superuser" || strings.Contains(lowerRole, "superuser") {
+		if lowerRole == "postgres" || strings.Contains(lowerRole, "admin") || strings.Contains(lowerRole, "root") || strings.Contains(lowerRole, "superuser") {
 			return fmt.Errorf("unsafe role escalation to %q is forbidden in scoped transaction", role)
 		}
 	}
