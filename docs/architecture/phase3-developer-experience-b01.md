@@ -1,6 +1,8 @@
-# Phase 3 Developer Experience — Batch 01
+# Developer Experience — Batch 01 (historical implementation record)
 
 Baseline main: `790e41f8a1c2b60428ba35e9aa3c62bfa379f223`, tree `6d9505bc5fc4b702da1acebbf1580d95903160db`. Scope is additive docs, templates, scaffold tool, independent CI and website visual presentation. No API/DB runtime changes, production role changes or release authorization.
+
+**Reconciled status (2026-11-21):** Engineering delivered and merged in [PR #32](https://github.com/AbdullahZaher/ruxbase/pull/32) on 2026-11-20. The original verification and release-boundary language below describes the candidate at the time of development, not outstanding unimplemented tasks. Batch 02 subsequently added lockfiles and a separately tested protected Next.js session example. See the [current Developer Experience status](developer-experience-status.md) before drawing readiness conclusions. This merge does not certify a production release.
 
 ## Deliverables
 
@@ -11,12 +13,12 @@ Baseline main: `790e41f8a1c2b60428ba35e9aa3c62bfa379f223`, tree `6d9505bc5fc4b70
 - Docs website monochrome: Starlight uses white/light and true-black dark surfaces, neutral accents and canonical logo variants. Brand master assets and approved artwork digests remain unchanged.
 - Public `getting-started/create-app` and React/Next tutorial pages, referenced by existing integration guides and AI topic bundles, with explicit limitations and troubleshooting.
 
-## Verification
+## Verification (original candidate criteria)
 
 A dedicated `docs-starters` workflow must compile both generated apps in their actual toolchains and boot both against a disposable root Docker Compose Ruxbase/PostgreSQL service. It provisions an exact posts schema and two ordinary users. Chromium drives login, draft creation, logout and both theme modes; API checks verify the draft remains hidden from another user and guests. Compose overlays are parsed and checked for loopback ports, private internal API target and readiness dependencies. Both overlays are then started as real frontend Docker containers; readiness, live API proxy and initial browser entrypoint are checked before their disposable volumes are deleted. No production creds or repositories are contacted. The test is destructive **only** to the ephemeral CI-owned Compose project and its named volumes.
 
 Add authored AI starter retrieval questions as a separate 6-query proxy with 5/6 minimum and zero critical failures. Preserve all earlier retrieval, build sealing, site browser, accessibility, performance and licensing gates. The lexical retrieval benchmark and deterministic generator test do not measure arbitrary model-generated application quality.
 
-## Release boundaries
+## Release boundaries (original candidate criteria)
 
 Verify Git SHA and exact tree, pass 7/7 workflows (including the new starter CI), owner review before merge, all exact-main gates after merge and reviewed manual docs-deploy. Do not publish a stable version or claim production correctness from local starter acceptance. Lockfile reproducibility may need a post-CI dependency freeze and review.

@@ -26,4 +26,4 @@ After creating the [documented posts collection](/ruxbase/integrations/example-a
 
 ## Evidence limits
 
-The Phase 3 starter workflow builds and boots a generated React project, loads the page in Chromium, exercises login and draft creation against real Ruxbase/PostgreSQL and checks that unauthorized users cannot retrieve the draft. No OAuth/MFA, production cookie session, mobile framework or external network certification is implied. Use [server-side integration](/ruxbase/integrations/server-side/) for SSR protection.
+The `docs-starters` workflow builds and boots a generated React project, loads the page in Chromium, exercises login and draft creation against real Ruxbase/PostgreSQL and checks that unauthorized users cannot retrieve the draft. No OAuth/MFA, production cookie session, mobile framework or external network certification is implied. Use [server-side integration](/ruxbase/integrations/server-side/) for SSR protection.

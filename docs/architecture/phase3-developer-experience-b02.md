@@ -1,6 +1,8 @@
-# Phase 3 — Batch 02: Production-Grade Developer Tooling
+# Developer Experience — Batch 02: Production-Grade Developer Tooling
 
 **Baseline:** main `e2ee0c2be543ce26450723e9c0c6cb789d6852bd`, Git tree `ba7e020aca937be985b89a31d3567baaf7db1db6`. Scope remains developer tooling, template authentication examples, documentation and CI. No Go service, database schema/migration or PostgreSQL authorization changes. Production deployment authorization is **not** part of this batch.
+
+**Reconciled status (2026-11-21):** Engineering delivered and merged in [PR #35](https://github.com/AbdullahZaher/ruxbase/pull/35) on 2026-11-21. The seven required post-merge workflows succeeded on `5157c50a291617a260a9c4cd203f7156adef04a3`, and the reviewed development-documentation deployment workflow succeeded for that commit. The acceptance gates below record the original candidate contract, rather than an open implementation backlog. Formal documentation milestone closeout remains a separate maintainer decision; external paid-model evaluation was not run and is not claimed. See [current Developer Experience status](developer-experience-status.md).
 
 ## Deliverables and source of truth
 
@@ -22,7 +24,7 @@
 - The required CI never calls an external paid LLM or executes untrusted model-written commands. The optional manually triggered workflow selects a real model through a secret/API variable, validates `tool/framework/name` only, and then compiles/runs the selected approved scaffold in an independent job without the model API secret. This measures bounded model tool selection and scaffold correctness, **not** arbitrary free-form source generation or generalized prompt-injection security. A real-model outcome is **NOT RUN** until the explicit dispatch succeeds.
 - All Docker/PostgreSQL tests use an isolated CI-owned project and named volumes, then delete **only their own disposable test data**. Existing source checkout, main branch and production are not modified.
 
-## Acceptance gates
+## Acceptance gates (original candidate contract)
 
 1. Exact candidate provenance (full SHA and tree); source and package-lock files preserved by Git without a workflow that can mutate the branch.
 2. `docs-starters`: offline CLI/doctor/AI-plan tests, real `npm ci` for generated React+Next, `npm audit --omit=dev --audit-level=high`, two real builds, Chromium login/theme/owner-draft isolation, Next.js protected-session negative tests and Compose container integration.

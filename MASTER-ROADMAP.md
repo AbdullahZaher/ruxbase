@@ -71,6 +71,8 @@ Target common *user journeys*, not identical component implementations or protoc
 
 ### Cross-wave work
 
+The [merged Developer Experience tooling and documentation](docs/architecture/developer-experience-status.md) provide React/Next.js starters, a repository-scoped scaffolding CLI, Compose examples and tested onboarding. This is an engineering-complete **documentation/tooling stream**, not an acceptance of Wave 04's full API, SDK, SQL-first or release gates. Keep Wave 04 scope and checklist IDs intact.
+
 Security, tests, operations, performance measurements, user documentation, upgrade safety and developer experience are continuous requirements. Wave 08 and Wave 11 **assemble and certify** these capabilities; they do not defer essential risk prevention until late in development. P0 security defects block exposure of affected APIs regardless of scheduled wave.
 
 ## 4. Wave-by-wave engineering contracts

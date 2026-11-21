@@ -49,6 +49,8 @@ node scripts/create-ruxbase-app.mjs nextjs my-next-app
 
 Start Ruxbase first using the above Docker Compose Quickstart, then run `npm ci && npm run dev` in the generated project. The starter source is in `starters/react/` and `starters/nextjs/` with Compose overlays for in-repository development. Both use the SDK as an ordinary user and the approved monochrome Ruxbase identity. The templates and generator are development examples, not certified production applications.
 
+Developer tooling delivery and exact-commit verification are documented in the [Developer Experience status report](docs/architecture/developer-experience-status.md). This completed documentation/tooling scope does not certify the broader Wave 04 milestone or a production release.
+
 ## What is Ruxbase?
 
 Ruxbase is an independent, open-source backend platform based on

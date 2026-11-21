@@ -24,4 +24,4 @@ Create the [posts schema and rules](/ruxbase/integrations/example-app/) and two 
 
 ## Security and evidence
 
-The Phase 3 CI launches and tests the actual Next.js toolchain and proxy against the Ruxbase API, with browser interaction and separate-user rule checks. It does **not** certify CSRF, concurrent authenticated server route handlers, cookie refresh, OAuth, production CDN caching or MFA. For protected SSR behavior use [request-scoped sessions](/ruxbase/integrations/server-side/) and app-specific CSRF protections.
+The `docs-starters` CI launches and tests the actual Next.js toolchain and proxy against the Ruxbase API, with browser interaction and separate-user rule checks. It does **not** certify CSRF, concurrent authenticated server route handlers, cookie refresh, OAuth, production CDN caching or MFA. For protected SSR behavior use [request-scoped sessions](/ruxbase/integrations/server-side/) and app-specific CSRF protections.
