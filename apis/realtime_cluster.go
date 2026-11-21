@@ -175,8 +175,9 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterCreateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
-				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+			if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+				realtimeStoreHookEvent(e.App, "create", collection.Id, fmt.Sprint(e.Model.PK()))
+				if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("create", collection, e.Model.PK()))
 				}
 			}
@@ -187,8 +188,9 @@ func bindRealtimeClusterEvents(app core.App) {
 
 	app.OnModelAfterUpdateSuccess().Bind(&hook.Handler[*core.ModelEvent]{
 		Func: func(e *core.ModelEvent) error {
-			if app.Cluster().Enabled() && !realtimeFromReplication(app) {
-				if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+			if collection := realtimeResolveRecordCollection(e.App, e.Model); collection != nil {
+				realtimeStoreHookEvent(e.App, "update", collection.Id, fmt.Sprint(e.Model.PK()))
+				if app.Cluster().Enabled() && !realtimeFromReplication(app) {
 					notify(clusterTopicRealtimeRecord, realtimeRecordPayload("update", collection, e.Model.PK()))
 				}
 			}
@@ -322,6 +324,26 @@ func realtimeRecordSnapshot(app core.App, collection *core.Collection, pk any) (
 	)).Bind(dbx.Params{"id": fmt.Sprint(pk)}).Row(&snapshot)
 
 	return snapshot, err
+}
+
+// realtimeStoreHookEvent records an event in _realtime_events for cursor-based replay.
+func realtimeStoreHookEvent(app core.App, op string, collectionId string, recordId string) string {
+	eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
+	_, err := app.DB().NewQuery(`
+		INSERT INTO {{_realtime_events}} ([[id]], [[source]], [[op]], [[collection_id]], [[record_id]])
+		VALUES ({:id}, {:source}, {:op}, {:collectionId}, {:recordId})
+		ON CONFLICT ([[id]]) DO NOTHING
+	`).Bind(dbx.Params{
+		"id":           eventId,
+		"source":       realtimeSourceHooks,
+		"op":           op,
+		"collectionId": collectionId,
+		"recordId":     recordId,
+	}).Execute()
+	if err != nil {
+		app.Logger().Warn("Failed to store realtime hook event", slog.String("error", err.Error()))
+	}
+	return eventId
 }
 
 // realtimeStoreDeleteEvent stores the deleted record snapshot and returns the new event id.

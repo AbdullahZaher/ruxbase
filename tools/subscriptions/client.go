@@ -88,12 +88,15 @@ type DefaultClient struct {
 	isDiscarded   bool
 }
 
+// DefaultChannelBufferSize is the buffer capacity for a client's message channel.
+const DefaultChannelBufferSize = 256
+
 // NewDefaultClient creates and returns a new DefaultClient instance.
 func NewDefaultClient() *DefaultClient {
 	return &DefaultClient{
 		id:            security.RandomString(40),
 		store:         map[string]any{},
-		channel:       make(chan Message),
+		channel:       make(chan Message, DefaultChannelBufferSize),
 		subscriptions: map[string]SubscriptionOptions{},
 	}
 }
@@ -298,5 +301,10 @@ func (c *DefaultClient) Send(m Message) {
 		recover()
 	}()
 
-	c.channel <- m
+	select {
+	case c.channel <- m:
+	default:
+		// slow consumer backpressure: channel buffer is full, discard client cleanly
+		c.Discard()
+	}
 }

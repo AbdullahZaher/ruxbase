@@ -16,9 +16,11 @@ import (
 	"github.com/AbdullahZaher/ruxbase/tools/router"
 	"github.com/AbdullahZaher/ruxbase/tools/routine"
 	"github.com/AbdullahZaher/ruxbase/tools/search"
+	"github.com/AbdullahZaher/ruxbase/tools/security"
 	"github.com/AbdullahZaher/ruxbase/tools/subscriptions"
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/spf13/cast"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -114,6 +116,15 @@ func realtimeConnect(e *core.RequestEvent) error {
 				slog.String("error", connectMsgErr.Error()),
 			)
 			return nil
+		}
+
+		// ruxbase: handle Last-Event-ID / cursor replay and resync
+		lastEventId := ce.Request.Header.Get("Last-Event-ID")
+		if lastEventId == "" {
+			lastEventId = ce.Request.URL.Query().Get("lastEventId")
+		}
+		if lastEventId != "" {
+			realtimeHandleReconnectCursor(ce, lastEventId)
 		}
 
 		// start a max lifetime timer to prevent accumulating too much
@@ -875,7 +886,9 @@ func realtimeBroadcastRecordWithAccessCheck(
 							continue
 						}
 
+						eventId := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), security.RandomString(10))
 						msg := subscriptions.Message{
+							Id:   eventId,
 							Name: sub,
 							Data: dataBytes,
 						}
@@ -1031,4 +1044,82 @@ func realtimeCanAccessRecord(
 	err = q.Limit(1).Row(&exists)
 
 	return err == nil && exists > 0
+}
+
+// realtimeHandleReconnectCursor handles cursor replay or resync notification for reconnecting clients.
+func realtimeHandleReconnectCursor(ce *core.RealtimeConnectRequestEvent, lastEventId string) {
+	parts := strings.Split(lastEventId, "_")
+	var isExpired bool
+	var cursorTime time.Time
+	if len(parts) >= 2 {
+		ts, err := cast.ToInt64E(parts[0])
+		if err == nil && ts > 0 {
+			cursorTime = time.UnixMilli(ts)
+			if time.Since(cursorTime) > 5*time.Minute {
+				isExpired = true
+			}
+		}
+	} else if lastEventId == "expired" || strings.HasPrefix(lastEventId, "expired_") {
+		isExpired = true
+	}
+
+	if isExpired {
+		resyncMsg := &subscriptions.Message{
+			Name: "PB_RESYNC_REQUIRED",
+			Data: []byte(`{"code":"cursor_expired","message":"The event cursor is older than the 5-minute replay retention window; full collection resync required."}`),
+		}
+		_ = resyncMsg.WriteSSE(ce.Response, ce.Client.Id())
+		_ = ce.Flush()
+		return
+	}
+
+	// If within window, attempt bounded replay of missed events from _realtime_events
+	if !cursorTime.IsZero() {
+		type storedEvent struct {
+			Id           string `db:"id"`
+			Op           string `db:"op"`
+			CollectionId string `db:"collection_id"`
+			RecordId     string `db:"record_id"`
+			Snapshot     string `db:"snapshot"`
+		}
+		var events []storedEvent
+		err := ce.App.ConcurrentDB().NewQuery(`
+			SELECT [[id]], [[op]], [[collection_id]], [[record_id]], coalesce([[snapshot]]::text, '') AS [[snapshot]]
+			FROM {{_realtime_events}}
+			WHERE [[created]] > {:cursorTime}
+			ORDER BY [[created]] ASC
+			LIMIT 100
+		`).Bind(dbx.Params{"cursorTime": cursorTime.UTC().Format("2006-01-02 15:04:05.000000Z07:00")}).All(&events)
+		if err != nil {
+			ce.App.Logger().Warn("Failed to query replay events", slog.String("error", err.Error()))
+		}
+
+		for _, ev := range events {
+			col, err := ce.App.FindCachedCollectionByNameOrId(ev.CollectionId)
+			if err != nil || col == nil {
+				continue
+			}
+			var rec *core.Record
+			if ev.Op == "delete" {
+				rec = core.NewRecord(col)
+				rec.Id = ev.RecordId
+			} else {
+				rec, _ = ce.App.FindRecordById(col, ev.RecordId)
+			}
+			if rec == nil {
+				continue
+			}
+			dataBytes, err := json.Marshal(&recordData{Action: ev.Op, Record: rec})
+			if err != nil {
+				continue
+			}
+			replayedMsg := &subscriptions.Message{
+				Id:   ev.Id,
+				Name: col.Name + "/*",
+				Data: dataBytes,
+			}
+			_ = replayedMsg.WriteSSE(ce.Response, ev.Id)
+			_ = ce.Flush()
+		}
+	}
 }
