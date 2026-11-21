@@ -13,6 +13,7 @@
 # BENCH_RATE (20), BENCH_BASE_IMAGE and BENCH_POSTGRES_IMAGE (image overrides),
 # BENCH_POSTGRES_CPUS and BENCH_RUNNER_CPUS (4 each by default),
 # BENCH_PROJECT_NAME (ruxbase-bench; use a dedicated project for isolated runs),
+# BENCH_RESULTS_DIR (results relative to bench/, or an absolute directory),
 # BENCH_KEEP (keep the services running), BENCH_TARGETS ("pocketbase ruxbase ruxbase-3-nodes").
 
 set -euo pipefail
@@ -34,8 +35,10 @@ PROJECT="${BENCH_PROJECT_NAME:-ruxbase-bench}"
 EMAIL="bench@example.com"
 PASSWORD="bench-password-123"
 
-mkdir -p .bin results
-RESULTS="results/$(date -u +%Y%m%d-%H%M%S).jsonl"
+results_dir="${BENCH_RESULTS_DIR:-results}"
+mkdir -p .bin "$results_dir"
+results_dir="$(cd "$results_dir" && pwd -P)"
+RESULTS="$results_dir/$(date -u +%Y%m%d-%H%M%S).jsonl"
 RESOURCES="${RESULTS%.jsonl}.resources.jsonl"
 ENVIRONMENT="${RESULTS%.jsonl}.environment.txt"
 
@@ -259,7 +262,7 @@ run_target "ruxbase" "http://ruxbase:8090" ruxbase
 # the load generator spreads the requests over the 3 nodes (client side load balancing)
 run_target "ruxbase-3-nodes" "http://node1:8090,http://node2:8090,http://node3:8090" node1 node2 node3
 
-echo "== results: bench/$RESULTS"
-echo "== resource samples: bench/$RESOURCES"
-echo "== environment and workload: bench/$ENVIRONMENT"
+echo "== results: $RESULTS"
+echo "== resource samples: $RESOURCES"
+echo "== environment and workload: $ENVIRONMENT"
 bench -scenario report -in /dev/stdin < "$RESULTS"
