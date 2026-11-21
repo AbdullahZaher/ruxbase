@@ -113,6 +113,9 @@ type App interface {
 	// Presence returns the ephemeral presence manager instance.
 	Presence() *PresenceManager
 
+	// Jobs returns the durable background jobs manager instance.
+	Jobs() *JobsManager
+
 	// ruxbase: the cluster of the app instances (nodes) and the RLS strict mode
 	// Cluster returns the app cluster instance used to coordinate
 	// the app instances (nodes) that share the same database.

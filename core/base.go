@@ -179,6 +179,7 @@ type BaseApp struct {
 	settings            *Settings
 	subscriptionsBroker *subscriptions.Broker
 	presence            *PresenceManager
+	jobs                *JobsManager
 	// ruxbase: the cluster and the main Postgres pool
 	cluster             *cluster.Cluster
 	dataDB              dbx.Builder          // the main data pool (it is not replaced in the transaction app clones)
@@ -867,6 +868,21 @@ func (app *BaseApp) SubscriptionsBroker() *subscriptions.Broker {
 // Presence returns the ephemeral presence manager instance.
 func (app *BaseApp) Presence() *PresenceManager {
 	return app.presence
+}
+
+// Jobs returns the durable background jobs manager instance.
+func (app *BaseApp) Jobs() *JobsManager {
+	if app.jobs == nil {
+		app.jobs = NewJobsManager(app)
+	}
+	if app.txInfo != nil {
+		return &JobsManager{
+			app:        app,
+			handlers:   app.jobs.handlers,
+			httpClient: app.jobs.httpClient,
+		}
+	}
+	return app.jobs
 }
 
 // NewMailClient creates and returns a new SMTP or Sendmail client
