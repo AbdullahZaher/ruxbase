@@ -397,6 +397,27 @@ type App interface {
 	// RevokeUserSession rotates the user record's tokenKey, instantly invalidating all issued tokens.
 	RevokeUserSession(record *Record) error
 
+	// EnsureRBACSystemTables initializes the _roles physical table and default system roles.
+	EnsureRBACSystemTables() error
+
+	// CreateRole creates a new custom role within a tenant.
+	CreateRole(tenantId, name, description string, permissions []string) (*Role, error)
+
+	// GetRole retrieves a role by tenant ID and name.
+	GetRole(tenantId, name string) (*Role, error)
+
+	// UpdateRole updates the description and permissions of a custom role.
+	UpdateRole(tenantId, name, description string, permissions []string) error
+
+	// DeleteRole removes a custom role from a tenant. System roles cannot be deleted.
+	DeleteRole(tenantId, name string) error
+
+	// ListRoles lists all roles available for a tenant (including custom roles and system defaults).
+	ListRoles(tenantId string) ([]*Role, error)
+
+	// EvaluateAccess evaluates whether a principal is authorized to perform an action on a resource under RBAC/ABAC rules.
+	EvaluateAccess(ctx context.Context, principal Principal, resource *ResourceContext, action string) (bool, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
