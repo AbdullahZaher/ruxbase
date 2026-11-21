@@ -22,7 +22,7 @@
     }
   ],
   "acceptance": [
-    "Both outputs npm-installable and framework-buildable",
+    "Both outputs npm-ci-installable with committed package-lock.json and framework-buildable",
     "Both serve health via trusted same-origin /api proxy",
     "Browser renders white/black brand and true black night background",
     "Two user sessions cannot access another user's unpublished post",
@@ -31,7 +31,9 @@
   "sources": [
     "docs/public/getting-started/create-app.md",
     "docs/public/integrations/example-app.md",
-    "docs/public/integrations/server-side.md"
+    "docs/public/integrations/server-side.md",
+    "docs/public/getting-started/developer-tooling.md",
+    "docs/public/tutorials/nextjs-protected-sessions.md"
   ],
-  "limitations": "Deterministic executable scaffolding benchmark; not an independent LLM model quality evaluation."
+  "limitations": "Deterministic executable scaffolding and two-user security acceptance; separate opt-in real-model tool-choice benchmark in starters/ai-model-tasks.json is not automatically executed. No arbitrary model source is run."
 }

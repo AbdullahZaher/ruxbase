@@ -4,9 +4,10 @@ services:
   nextjs:
     image: node:25.2.1-bookworm-slim
     working_dir: /workspace
-    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev"]
     environment:
       RUXBASE_INTERNAL_URL: http://ruxbase:8090
+      RUXBASE_APP_ORIGIN: http://127.0.0.1:3000
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
       - ./starters/nextjs:/workspace

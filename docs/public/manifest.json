@@ -204,6 +204,14 @@
     {
       "source": "docs/public/tutorials/starter-nextjs.md",
       "target": "tutorials/starter-nextjs.md"
+    },
+    {
+      "source": "docs/public/getting-started/developer-tooling.md",
+      "target": "getting-started/developer-tooling.md"
+    },
+    {
+      "source": "docs/public/tutorials/nextjs-protected-sessions.md",
+      "target": "tutorials/nextjs-protected-sessions.md"
     }
   ]
 }
