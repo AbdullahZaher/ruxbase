@@ -36,6 +36,10 @@ All applicable inherited copyright and license notices must be retained.
 - The server embeds the Remix Icon 4.6.0 font. Its Apache 2.0 license is in
   `THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE`, copied from the npm package
   whose font matches the embedded file. [Remix Icon package](https://www.npmjs.com/package/remixicon/v/4.6.0)
+- The server embeds TinyMCE 6.8.6 editor assets. Its MIT license and upstream
+  third-party notices are in `THIRD-PARTY-LICENSES/tinymce/6.8.6/`, copied from
+  the [TinyMCE npm package](https://www.npmjs.com/package/tinymce/v/6.8.6).
+  The inherited TinyMCE distribution includes modified assets.
 - The standalone importer links `modernc.org/sqlite` v1.60.1. Its BSD 3-Clause
   license and upstream third-party notices are in
   `THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/`, copied from the pinned Go

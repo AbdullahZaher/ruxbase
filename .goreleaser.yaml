@@ -71,6 +71,8 @@ archives:
       - NOTICE.md
       - CHANGELOG.md
       - THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE
+      - THIRD-PARTY-LICENSES/tinymce/6.8.6/license.txt
+      - THIRD-PARTY-LICENSES/tinymce/6.8.6/notices.txt
 
   - id: archive_import
     ids: [build_import]
