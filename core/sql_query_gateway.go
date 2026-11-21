@@ -136,7 +136,7 @@ func (app *BaseApp) QueryExposedTable(principal Principal, tableName string, que
 
 		// Build SELECT query
 		sb := strings.Builder{}
-		sb.WriteString(fmt.Sprintf("SELECT * FROM %s", quotedTable))
+		fmt.Fprintf(&sb, "SELECT * FROM %s", quotedTable)
 
 		// Apply safe sorting
 		if queryParams.Sort != "" {
@@ -162,7 +162,7 @@ func (app *BaseApp) QueryExposedTable(principal Principal, tableName string, que
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf(" LIMIT %d OFFSET %d", perPage, offset))
+		fmt.Fprintf(&sb, " LIMIT %d OFFSET %d", perPage, offset)
 
 		rows, err := txApp.DB().NewQuery(sb.String()).Rows()
 		if err != nil {
