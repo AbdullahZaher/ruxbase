@@ -35,9 +35,9 @@ maintainer review.
 Run `python3 scripts/upstream_inventory.py --output evidence/upstream-inventory.json`
 to verify the official reference tag and commit, compare tree entries with the
 current committed Ruxbase HEAD, and identify newer stable-shaped tags. The
-inventory workflow runs on relevant pull requests, manually and weekly once
-merged into the default branch. Its evidence artifact lists every path and
-comparison status. The script uses a temporary repository and never checks out
+inventory workflow runs on relevant pull requests, manually and weekly. Its
+evidence artifact lists every path and comparison status, with separate groups
+for inherited Go annotation review and tracked license and dependency files. The script uses a temporary repository and never checks out
 or executes upstream code or publishes branches. It neither restores ancestry
 nor certifies compatibility. Candidate tags must be checked against official
 release notes and reviewed before any integration. Rename detection, source
