@@ -207,7 +207,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 ## 5. Wave 04 — Unified Data API & Developer Experience
 
 - [x] **W04-01 / P0 / CORE** — One normalized authorization and error contract for Collections-first and SQL-first REST. **Evidence:** `docs/architecture/WAVE04-NORMALIZED-API-CONTRACT.md`, `apis/error_normalizer.go`, `apis/middlewares.go`, `tests/e2e/api_error_normalizer_test.go` (`TestAPIError_DomainMappings`, `TestAPIError_SQLSTATEMappings`, `TestAPIError_CredentialSanitization`, `TestAPIError_ServiceAccountPrincipalResolution`).
-- [ ] **W04-02 / P1 / CORE** — Explicit SQL API exposure, authorized RPC, filter/sort/pagination semantics and bounded bulk operations.
+- [x] **W04-02 / P1 / CORE** — Explicit SQL API exposure, authorized RPC, filter/sort/pagination semantics and bounded bulk operations. **Evidence:** `docs/architecture/WAVE04-SQL-API-AND-BULK-OPS.md`, `core/sql_query_gateway.go`, `core/table_exposure.go`, `apis/sql_table_gateway.go`, `apis/sql_rpc.go`, `tests/e2e/sql_query_gateway_test.go` (`TestSQLQueryGateway_ExposedTableQueries`, `TestSQLQueryGateway_BoundedBulkOperations`, `TestSQLQueryGateway_TenantIsolation`).
 - [ ] **W04-03 / P1 / CORE** — Tested OpenAPI and machine-readable contract coverage; no undocumented privilege exposure.
 - [ ] **W04-04 / P1 / CORE** — CLI for init, dev, migration, check, deploy guidance and safe project configuration.
 - [ ] **W04-05 / P1 / CORE** — Typed SDKs and compatibility tests for supported PocketBase clients.
