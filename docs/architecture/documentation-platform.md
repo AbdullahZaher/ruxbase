@@ -1,6 +1,6 @@
 # Ruxbase documentation platform — implementation plan v1.1
 
-Status: approved for implementation by the project owner; publication gates open.
+Status: historical implementation plan. Development documentation was published on 2026-11-20; the later Developer Experience batches have been merged. See [current publishing status](documentation-publishing.md) and [Developer Experience engineering status](developer-experience-status.md). The checkpoint narratives below remain historical evidence, not the current open-task list.
 Baseline: 0de513e09c35763f2e1814f4b99e8f42d955753c (tree 57dba8a3da1d5041877763af7157ef9992a06cd2).
 Integration: `chore/documentation-platform` → `main` via reviewed PR, per [branch strategy](../BRANCH-STRATEGY.md). No production release authorization is implied.
 
