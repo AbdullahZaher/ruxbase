@@ -196,6 +196,21 @@ func loadAuthToken() *hook.Handler[*core.RequestEvent] {
 				return e.Next()
 			}
 
+			// Service Account API Key authentication (rx_svc_...)
+			if strings.HasPrefix(token, core.ServiceApiKeyPrefixHeader) {
+				reqTenant := e.Request.Header.Get("X-Tenant-Id")
+				if reqTenant == "" {
+					reqTenant = e.Request.URL.Query().Get("tenant")
+				}
+				sp, err := e.App.AuthenticateServiceAccount(token, reqTenant)
+				if err == nil && sp != nil {
+					e.Set("principal", sp)
+				} else {
+					e.App.Logger().Debug("service account auth failure", "error", err)
+				}
+				return e.Next()
+			}
+
 			record, err := e.App.FindAuthRecordByToken(token, core.TokenTypeAuth)
 			if err != nil {
 				e.App.Logger().Debug("loadAuthToken failure", "error", err)

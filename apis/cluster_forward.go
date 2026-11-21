@@ -214,6 +214,7 @@ func bindClusterForwarding(app core.App, pbRouter *router.Router[*core.RequestEv
 	apiGroup := pbRouter.Group("/api")
 	bindTableIntrospection(app, apiGroup)
 	bindSQLRPC(app, apiGroup)
+	bindSQLTableGateway(app, apiGroup)
 
 	var muxOnce sync.Once
 	var mux http.Handler

@@ -256,3 +256,33 @@ func (app *BaseApp) ExposeNativeTable(opts ExposeTableOptions) (*Collection, err
 
 	return collection, nil
 }
+
+// TableExposureInfo contains exposure status and access rules for a table.
+type TableExposureInfo struct {
+	TableName  string  `json:"tableName"`
+	IsExposed  bool    `json:"isExposed"`
+	AccessRule *string `json:"accessRule,omitempty"`
+	CreateRule *string `json:"createRule,omitempty"`
+	UpdateRule *string `json:"updateRule,omitempty"`
+	DeleteRule *string `json:"deleteRule,omitempty"`
+}
+
+// GetTableExposure retrieves the exposure status and access rules for a table.
+func (app *BaseApp) GetTableExposure(tableName string) (*TableExposureInfo, error) {
+	col, err := app.FindCollectionByNameOrId(tableName)
+	if err != nil || col == nil {
+		return &TableExposureInfo{
+			TableName: tableName,
+			IsExposed: false,
+		}, nil
+	}
+
+	return &TableExposureInfo{
+		TableName:  col.Name,
+		IsExposed:  true,
+		AccessRule: col.ListRule,
+		CreateRule: col.CreateRule,
+		UpdateRule: col.UpdateRule,
+		DeleteRule: col.DeleteRule,
+	}, nil
+}

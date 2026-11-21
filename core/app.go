@@ -457,6 +457,18 @@ type App interface {
 	// AuthenticateServiceAccount validates a raw API key and constructs an authorized ServicePrincipal.
 	AuthenticateServiceAccount(rawKey, requestedTenantId string) (*ServicePrincipal, error)
 
+	// GetTableExposure retrieves the exposure status and access rules for a table.
+	GetTableExposure(tableName string) (*TableExposureInfo, error)
+
+	// QueryExposedTable performs a safe, paginated, RLS-governed query against an exposed native table.
+	QueryExposedTable(principal Principal, tableName string, queryParams TableQueryParams) (*TablePaginatedResult, error)
+
+	// BulkInsertExposedTable performs a bounded, atomic multi-row insert into an exposed native table.
+	BulkInsertExposedTable(principal Principal, tableName string, rows []map[string]any) (*BulkResult, error)
+
+	// BulkDeleteExposedTable performs a bounded, atomic multi-row deletion on an exposed native table.
+	BulkDeleteExposedTable(principal Principal, tableName string, ids []string) (*BulkResult, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.

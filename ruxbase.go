@@ -169,6 +169,9 @@ func (pb *PocketBase) Start() error {
 	pb.RootCmd.AddCommand(cmd.NewSuperuserCommand(pb))
 	pb.RootCmd.AddCommand(cmd.NewServeCommand(pb, !pb.hideStartBanner))
 	pb.RootCmd.AddCommand(cmd.NewRestoreCommand(pb))
+	pb.RootCmd.AddCommand(cmd.NewCheckCommand(pb))
+	pb.RootCmd.AddCommand(cmd.NewDeployCommand(pb))
+	pb.RootCmd.AddCommand(cmd.NewInitCommand(pb))
 	pb.RootCmd.AddCommand(newDevCommand(pb))
 
 	return pb.Execute()
@@ -303,8 +306,8 @@ func (pb *PocketBase) skipBootstrap() bool {
 		return true // already bootstrapped
 	}
 
-	// ruxbase: the dev commands don't need the database
-	if isDevCommand(pb.RootCmd) {
+	// ruxbase: the dev, deploy, and init commands don't need the database
+	if isOfflineCommand(pb.RootCmd) {
 		return true
 	}
 
@@ -354,4 +357,22 @@ type nopWrite struct{}
 
 func (w *nopWrite) Write(p []byte) (n int, err error) {
 	return
+}
+
+// isOfflineCommand reports whether the command to execute is an offline command
+// (dev, deploy, init) that does not require database bootstrap.
+func isOfflineCommand(root *cobra.Command) bool {
+	if isDevCommand(root) {
+		return true
+	}
+	command, _, err := root.Find(os.Args[1:])
+	if err != nil {
+		return false
+	}
+	for c := command; c != nil; c = c.Parent() {
+		if (c.Name() == "deploy" || c.Name() == "init") && c.Parent() == root {
+			return true
+		}
+	}
+	return false
 }
