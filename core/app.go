@@ -290,6 +290,9 @@ type App interface {
 	// ExposeNativeTable registers an existing native PostgreSQL table as an exposed Collection.
 	ExposeNativeTable(opts ExposeTableOptions) (*Collection, error)
 
+	// FindRecordByCompositeKey searches for a single record in the specified collection matching all composite key pairs.
+	FindRecordByCompositeKey(collectionNameOrId string, keys map[string]any) (*Record, error)
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
