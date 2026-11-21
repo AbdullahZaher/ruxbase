@@ -53,8 +53,6 @@ func TestRealtime_DuplicateEventFilteringAcrossFailover(t *testing.T) {
 }
 
 func TestRealtime_ClusterListenReconnectUnderDisconnect(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)
@@ -134,8 +132,6 @@ func TestRealtime_ClusterListenReconnectUnderDisconnect(t *testing.T) {
 }
 
 func TestRealtime_AdvisoryLockLeaderHandover(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)
@@ -205,8 +201,6 @@ func TestRealtime_AdvisoryLockLeaderHandover(t *testing.T) {
 }
 
 func TestRealtime_EventFilteringByTopicAndNode(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)

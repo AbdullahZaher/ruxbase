@@ -17,8 +17,6 @@ import (
 )
 
 func TestRealtime_ReconnectWithValidCursorReplaysEvents(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)
@@ -108,8 +106,6 @@ func TestRealtime_ReconnectWithValidCursorReplaysEvents(t *testing.T) {
 }
 
 func TestRealtime_ReconnectWithExpiredCursorEmitsResyncRequired(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)
@@ -206,8 +202,6 @@ func TestRealtime_BackpressureDisconnectsSlowConsumer(t *testing.T) {
 }
 
 func TestRealtime_MonotonicEventIdAssigned(t *testing.T) {
-	t.Parallel()
-
 	testDB, err := tests.NewFixturesTestDatabase()
 	if err != nil {
 		t.Fatal(err)
