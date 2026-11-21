@@ -5,6 +5,7 @@ import { pageApplicationSettings } from "@/settings/application/pageApplicationS
 import { pageBackupsSettings } from "@/settings/backups/pageBackupsSettings";
 import { pageCronsSettings } from "@/settings/crons/pageCronsSettings";
 import { pageMailSettings } from "@/settings/mail/pageMailSettings";
+import { pageOperations } from "@/settings/operations/pageOperations";
 import { pageSQLConsole } from "@/settings/sql/pageSQLConsole";
 import { pageStorageSettings } from "@/settings/storage/pageStorageSettings";
 import { pageExportCollections } from "@/settings/sync/pageExportCollections";
@@ -172,3 +173,4 @@ app.routes.superuserOnly("#/settings/crons", pageCronsSettings);
 app.routes.superuserOnly("#/settings/export-collections", pageExportCollections);
 app.routes.superuserOnly("#/settings/import-collections", pageImportCollections);
 app.routes.superuserOnly("#/settings/sql", pageSQLConsole);
+app.routes.superuserOnly("#/settings/operations", pageOperations);

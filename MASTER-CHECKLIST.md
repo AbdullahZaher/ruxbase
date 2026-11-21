@@ -260,12 +260,12 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 10. Wave 09 — Control Plane & Ruxbase Studio
 
-- [ ] **W09-01 / P1 / CORE** — Extend embedded Studio to manage PostgreSQL, collections, auth, policies and file storage safely.
-- [ ] **W09-02 / P1 / CORE** — Secure operational views for migrations, backup health, jobs and diagnostics.
-- [ ] **W09-03 / P0 / CORE** — Protect administrative endpoints/actions and audit sensitive changes.
-- [ ] **W09-04 / P2 / ADV** — Optional self-hosted multi-project control plane and deployment inventory.
-- [ ] **W09-05 / P2 / ADV** — Separate project DB/roles/secrets, quotas and environment lifecycle; never weaken single-project isolation.
-- [ ] **W09-06 / GATE / CORE** — Admin journey, RBAC, access-control abuse and deployment profile tests; no mandatory control plane.
+- [x] **W09-01 / P1 / CORE** — Extend embedded Studio to manage PostgreSQL, collections, auth, policies and file storage safely. **Evidence:** `ui/src/settings/operations/pageOperations.js`, `ui/src/router.js`, `ui/src/store.js`, `ui/dist/`.
+- [x] **W09-02 / P1 / CORE** — Secure operational views for migrations, backup health, jobs and diagnostics. **Evidence:** `core/control_plane.go` (`GetStudioOverview`), `apis/studio_control_plane.go`, `tests/e2e/studio_control_plane_test.go` (`TestStudio_OperationalOverviewDeadJobReplayAndAuditTrail`).
+- [x] **W09-03 / P0 / CORE** — Protect administrative endpoints/actions and audit sensitive changes. **Evidence:** `apis/studio_control_plane.go` (`RequireSuperuserAuth`), `core/control_plane.go` (`RecordAdminAudit`), `tests/e2e/studio_control_plane_test.go` (`TestStudio_RBACProtectionAndAccessControlAbuse`).
+- [x] **W09-04 / P2 / ADV** — Optional self-hosted multi-project control plane and deployment inventory. **Evidence:** `migrations/1761900000_ruxbase_control_plane.go`, `core/control_plane.go`, `apis/studio_control_plane.go`.
+- [x] **W09-05 / P2 / ADV** — Separate project DB/roles/secrets, quotas and environment lifecycle; never weaken single-project isolation. **Evidence:** `core/control_plane.go` (`CreateControlPlaneProject`, `UpdateControlPlaneProjectStatus`), `tests/e2e/studio_control_plane_test.go` (`TestControlPlane_ProjectIsolationAndPrivilegedRoleRejection`).
+- [x] **W09-06 / GATE / CORE** — Admin journey, RBAC, access-control abuse and deployment profile tests; no mandatory control plane. **Evidence:** `docs/architecture/WAVE09-AUDIT.md`, `tests/e2e/studio_control_plane_test.go` (3/3 passing), `ui/dist/` rebuilt via `npm --prefix ui run build`, certified by A11.
 
 ## 11. Wave 10 — AI-Native Platform & Plugin Ecosystem
 

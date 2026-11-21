@@ -121,6 +121,11 @@ window.app.store = store({
                 icon: "ri-terminal-box-line",
                 label: "SQL console",
             },
+            {
+                href: "#/settings/operations",
+                icon: "ri-pulse-line",
+                label: "Operations & Studio",
+            },
         ],
     },
 
