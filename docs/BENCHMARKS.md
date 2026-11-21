@@ -27,10 +27,21 @@ BENCH_TARGETS=ruxbase BENCH_DURATION=8s BENCH_CONCURRENCY=8 \
 ```
 
 Run only against the disposable benchmark Compose project; its setup and
-cleanup delete benchmark containers and volumes. Do not reuse production data.
+cleanup delete benchmark containers and volumes. Set `BENCH_PROJECT_NAME` to a
+dedicated project name when running in a shared Docker environment. Do not reuse
+production data.
 The `benchmark baseline` workflow executes this bounded workload, checks fresh
-JSON output, zero request errors, delivery counts and resource samples, and
-uploads the environment and measurement artifacts.
+JSON output, zero request errors, delivery counts, resource samples, and source
+and image provenance. It uploads the environment and measurement artifacts.
+
+The benchmark Compose file pins the default Debian and PostgreSQL 18 image
+digests. Use Go 1.27.4 to reproduce the CI profile. To repeat the same workload on
+PostgreSQL 17, also set
+`BENCH_POSTGRES_IMAGE=pgvector/pgvector:0.8.7-pg17-trixie@sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7`.
+The companion `*.environment.txt` records the source commit and tree, source
+cleanliness, workload inputs, tool versions, actual container images and
+CPU/memory ceilings, and the server's effective PostgreSQL settings. Preserve
+it alongside the workload and resource data.
 
 The companion `*.resources.jsonl` records one Docker CPU/memory sample per
 container at idle and during each workload. PostgreSQL is included when

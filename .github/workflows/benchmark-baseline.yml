@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: '1.27.x'
+          go-version: '1.27.4'
       - name: Record environment
         run: |
           mkdir -p bench/results
@@ -51,6 +51,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          import re
+          import subprocess
           from pathlib import Path
           root = Path("bench/results")
           start = (root / ".ci-start").stat().st_mtime
@@ -58,6 +60,23 @@ jobs:
           results = [p for p in files if not p.name.endswith(".resources.jsonl")]
           samples = [p for p in files if p.name.endswith(".resources.jsonl")]
           assert len(results) == len(samples) == 1, (results, samples)
+          profile = results[0].with_suffix(".environment.txt")
+          assert profile.stat().st_mtime >= start
+          profile_lines = profile.read_text().splitlines()
+          for name, ref in (("sourceCommit", "HEAD"), ("sourceTree", "HEAD^{tree}")):
+              expected = subprocess.check_output(["git", "rev-parse", ref], text=True).strip()
+              assert f"{name}={expected}" in profile_lines
+          assert {
+              "sourceClean=true", "targets=ruxbase", "duration=8s", "concurrency=8",
+              "runs=1", "records=1000", "clients=20", "events=20", "rate=5",
+              "wal_level=logical", "shared_buffers=1GB",
+          }.issubset(profile_lines)
+          assert any(line.startswith("server_version=18.") for line in profile_lines)
+          containers = [line for line in profile_lines if line.startswith("container=")]
+          assert len(containers) == 3, containers
+          for line in containers:
+              assert re.search(r"image=\S+@sha256:[a-f0-9]{64} imageID=sha256:[a-f0-9]{64}", line), line
+
           def load(path):
               return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
           rows = load(results[0])
@@ -88,5 +107,6 @@ jobs:
           name: ruxbase-benchmark-smoke
           path: |
             bench/results/*.jsonl
+            bench/results/*.environment.txt
             bench/results/ci-environment.txt
           retention-days: 14
