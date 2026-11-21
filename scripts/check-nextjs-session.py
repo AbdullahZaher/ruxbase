@@ -52,7 +52,8 @@ for origin, site, typ in [(None, None, "application/json"),
                           (ORIGIN, "same-origin", "text/plain")]:
     resp = call("POST", "/api/session/login", payload, origin=origin, fetch_site=site, content_type=typ)
     assert resp[0] == 403, ("CSRF must fail closed", resp[0])
-assert call("POST", "/api/session/login", {"email": "bad", "password": "wrong"})[0] == 401
+invalid = call("POST", "/api/session/login", {"email": "absent-account@example.invalid", "password": "wrong"})
+assert invalid[0] == 401, ("Invalid credentials must be rejected after same-origin CSRF validation", invalid[0], invalid[2][:160])
 assert call("POST", "/api/session/login", {"email": ALICE["email"], "password": "x" * 9000})[0] == 400
 
 cookies = {}
