@@ -26,6 +26,7 @@ The REST API and the official PocketBase SDKs are kept compatible.
 
 PocketBase is the sole ongoing upstream for Ruxbase. The reference version is
 v0.40.6 (commit `9d281ccaba65f2686eb7b0b614ccda72d1116a1b`).
-The shared Git ancestry has not yet been established in the published branch;
-see [UPSTREAM.md](UPSTREAM.md) for the verification and integration policy.
+The reference is a verified Git ancestor of canonical `main` through
+[Ruxbase PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33).
+See [UPSTREAM.md](UPSTREAM.md) for the verification and selective-port policy.
 All applicable inherited copyright and license notices must be retained.

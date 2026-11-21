@@ -2,14 +2,18 @@
 
 ## Status and scope
 
-The sole upstream is the official PocketBase repository. The reference tag is
-v0.40.6 and its verified upstream commit is
-`9d281ccaba65f2686eb7b0b614ccda72d1116a1b`. The published Ruxbase history was
-initialized from snapshots; it does not currently establish a shared ancestor.
+The official PocketBase v0.40.6 commit
+`9d281ccaba65f2686eb7b0b614ccda72d1116a1b` became an ancestor of canonical
+`main` through [PR #33](https://github.com/AbdullahZaher/ruxbase/pull/33).
+Merge `ea47d499519e7e017724881378213e626d7fa47d` preserved its first parent's
+tree `6d9505bc5fc4b702da1acebbf1580d95903160db`.
+[Post-merge CI #44826223333](https://github.com/AbdullahZaher/ruxbase/actions/runs/44826223333)
+passed.
 
-A successful CI run does not establish provenance. Do not mark the lockfile as
-verified or assume all inherited changes have been integrated until the source
-and resulting history have been reviewed.
+Use `git merge-base --is-ancestor <reference-commit> <target-ref>` to check
+the actual target. The steps below document the ancestry reconstruction
+procedure for a snapshot-only history. For later upstream fixes, follow the
+[selective-port policy](../UPSTREAM.md#porting-pocketbase-changes).
 
 ## 1. Retrieve and inspect the reference
 
@@ -70,8 +74,8 @@ names rather than overwriting them.
   starting tree before any documentation-only status update.
 - Run the full CI on the candidate, including PostgreSQL 17/18, parity, strict
   mode, UI, SDK, build, lint and release snapshot.
-- On an additional isolated branch, rehearse importing a real subsequent
-  PocketBase tag; record conflicts, applicable changes and test evidence.
+- When a newer applicable PocketBase release exists, rehearse a selective port
+  on an isolated branch and record applicable changes and test evidence.
 - Update the lockfile and NOTICE only after verification; record evidence and
   do not advance last_integrated_commit merely because ancestry exists.
 - Integrate using a merge commit that preserves both parents (not squash or

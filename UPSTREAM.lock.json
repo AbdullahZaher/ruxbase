@@ -5,7 +5,7 @@
     "repository": "https://github.com/pocketbase/pocketbase",
     "reference_version": "v0.40.6",
     "reference_commit": "9d281ccaba65f2686eb7b0b614ccda72d1116a1b",
-    "ancestry_verified": false,
+    "ancestry_verified": true,
     "last_integrated_commit": null,
     "integration_mode": "reviewed-selective-port",
     "sole_upstream": true
