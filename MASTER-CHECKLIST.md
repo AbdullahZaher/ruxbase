@@ -201,7 +201,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 - [x] **W03-04 / P0 / CORE** — Tenant-bound record, relation, file and event ownership with restricted SQL enforcement. **Evidence:** `docs/architecture/WAVE03-TENANT-RELATIONAL-OWNERSHIP.md`, `core/tenant_ownership.go`, `tests/e2e/tenant_ownership_test.go` (`TestTenantOwnership_SchemaAndRLSEnforcement`, `TestTenantOwnership_RelationalIntegrity`, `TestTenantOwnership_FileAndEventIsolation`).
 - [x] **W03-05 / P0 / CORE** — Negative cross-tenant tests for APIs, vector search, realtime, jobs, backups, plugins and MCP. **Evidence:** `docs/architecture/WAVE03-NEGATIVE-ISOLATION-MATRIX.md`, `tests/e2e/tenant_isolation_negative_test.go` (`TestNegativeIsolation_APIsAndDirectQueries`, `TestNegativeIsolation_VectorSearch`, `TestNegativeIsolation_JobsAndBatchUpdates`, `TestNegativeIsolation_BackupExportAndUnscopedFailClosed`).
 - [x] **W03-06 / P1 / CORE** — Least-privilege service accounts, secrets lifecycle and scoped operator access. **Evidence:** `docs/architecture/WAVE03-SERVICE-ACCOUNTS-AND-SECRETS.md`, `core/service_accounts.go`, `tests/e2e/service_accounts_test.go` (`TestServiceAccounts_LifecycleAndKeyRotation`, `TestServiceAccounts_ExpirationAndScopes`, `TestServiceAccounts_TenantIsolation`).
-- [ ] **W03-07 / P2 / ADV** — Passkeys and enterprise SSO as separately approved optional capabilities.
+- [x] **W03-07 / P2 / ADV** — Passkeys and enterprise SSO as separately approved optional capabilities. **Evidence:** `docs/architecture/WAVE03-PASSKEYS-AND-SSO.md`.
 - [ ] **W03-08 / GATE / CORE** — Independent tenancy/session security certification, role switch and revocation under failure tests.
 
 ## 5. Wave 04 — Unified Data API & Developer Experience
