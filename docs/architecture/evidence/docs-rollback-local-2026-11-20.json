@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "scope": "Local atomic symlink activation of two actual successful CI site archives; not GitHub Pages rollback",
+  "artifacts": [
+    {
+      "artifactId": 14640872698,
+      "archiveSha256": "5673e8cb7cfc76fac18eab9ef3ff456005112412d68f4d73a641d2cde76d7bb3",
+      "sourceCommit": "2795edc9e68228bb744330b0eaa8035c753c60e0",
+      "sourceTree": "0ad57727e443545bda31de48e2d8cbf2864274ab",
+      "files": 185
+    },
+    {
+      "artifactId": 14641811685,
+      "archiveSha256": "84901da9cf3b397937d8e8c1aa4ad0a3e0c5542d17f003b264b57f44e701e02c",
+      "sourceCommit": "6b9af47664ca2ad518b3d42849a49bc58f53801d",
+      "sourceTree": "310924c3ba2ff53db81f53e436d7b1a41a4ded23",
+      "files": 186
+    }
+  ],
+  "sequence": [
+    "2795edc9e68228bb744330b0eaa8035c753c60e0",
+    "6b9af47664ca2ad518b3d42849a49bc58f53801d",
+    "2795edc9e68228bb744330b0eaa8035c753c60e0"
+  ],
+  "checks": [
+    "Both archive digests matched GitHub",
+    "Safe extraction into separate temporary directories",
+    "All 17 Markdown hashes per snapshot matched",
+    "Complete file hashes checked after each activation",
+    "Prior snapshot exactly restored"
+  ],
+  "exactRestoration": true
+}

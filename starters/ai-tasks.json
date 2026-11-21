@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "objective": "Create a working Ruxbase frontend from a repository-provided template, without invented credentials or backend changes",
+  "steps": [
+    {
+      "id": "react-generate",
+      "command": "node scripts/create-ruxbase-app.mjs react ai-react-demo --output ./tmp",
+      "expect": [
+        "package.json",
+        "src/main.jsx",
+        "public/ruxbase-horizontal-white.svg"
+      ]
+    },
+    {
+      "id": "nextjs-generate",
+      "command": "node scripts/create-ruxbase-app.mjs nextjs ai-next-demo --output ./tmp",
+      "expect": [
+        "package.json",
+        "app/page.jsx",
+        "public/ruxbase-horizontal-black.svg"
+      ]
+    }
+  ],
+  "acceptance": [
+    "Both outputs npm-ci-installable with committed package-lock.json and framework-buildable",
+    "Both serve health via trusted same-origin /api proxy",
+    "Browser renders white/black brand and true black night background",
+    "Two user sessions cannot access another user's unpublished post",
+    "Never expose a DB URL or admin credential in frontend"
+  ],
+  "sources": [
+    "docs/public/getting-started/create-app.md",
+    "docs/public/integrations/example-app.md",
+    "docs/public/integrations/server-side.md",
+    "docs/public/getting-started/developer-tooling.md",
+    "docs/public/tutorials/nextjs-protected-sessions.md"
+  ],
+  "limitations": "Deterministic executable scaffolding and two-user security acceptance; separate opt-in real-model tool-choice benchmark in starters/ai-model-tasks.json is not automatically executed. No arbitrary model source is run."
+}

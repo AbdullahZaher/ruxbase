@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "status": "approved-for-documentation",
+  "sourceCommit": "e732fdf1b3cd40097fe529d9ef30e0e4a17cfe11",
+  "guidelineVersion": "1.1",
+  "authority": "Owner delegated documentation visual review in conversation on 2026-11-20; assistant reviewed exact horizontal black/white master SVG renderings at 720 and 160 px and dedicated favicon previews. No separate independent human signature.",
+  "assets": {
+    "ruxbase-horizontal-black.svg": "7f14969f00e568ba34c6146b755ed2b6e6939867",
+    "ruxbase-horizontal-white.svg": "bd2c681c4a13722ee0f26a0ff595b22bc6538d24",
+    "ruxbase-symbol-black.svg": "2ff4469618526a6b4e211d9579e5ae5de4d027e9",
+    "ruxbase-symbol-white.svg": "b16aae3f5451ffd5dffbd58adf064b8e59f4f47a",
+    "ruxbase-icon-black.svg": "542cb9eceb8879dfefe42769d29d67cd7a0ceb34",
+    "ruxbase-icon-white.svg": "f9a3f4b8c7de9e1acb31bd98a5b96aaf4d7eef83",
+    "ruxbase-stacked-black.svg": "4a3abb4417a9d3008d43e7c948d414b8fe72efce",
+    "ruxbase-stacked-white.svg": "3cf851af3877faff095c9f11526128f95b54e6a5",
+    "favicon-16.png": "e4e3ad3823b425cb4ac900d65554b67913afb140",
+    "favicon-24.png": "27c3c9a501f98db55c8823e73112e8f63c668fb8",
+    "favicon-32.png": "7af08a6be0a27aa45aa343c0af6094153758c7cd",
+    "favicon-48.png": "b3da7a6db26b0b1a88e8c1faeaf473c4039b6cd3",
+    "brand-guidelines.html": "7076d37e2c0a6362520148fe624be4d06bb3513f",
+    "brand-guidelines.md": "c6a7d1409f7ab634fb8c28b127c9f2cce8729359",
+    "brand-tokens.json": "0eaed0cade14f5109da9cccf0a832a08a16e59b1"
+  },
+  "header": {
+    "light": "ruxbase-horizontal-black.svg",
+    "dark": "ruxbase-horizontal-white.svg"
+  },
+  "favicon": {
+    "primary": "favicon-32.png",
+    "small": "favicon-16.png"
+  },
+  "social": "ruxbase.png",
+  "notes": "Canonical master is the current main guideline set. Earlier source-traced SVGs preserved in vector-review as historical review assets, not alternative masters. Existing documentation UI theme is an approved documentation use, not approval of all proposed project-wide typography/UI tokens."
+}

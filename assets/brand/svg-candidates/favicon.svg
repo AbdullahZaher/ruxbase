@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="100 100 800 800" role="img" aria-label="Ruxbase symbol candidate">
+  <rect x="100" y="100" width="800" height="800" rx="120" fill="#09090b"/>
+  <path fill="#fafafa" d="M 240 123 H 601 Q 615 123 615 137 V 305 H 372 V 536 H 153 Q 140 536 140 523 V 220 Q 140 123 240 123 Z"/>
+  <path fill="#fafafa" d="M 637 325 H 794 Q 860 325 860 390 V 407 C 860 548 775 645 624 695 L 772 878 H 506 L 393 733 V 557 H 485 C 570 557 637 490 637 410 Z"/>
+</svg>

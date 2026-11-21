@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "scope": "30 original authored English queries; ranked against all current public Markdown pages. Page-level lexical retrieval top 3 and exact normalized evidence substrings. Not an LLM answer or human-independent benchmark.",
+  "questions": [
+    {
+      "id": "upstream",
+      "query": "Which upstream supplies inherited application code?",
+      "target": "index.md",
+      "evidence": [
+        "sole ongoing upstream",
+        "PocketBase"
+      ],
+      "critical": true
+    },
+    {
+      "id": "quickstart",
+      "query": "What Go version and port are prerequisites for local quickstart?",
+      "target": "getting-started/quickstart.md",
+      "evidence": [
+        "Go 1.27 or newer",
+        "8090"
+      ],
+      "critical": false
+    },
+    {
+      "id": "build",
+      "query": "How do I build the local executable from examples/base?",
+      "target": "getting-started/quickstart.md",
+      "evidence": [
+        "go build -o ruxbase ./examples/base"
+      ],
+      "critical": false
+    },
+    {
+      "id": "dev-durability",
+      "query": "Is embedded development PostgreSQL suitable for production data with fsync disabled?",
+      "target": "getting-started/development.md",
+      "evidence": [
+        "fsync=off",
+        "don't use it for production"
+      ],
+      "critical": true
+    },
+    {
+      "id": "dev-vector",
+      "query": "Does embedded PostgreSQL include pgvector?",
+      "target": "getting-started/development.md",
+      "evidence": [
+        "embedded binaries don't include pgvector"
+      ],
+      "critical": true
+    },
+    {
+      "id": "compatibility",
+      "query": "What PocketBase REST API and JS SDK versions are compatibility targets?",
+      "target": "migration/compatibility.md",
+      "evidence": [
+        "PocketBase v0.40.6 REST API",
+        "JS SDK 0.28.x"
+      ],
+      "critical": true
+    },
+    {
+      "id": "database",
+      "query": "What minimum PostgreSQL version is required for compatibility?",
+      "target": "migration/compatibility.md",
+      "evidence": [
+        "PostgreSQL 17+"
+      ],
+      "critical": false
+    },
+    {
+      "id": "migration",
+      "query": "Which tool imports a PocketBase pb_data directory from SQLite?",
+      "target": "migration/from-pocketbase.md",
+      "evidence": [
+        "ruxbase-import",
+        "separate binary"
+      ],
+      "critical": false
+    },
+    {
+      "id": "migration-report",
+      "query": "What exit code means the import report requires manual changes?",
+      "target": "migration/from-pocketbase.md",
+      "evidence": [
+        "code 3 when something needs manual changes"
+      ],
+      "critical": true
+    },
+    {
+      "id": "cluster-storage",
+      "query": "Why is S3 file storage required for multiple cluster nodes?",
+      "target": "operations/clustering.md",
+      "evidence": [
+        "nodes can't share local files",
+        "S3 storage is not enabled"
+      ],
+      "critical": true
+    },
+    {
+      "id": "cluster-cron",
+      "query": "How are cron jobs coordinated across cluster nodes per schedule slot?",
+      "target": "operations/clustering.md",
+      "evidence": [
+        "Each scheduled job runs only once per schedule slot",
+        "_cron_runs"
+      ],
+      "critical": false
+    },
+    {
+      "id": "liveness",
+      "query": "Which health endpoint is liveness and always responds 200?",
+      "target": "operations/overview.md",
+      "evidence": [
+        "GET /api/health",
+        "always `200`"
+      ],
+      "critical": false
+    },
+    {
+      "id": "readiness",
+      "query": "When does readiness return 503 for the database or cluster LISTEN connection?",
+      "target": "operations/overview.md",
+      "evidence": [
+        "GET /api/health?ready",
+        "503",
+        "cluster LISTEN connection"
+      ],
+      "critical": true
+    },
+    {
+      "id": "pooler",
+      "query": "Does the app support PgBouncer transaction mode or session mode?",
+      "target": "operations/overview.md",
+      "evidence": [
+        "session mode",
+        "transaction mode is not supported"
+      ],
+      "critical": true
+    },
+    {
+      "id": "pool-limit",
+      "query": "What is the default main database pool size and connection lifetime setting?",
+      "target": "reference/configuration.md",
+      "evidence": [
+        "RUXBASE_DB_MAX_CONNS",
+        "20",
+        "RUXBASE_DB_CONN_MAX_LIFETIME",
+        "30m"
+      ],
+      "critical": false
+    },
+    {
+      "id": "rls-owner",
+      "query": "Does the app connection role bypass compiled row level security policies?",
+      "target": "authorization/row-level-security.md",
+      "evidence": [
+        "owns the tables",
+        "bypasses the policies"
+      ],
+      "critical": true
+    },
+    {
+      "id": "rls-strict",
+      "query": "Which role executes non-superuser list and view queries in RLS strict mode?",
+      "target": "authorization/row-level-security.md",
+      "evidence": [
+        "RUXBASE_RLS_STRICT=true",
+        "ruxbase_api",
+        "non-superusers"
+      ],
+      "critical": true
+    },
+    {
+      "id": "realtime-source",
+      "query": "What realtime source is default, and does replication need logical WAL?",
+      "target": "guides/realtime.md",
+      "evidence": [
+        "hooks",
+        "wal_level=logical",
+        "REPLICATION"
+      ],
+      "critical": true
+    },
+    {
+      "id": "realtime-fallback",
+      "query": "What happens when logical realtime replication is unavailable?",
+      "target": "guides/realtime.md",
+      "evidence": [
+        "falls back to `hooks`"
+      ],
+      "critical": false
+    },
+    {
+      "id": "realtime-wal",
+      "query": "Which setting limits retained WAL from a replication slot filling the disk?",
+      "target": "guides/realtime.md",
+      "evidence": [
+        "max_slot_wal_keep_size"
+      ],
+      "critical": true
+    },
+    {
+      "id": "fts",
+      "query": "Does full-text search need a PostgreSQL extension or use a GIN index?",
+      "target": "data/full-text-search.md",
+      "evidence": [
+        "doesn't need any extension",
+        "GIN index"
+      ],
+      "critical": false
+    },
+    {
+      "id": "fts-language",
+      "query": "What is the default search language and stemming configuration?",
+      "target": "data/full-text-search.md",
+      "evidence": [
+        "default `simple`"
+      ],
+      "critical": false
+    },
+    {
+      "id": "vector-generation",
+      "query": "Does Ruxbase itself generate embeddings for vector search?",
+      "target": "data/vector-search.md",
+      "evidence": [
+        "doesn't generate the embeddings"
+      ],
+      "critical": true
+    },
+    {
+      "id": "vector-index",
+      "query": "What HNSW indexed vector dimension limit is documented?",
+      "target": "data/vector-search.md",
+      "evidence": [
+        "HNSW index",
+        "up to 2000 dimensions"
+      ],
+      "critical": false
+    },
+    {
+      "id": "mcp-default",
+      "query": "Is the built-in MCP server enabled by default and what happens when disabled?",
+      "target": "ai/mcp.md",
+      "evidence": [
+        "disabled by default",
+        "responds with 404"
+      ],
+      "critical": true
+    },
+    {
+      "id": "mcp-scope",
+      "query": "Is the Ruxbase MCP server a documentation crawler?",
+      "target": "ai/using-ruxbase-with-ai.md",
+      "evidence": [
+        "not a documentation crawler"
+      ],
+      "critical": true
+    },
+    {
+      "id": "ai-context",
+      "query": "Which full context file combines all currently published pages for AI assistants?",
+      "target": "ai/using-ruxbase-with-ai.md",
+      "evidence": [
+        "llms-full.txt",
+        "combines the currently published pages"
+      ],
+      "critical": false
+    },
+    {
+      "id": "openapi-scope",
+      "query": "Does OpenAPI cover all MCP transport methods or only 57 non-MCP registrations?",
+      "target": "reference/api.md",
+      "evidence": [
+        "57 direct non-MCP registrations",
+        "three registrations",
+        "MCP transport"
+      ],
+      "critical": true
+    },
+    {
+      "id": "cli-timeout",
+      "query": "What is the default SELECT query timeout CLI flag?",
+      "target": "reference/cli.md",
+      "evidence": [
+        "--queryTimeout",
+        "30 seconds"
+      ],
+      "critical": false
+    },
+    {
+      "id": "feature-certification",
+      "query": "Does a documented development feature mean stable production-certified availability?",
+      "target": "reference/features.md",
+      "evidence": [
+        "not stable or production-certified features"
+      ],
+      "critical": true
+    }
+  ]
+}

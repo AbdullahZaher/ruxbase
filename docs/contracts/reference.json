@@ -1,0 +1,566 @@
+{
+  "schemaVersion": 1,
+  "documentationStatus": "development",
+  "coverage": {
+    "openapi": "57 of 60 static HTTP registrations represented by scoped OpenAPI; three MCP transport methods documented separately. Schemas and runtime behavior remain partial.",
+    "cli": "core startup and serve flags; other commands omitted",
+    "configuration": "selected database and realtime settings",
+    "features": "documented development capabilities; not production certification"
+  },
+  "evidence": {
+    "apis/base.go": "3165e1b59e7787c96a29941a9c92d46e8b599ba0",
+    "apis/health.go": "f4c69b1b13d36962b45a6247cdd6cdecb9127bda",
+    "apis/health_test.go": "e05fda6ff697b3ce965aadd75231262f0eb9b080",
+    "cmd/serve.go": "58cfd8101ae7187c65db1c7c71522079910806ff",
+    "core/base.go": "c018def0835d6e5c31ae6291686f6fe7544fc622",
+    "docs/CLUSTER.md": "bb5b8fa258e5d4212bc98bd63361aee87665c723",
+    "docs/COMPATIBILITY.md": "312ea5e6a46b210fa82c7f6465457d3343be701a",
+    "docs/DEV.md": "5e3626f4f111de2a71edc83eb9dbac9741cebc8f",
+    "docs/MCP.md": "2fd5aa8b2eae6bf49f329ef7e1c9a2507f51e928",
+    "docs/MIGRATING.md": "f9ef17aeac6a5689059130ffcce901a0c10f9e6f",
+    "docs/OPERATIONS.md": "f3b9292aa22fb84967cb300bf14faff7c0bbd119",
+    "docs/REALTIME.md": "c26bf41717987303f8fcd0606d8bfa31e5e07002",
+    "docs/RLS.md": "216db47f225b4d2fb3c29a99dcb84dbef98d884c",
+    "docs/SEARCH.md": "6d9469e9249485cc312d367002b2bb3925259bb8",
+    "docs/VECTOR.md": "ab8b7d917dd2bbb48e72066caf55dffdb12f5299",
+    "ruxbase.go": "6db15112d0ff69e541365ac11b220c60997043b6",
+    "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19",
+    "apis/record_crud.go": "6c78acada4ccb7c849f335e30bc3cc4bbbcb0650",
+    "apis/record_crud_test.go": "277a2dd83c1214ebec535b7d1dbf507dc2cbfe16",
+    "apis/record_vector_search.go": "1bbca01c9b42587382a52cccb3a74fec6c6a3858",
+    "tools/search/provider.go": "be37981dc87773620c0227cf189c6fe098f69f55",
+    "apis/middlewares.go": "d482450c993de981574ed3eede28b0bd02cc6900",
+    "apis/record_auth.go": "19e2b01457ad726b5d3202daa73b2121188d2b01",
+    "apis/record_auth_methods.go": "494152d3131f2a30562f67b197da7aa59494826a",
+    "apis/record_auth_refresh.go": "055f210007c2d95a89db7cc70780c3744f72ff1f",
+    "apis/record_auth_with_password.go": "d082909c2e5b74e68870987e41755392b3479e64",
+    "apis/record_auth_otp_request.go": "64269c7cbb70ac2f5f59b02cb3dd82a486f68d04",
+    "apis/record_auth_with_otp.go": "bce4c7bd7dd1e925b41040c2ec85b59e0ea15768",
+    "apis/record_auth_password_reset_request.go": "6fdd3d9f858e93a2e1d3c62fd81e0506dfcb0cf2",
+    "apis/record_auth_password_reset_confirm.go": "a07c7a747436cb3a44c82b156558f30ef9250e60",
+    "apis/record_auth_verification_request.go": "1cc8c02caf7d4605de18ec9fecd7d4c05f498af7",
+    "apis/record_auth_verification_confirm.go": "a91c1ad12752713ad7f370954ac54d4b1badc761",
+    "apis/record_auth_email_change_request.go": "ee4ccfec72e9da4efb3998aacf055d21ddab423f",
+    "apis/record_auth_email_change_confirm.go": "a43164250c45492f18dbee7f90687f973ed64b54",
+    "apis/record_helpers.go": "a81acfb53b23fc3b160dd92b4a42edb8de46904b",
+    "apis/file.go": "5921fada5629e4990e0316f471f6395633e75ea3",
+    "apis/collection.go": "5edc2462d67cd4d2f0eca5a0da46d7134f5e3ee4",
+    "apis/collection_rls.go": "3642c978bf6be73cc5f5b67af39fab36a0b1d16c",
+    "apis/settings.go": "5f0f1dfbf3343a92af325431eba9a48fbfcd7fa2",
+    "apis/backup.go": "b27934f575606055734a811e71648c7f7f7b054f",
+    "apis/logs.go": "9eb86326650b2fec89a7256891c5da0b3e2347a7",
+    "apis/cron.go": "f0b9ee5f6ee4b7371aa3acd228d6e32052e4133b",
+    "apis/batch.go": "42a513ac83d23d13dec3443b8040431e847f9eb4",
+    "apis/realtime.go": "f596f80f62ad39387922d5aed7e68c5e9805568f",
+    "apis/sql.go": "acebc7646e93bf62101498dd4f4e79eacbf89b55",
+    "apis/rls_token.go": "5ed40bb495ce9e324341e2a39b2f00147f591919",
+    "apis/mcp_api.go": "0972711fb49b886e88888b013c00f0b9bbec3fbc",
+    "apis/collection_import.go": "698094f2a1ae80d0b5ab26e163498d153870e57a",
+    "apis/backup_create.go": "d380a9323de40dfbc2324d91fb863ce4d4ae4a26",
+    "apis/backup_upload.go": "e43c1a6e4194cb4e73b0fac8be2b7c76dfbc9799",
+    "tools/cron/job.go": "7827da52bc6a46d2724b25116defe0bf1d357146",
+    "forms/test_email_send.go": "cec3810a6b0622842b6c5a5f11654af38c5716e4",
+    "forms/test_s3_filesystem.go": "7a4b911e859127f2ef67285dfa13fda44e32c291",
+    "forms/apple_client_secret_create.go": "cb5b9f8463c515ccc14c75bfba874a63012d7622",
+    "apis/record_auth_with_oauth2.go": "988b70066f7d943fb40f2201c82627686d7cd65b",
+    "apis/record_auth_with_oauth2_redirect.go": "8b5d8eb36080a1b3eaf06ee150f7126db8995bc2",
+    "apis/record_auth_impersonate.go": "c75b4d9fb3bc4b6d5ff62d75881201927d25edfa"
+  },
+  "cli": [
+    {
+      "name": "--dir",
+      "scope": "global",
+      "defaultValue": "ruxbase_data relative to executable",
+      "description": "Data directory."
+    },
+    {
+      "name": "--dev",
+      "scope": "global",
+      "defaultValue": "false for compiled binary",
+      "description": "Development logs; embedded PostgreSQL if DATABASE_URL is absent."
+    },
+    {
+      "name": "--encryptionEnv",
+      "scope": "global",
+      "defaultValue": "none",
+      "description": "Name of environment variable holding the 32-character settings encryption key."
+    },
+    {
+      "name": "--queryTimeout",
+      "scope": "global",
+      "defaultValue": "30 seconds",
+      "description": "Default SELECT query timeout."
+    },
+    {
+      "name": "--http",
+      "scope": "serve",
+      "defaultValue": "127.0.0.1:8090 without domain arguments",
+      "description": "HTTP listener address; domain arguments change the default."
+    },
+    {
+      "name": "--https",
+      "scope": "serve",
+      "defaultValue": "unset without domain arguments",
+      "description": "HTTPS listener address."
+    },
+    {
+      "name": "--origins",
+      "scope": "serve",
+      "defaultValue": "*",
+      "description": "Allowed CORS origins; review and restrict for the intended application."
+    }
+  ],
+  "configuration": [
+    {
+      "name": "DATABASE_URL",
+      "defaultValue": "required outside embedded development mode",
+      "description": "Main PostgreSQL connection string; keep credentials private."
+    },
+    {
+      "name": "RUXBASE_LOGS_URL",
+      "defaultValue": "main database",
+      "description": "Optional separate PostgreSQL connection string for logs."
+    },
+    {
+      "name": "RUXBASE_DB_MAX_CONNS",
+      "defaultValue": "20",
+      "description": "Main pool connection limit when not set by Go configuration."
+    },
+    {
+      "name": "RUXBASE_DB_CONN_MAX_LIFETIME",
+      "defaultValue": "30m",
+      "description": "Connection lifetime as a Go duration."
+    },
+    {
+      "name": "RUXBASE_CLUSTER",
+      "defaultValue": "false",
+      "description": "Enables cluster mode; see clustering constraints."
+    },
+    {
+      "name": "RUXBASE_REALTIME_SOURCE",
+      "defaultValue": "hooks",
+      "description": "Realtime source: hooks or replication; see requirements and fallback behavior."
+    },
+    {
+      "name": "RUXBASE_RLS_STRICT",
+      "defaultValue": "false",
+      "description": "Additional RLS enforcement for supported non-superuser list and view queries; see documented limitations."
+    }
+  ],
+  "features": [
+    {
+      "id": "embedded-development",
+      "page": "getting-started/development",
+      "source": "docs/DEV.md",
+      "limitations": "Embedded PostgreSQL for development; review platform limitations.",
+      "status": "documented-development"
+    },
+    {
+      "id": "pocketbase-compatibility",
+      "page": "migration/compatibility",
+      "source": "docs/COMPATIBILITY.md",
+      "limitations": "Compatibility is bounded by documented differences.",
+      "status": "documented-development"
+    },
+    {
+      "id": "health-readiness",
+      "page": "operations/overview",
+      "source": "docs/OPERATIONS.md",
+      "limitations": "Separate liveness and readiness semantics.",
+      "status": "documented-development"
+    },
+    {
+      "id": "clustering",
+      "page": "operations/clustering",
+      "source": "docs/CLUSTER.md",
+      "limitations": "Multi-instance operation with documented constraints.",
+      "status": "documented-development"
+    },
+    {
+      "id": "row-level-security",
+      "page": "authorization/row-level-security",
+      "source": "docs/RLS.md",
+      "limitations": "Only supported rules and scopes; not a universal isolation guarantee.",
+      "status": "documented-development"
+    },
+    {
+      "id": "realtime",
+      "page": "guides/realtime",
+      "source": "docs/REALTIME.md",
+      "limitations": "Hooks or logical replication with documented limitations.",
+      "status": "documented-development"
+    },
+    {
+      "id": "full-text-search",
+      "page": "data/full-text-search",
+      "source": "docs/SEARCH.md",
+      "limitations": "PostgreSQL full-text search.",
+      "status": "documented-development"
+    },
+    {
+      "id": "vector-search",
+      "page": "data/vector-search",
+      "source": "docs/VECTOR.md",
+      "limitations": "Requires supported pgvector setup.",
+      "status": "documented-development"
+    },
+    {
+      "id": "mcp",
+      "page": "ai/mcp",
+      "source": "docs/MCP.md",
+      "limitations": "Optional integration; review its access rules.",
+      "status": "documented-development"
+    },
+    {
+      "id": "pocketbase-import",
+      "page": "migration/from-pocketbase",
+      "source": "docs/MIGRATING.md",
+      "limitations": "Follow supported import scope and limitations.",
+      "status": "documented-development"
+    }
+  ],
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "operationId": "getHealth",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/records",
+      "operationId": "listRecords",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/records",
+      "operationId": "createRecord",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "getRecord",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "updateRecord",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}/records/{id}",
+      "operationId": "deleteRecord",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/vector-search",
+      "operationId": "vectorSearch",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/auth-methods",
+      "operationId": "getAuthMethods",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/auth-refresh",
+      "operationId": "refreshAuth",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/auth-with-password",
+      "operationId": "authWithPassword",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/request-otp",
+      "operationId": "requestOTP",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/auth-with-otp",
+      "operationId": "authWithOTP",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/request-password-reset",
+      "operationId": "requestPasswordReset",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/confirm-password-reset",
+      "operationId": "confirmPasswordReset",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/request-verification",
+      "operationId": "requestVerification",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/confirm-verification",
+      "operationId": "confirmVerification",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/request-email-change",
+      "operationId": "requestEmailChange",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/confirm-email-change",
+      "operationId": "confirmEmailChange",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/files/token",
+      "operationId": "createFileToken",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections",
+      "operationId": "listCollections",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections",
+      "operationId": "createCollection",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}",
+      "operationId": "getCollection",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/collections/{collection}",
+      "operationId": "updateCollection",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}",
+      "operationId": "deleteCollection",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/{collection}/rls",
+      "operationId": "getCollectionRLS",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/meta/scaffolds",
+      "operationId": "getCollectionScaffolds",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/meta/oauth2-providers",
+      "operationId": "listOAuth2Providers",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "operationId": "getSettings",
+      "success": "200"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings",
+      "operationId": "updateSettings",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/backups",
+      "operationId": "listBackups",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/backups",
+      "operationId": "createBackup",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/files/{collection}/{recordId}/{filename}",
+      "operationId": "downloadFile",
+      "success": "200"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/collections/import",
+      "operationId": "importCollections",
+      "success": "204"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/collections/{collection}/truncate",
+      "operationId": "truncateCollection",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs",
+      "operationId": "listLogs",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/logs",
+      "operationId": "truncateLogs",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{id}",
+      "operationId": "getLog",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/stats",
+      "operationId": "getLogStats",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crons",
+      "operationId": "listCronJobs",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crons/{id}",
+      "operationId": "runCronJob",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/backups/upload",
+      "operationId": "uploadBackup",
+      "success": "204"
+    },
+    {
+      "method": "GET",
+      "path": "/api/backups/{key}",
+      "operationId": "downloadBackup",
+      "success": "200"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/backups/{key}",
+      "operationId": "deleteBackup",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/backups/{key}/restore",
+      "operationId": "restoreBackup",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/test/s3",
+      "operationId": "testS3",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/test/email",
+      "operationId": "testEmail",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/apple/generate-client-secret",
+      "operationId": "generateAppleClientSecret",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/meta/dry-run-view",
+      "operationId": "dryRunView",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/oauth2-redirect",
+      "operationId": "oauthRedirectGet",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/oauth2-redirect",
+      "operationId": "oauthRedirectPost",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/auth-with-oauth2",
+      "operationId": "authWithOAuth2",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/{collection}/impersonate/{id}",
+      "operationId": "impersonateRecord",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/batch",
+      "operationId": "batchRecords",
+      "success": "200"
+    },
+    {
+      "method": "GET",
+      "path": "/api/realtime",
+      "operationId": "connectRealtime",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/realtime",
+      "operationId": "setRealtimeSubscriptions",
+      "success": "204"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sql",
+      "operationId": "executeAdminSQL",
+      "success": "200"
+    },
+    {
+      "method": "POST",
+      "path": "/api/rls/token",
+      "operationId": "issueRLSToken",
+      "success": "200"
+    }
+  ]
+}

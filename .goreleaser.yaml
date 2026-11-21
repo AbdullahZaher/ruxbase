@@ -68,7 +68,11 @@ archives:
     formats: [zip]
     files:
       - LICENSE.md
+      - NOTICE.md
       - CHANGELOG.md
+      - THIRD-PARTY-LICENSES/remixicon/4.6.0/LICENSE
+      - THIRD-PARTY-LICENSES/tinymce/6.8.6/license.txt
+      - THIRD-PARTY-LICENSES/tinymce/6.8.6/notices.txt
 
   - id: archive_import
     ids: [build_import]
@@ -76,6 +80,9 @@ archives:
     formats: [zip]
     files:
       - LICENSE.md
+      - NOTICE.md
+      - THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/LICENSE
+      - THIRD-PARTY-LICENSES/modernc-sqlite/v1.60.1/LICENSE-3RD-PARTY.md
 
 checksum:
   name_template: "checksums.txt"
