@@ -64,7 +64,8 @@ func main() {
 		urls        = flag.String("url", "http://127.0.0.1:8090", "the API url (comma separated urls of multiple instances are used round-robin)")
 		email       = flag.String("email", "", "the superuser email (for the setup)")
 		password    = flag.String("password", "", "the superuser password (for the setup)")
-		scenario    = flag.String("scenario", "", "setup, reads, writes or realtime")
+		scenario    = flag.String("scenario", "", "setup, reads, writes, realtime, report, matched-setup, matched-reads or matched-writes")
+		backend     = flag.String("backend", "ruxbase", "matched workload backend: ruxbase or supabase")
 		concurrency = flag.Int("c", 50, "the concurrent workers")
 		duration    = flag.Duration("d", 20*time.Second, "the duration of the reads and writes scenarios")
 		records     = flag.Int("records", 10000, "the records created by the setup")
@@ -91,6 +92,8 @@ func main() {
 		result, err = writes(targets, *concurrency, *duration)
 	case "realtime":
 		result, err = realtime(targets, *clients, *events, *rate)
+	case "matched-setup", "matched-reads", "matched-writes":
+		result, err = runMatched(*scenario, *backend, targets, *email, *password, *records, *concurrency, *duration)
 	case "report":
 		err = report(*in)
 	default:
@@ -101,15 +104,24 @@ func main() {
 	}
 
 	if result != nil {
-		result.Target = *target
+		if *target != "" {
+			result.Target = *target
+		}
 		raw, _ := json.Marshal(result)
 		fmt.Println(string(raw))
+		if strings.HasPrefix(*scenario, "matched-") && (result.Errors != 0 || result.Requests == 0) {
+			log.Fatal("matched workload had errors or made no successful requests")
+		}
 	}
 }
 
 // ---------------------------------------------------------------------------
 
 func request(method string, url string, token string, body any) (int, []byte, error) {
+	return sendRequest(client, method, url, http.Header{"Authorization": {token}}, body)
+}
+
+func sendRequest(httpClient *http.Client, method string, url string, headers http.Header, body any) (int, []byte, error) {
 	var reader io.Reader
 	if body != nil {
 		raw, err := json.Marshal(body)
@@ -126,11 +138,15 @@ func request(method string, url string, token string, body any) (int, []byte, er
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if token != "" {
-		req.Header.Set("Authorization", token)
+	for key, values := range headers {
+		for _, value := range values {
+			if value != "" {
+				req.Header.Add(key, value)
+			}
+		}
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return 0, nil, err
 	}
