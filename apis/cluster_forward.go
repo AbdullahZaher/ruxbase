@@ -217,6 +217,7 @@ func bindClusterForwarding(app core.App, pbRouter *router.Router[*core.RequestEv
 	bindSQLTableGateway(app, apiGroup)
 	bindRealtimeBroadcastPresence(app, apiGroup)
 	bindRealtimeSync(app, apiGroup)
+	bindOpsApi(app, apiGroup)
 
 	var muxOnce sync.Once
 	var mux http.Handler
