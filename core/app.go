@@ -326,6 +326,18 @@ type App interface {
 	// DetectSchemaDrift compares registered Collections against the physical PostgreSQL catalog.
 	DetectSchemaDrift(schema string) (*SchemaDriftReport, error)
 
+	// ExecuteOnlineDDL executes an online schema evolution DDL step under bounded lock timeouts.
+	ExecuteOnlineDDL(step OnlineEvolutionStep) error
+
+	// RevertOnlineDDL reverses an online schema evolution DDL step under bounded lock timeouts.
+	RevertOnlineDDL(step OnlineEvolutionStep) error
+
+	// ExecuteChunkedBackfill populates target column values in primary-key ordered slices.
+	ExecuteChunkedBackfill(cfg BackfillConfig) (*BackfillResult, error)
+
+	// ValidateConstraintNonBlocking validates an existing NOT VALID constraint with bounded locks.
+	ValidateConstraintNonBlocking(tableName, constraintName string) error
+
 	// DeleteTable drops the specified table.
 	//
 	// This method is a no-op if a table with the provided name doesn't exist.
