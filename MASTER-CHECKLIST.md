@@ -206,7 +206,7 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 
 ## 5. Wave 04 — Unified Data API & Developer Experience
 
-- [ ] **W04-01 / P0 / CORE** — One normalized authorization and error contract for Collections-first and SQL-first REST.
+- [x] **W04-01 / P0 / CORE** — One normalized authorization and error contract for Collections-first and SQL-first REST. **Evidence:** `docs/architecture/WAVE04-NORMALIZED-API-CONTRACT.md`, `apis/error_normalizer.go`, `apis/middlewares.go`, `tests/e2e/api_error_normalizer_test.go` (`TestAPIError_DomainMappings`, `TestAPIError_SQLSTATEMappings`, `TestAPIError_CredentialSanitization`, `TestAPIError_ServiceAccountPrincipalResolution`).
 - [ ] **W04-02 / P1 / CORE** — Explicit SQL API exposure, authorized RPC, filter/sort/pagination semantics and bounded bulk operations.
 - [ ] **W04-03 / P1 / CORE** — Tested OpenAPI and machine-readable contract coverage; no undocumented privilege exposure.
 - [ ] **W04-04 / P1 / CORE** — CLI for init, dev, migration, check, deploy guidance and safe project configuration.
