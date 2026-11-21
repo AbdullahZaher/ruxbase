@@ -42,13 +42,16 @@ PostgreSQL 17, also set
 `BENCH_POSTGRES_IMAGE=pgvector/pgvector:0.8.7-pg17-trixie@sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7`.
 The companion `*.environment.txt` records the source commit and tree, source
 cleanliness, workload inputs, tool versions, actual container images and
-CPU/memory ceilings, and the server's effective PostgreSQL settings. Preserve
-it alongside the workload and resource data.
+configured CPU and memory limits, Docker cgroup configuration, and the
+server's effective PostgreSQL settings. Preserve it alongside the workload and
+resource data.
 
 The companion `*.resources.jsonl` records one Docker CPU/memory sample per
 container at idle and during each workload. PostgreSQL is included when
 measuring Ruxbase. These are Docker-reported samples, not process RSS or peak
-memory measurements. Short runs are a functional measurement smoke test,
+memory measurements. Docker must have a cgroup driver to attribute CPU and
+memory to individual containers. Treat samples from a daemon reporting
+`cgroupDriver=none` as diagnostics only. Short runs are a functional measurement smoke test,
 not a statistically robust benchmark or a Supabase comparison. The existing
 environment uses public collection rules and disposable database credentials;
 production-equivalent authorization and matched CPU/RAM budgets remain

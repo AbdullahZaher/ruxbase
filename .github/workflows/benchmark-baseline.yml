@@ -71,6 +71,8 @@ jobs:
               "runs=1", "records=1000", "clients=20", "events=20", "rate=5",
               "wal_level=logical", "shared_buffers=1GB",
           }.issubset(profile_lines)
+          assert any(re.fullmatch(r"cgroupDriver=(cgroupfs|systemd) cgroupVersion=[12]", line)
+                     for line in profile_lines), "Docker must attribute stats to container cgroups"
           assert any(line.startswith("server_version=18.") for line in profile_lines)
           containers = [line for line in profile_lines if line.startswith("container=")]
           assert len(containers) == 3, containers

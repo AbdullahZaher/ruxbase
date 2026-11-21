@@ -73,6 +73,7 @@ source_status=$(git -C .. status --porcelain -- . ':!bench/results')
   go version
   uname -srm
   docker info --format 'docker={{.ServerVersion}} architecture={{.Architecture}} cpus={{.NCPU}} memoryBytes={{.MemTotal}}'
+  docker info --format 'cgroupDriver={{.CgroupDriver}} cgroupVersion={{.CgroupVersion}}'
   docker compose version
 } > "$ENVIRONMENT"
 
@@ -261,4 +262,4 @@ run_target "ruxbase-3-nodes" "http://node1:8090,http://node2:8090,http://node3:8
 echo "== results: bench/$RESULTS"
 echo "== resource samples: bench/$RESOURCES"
 echo "== environment and workload: bench/$ENVIRONMENT"
-(cd .. && go run ./bench -scenario report -in "bench/$RESULTS")
+bench -scenario report -in /dev/stdin < "$RESULTS"
