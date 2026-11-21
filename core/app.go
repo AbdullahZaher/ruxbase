@@ -400,6 +400,14 @@ type App interface {
 	// with explicit context and cancellation boundary support.
 	RunInTransactionWithContext(ctx context.Context, fn func(txApp App) error) error
 
+	// RunInScopedTransaction wraps fn into a transaction configured with the provided
+	// TransactionScope (role, principal, tenant, claims) for the regular app database.
+	RunInScopedTransaction(scope TransactionScope, fn func(txApp App) error) error
+
+	// RunInScopedTransactionWithContext wraps fn into a context-aware transaction configured
+	// with the provided TransactionScope (role, principal, tenant, claims).
+	RunInScopedTransactionWithContext(ctx context.Context, scope TransactionScope, fn func(txApp App) error) error
+
 	// AuxRunInTransaction wraps fn into a transaction for the auxiliary app database.
 	//
 	// It is safe to nest RunInTransaction calls as long as you use the callback's txApp.

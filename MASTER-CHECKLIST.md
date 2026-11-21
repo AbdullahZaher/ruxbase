@@ -165,9 +165,9 @@ relative path. The server embeds all of `ui/dist` through `ui/embed.go`.
 - [x] **W01-M03-01 / P0** — Reconcile approved label and scope; author complete cross-path authorization coverage matrix. **Evidence:** `docs/architecture/WAVE01-AUTHORIZATION-MATRIX.md`.
 - [x] **W01-M03-02 / P0** — Enforce deny-by-default for unsupported policy conditions across REST/SQL/realtime/storage/MCP. **Evidence:** `core/record_query.go`, `core/authz.go`.
 - [x] **W01-M03-03 / GATE** — Negative authorization suites with restricted identities, admin bypass and cross-tenant attempts. **Evidence:** `tests/e2e/authorization_negative_test.go`, `core/authz_test.go`.
-- [ ] **W01-M04-01 / P0** — Define transaction-local principal/tenant scope and safe role switching.
-- [ ] **W01-M04-02 / P0** — Prove atomic side effects, rollback/cancellation cleanup and pooled-session isolation.
-- [ ] **W01-M04-03 / GATE** — Independent PG17/18 transaction/identity abuse tests.
+- [x] **W01-M04-01 / P0** — Define transaction-local principal/tenant scope and safe role switching. **Evidence:** `core/tx_scope.go`, `docs/architecture/WAVE01-TRANSACTION-ISOLATION.md`.
+- [x] **W01-M04-02 / P0** — Prove atomic side effects, rollback/cancellation cleanup and pooled-session isolation. **Evidence:** `core/tx_scope_test.go` (`TestScopedTransactionRollbackAndCancellationIsolation`, `TestScopedTransactionElevationProtection`).
+- [x] **W01-M04-03 / GATE** — Independent PG17/18 transaction/identity abuse tests. **Evidence:** `core/tx_scope_test.go` (`TestScopedTransactionConcurrentAbuse`, `TestScopedTransactionRoleAndTenantIsolation`, `TestScopedTransactionReadOnly`).
 - [ ] **W01-M05-01 / P0** — Close documented RLS gaps for supported operations; handle security-invoker views and privileged routines.
 - [ ] **W01-M05-02 / P0** — Compare policy enforcement with API rules; reject unsupported translations without authorization widening.
 - [ ] **W01-M05-03 / GATE** — Negative write/read/expand/storage/search tests using effective restricted roles.
