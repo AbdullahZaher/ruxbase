@@ -30,23 +30,23 @@ Wave 02 defines the formal **Expand → Backfill → Validate → Contract** onl
   or with default)      historical data        SHARE UPDATE EXCL      triggers
 ```
 
-### 2.1 Phase 1 — Expand
+### 2.1 Stage 1 — Expand
 - Add the new column as `NULLABLE` (or with default value, which is metadata-only in modern PostgreSQL).
 - Application dual-writes to both the old and new representations.
 - Rollback: `ALTER TABLE ... DROP COLUMN ...`.
 
-### 2.2 Phase 2 — Backfill
+### 2.2 Stage 2 — Backfill
 - Execute batch updates in primary-key ranges (`WHERE id > :cursor ORDER BY id LIMIT :batchSize`).
 - Each batch commits independently to release row locks and allow concurrent queries to interleave.
 - Rollback: Revert data transformation or abort remaining batches.
 
-### 2.3 Phase 3 — Validate
+### 2.3 Stage 3 — Validate
 - Add constraints using `ALTER TABLE ... ADD CONSTRAINT ... NOT VALID`.
 - Validate constraints asynchronously using `ALTER TABLE ... VALIDATE CONSTRAINT ...`.
 - Verify parity between old and new data.
 - Rollback: `ALTER TABLE ... DROP CONSTRAINT ...`.
 
-### 2.4 Phase 4 — Contract
+### 2.4 Stage 4 — Contract
 - Point of no return.
 - Application code has transitioned to read and write exclusively from the new column.
 - Deprecated old column, legacy views, or synchronization triggers are dropped.
