@@ -23,7 +23,7 @@
     "docs/RLS.md": "d92cf870c13aa89397d51af6345295b54f6d69fb",
     "docs/SEARCH.md": "6d9469e9249485cc312d367002b2bb3925259bb8",
     "docs/VECTOR.md": "ab8b7d917dd2bbb48e72066caf55dffdb12f5299",
-    "ruxbase.go": "e68ff218c8598936909abcec2d993d0560f68517",
+    "ruxbase.go": "0ab8bde00e196fd30d7fd5652228d230b448a985",
     "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19",
     "apis/record_crud.go": "6c78acada4ccb7c849f335e30bc3cc4bbbcb0650",
     "apis/record_crud_test.go": "ba813bc33a180cf1f08431307c3b72d649aeb3b2",
