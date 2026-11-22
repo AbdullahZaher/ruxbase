@@ -72,16 +72,13 @@ func recordsList(e *core.RequestEvent) error {
 
 		fieldsResolver := core.NewRecordFieldResolver(app, collection, requestInfo, true)
 
-		if !strict && !requestInfo.HasSuperuserAuth() && collection.ListRule != nil && *collection.ListRule != "" {
+		if !requestInfo.HasSuperuserAuth() && collection.ListRule != nil && *collection.ListRule != "" {
 			expr, err := search.FilterData(*collection.ListRule).BuildExpr(fieldsResolver)
 			if err != nil {
 				ruleErr = err
 				return err
 			}
 			query.AndWhere(expr)
-
-			// will be applied by the search provider right before executing the query
-			// fieldsResolver.UpdateQuery(query)
 		}
 
 		// hidden fields are searchable only by superusers
