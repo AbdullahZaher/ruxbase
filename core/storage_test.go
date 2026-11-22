@@ -1458,7 +1458,7 @@ func TestStorageManager_Multipart_S3BackendRecoveryAndGC(t *testing.T) {
 				for k, v := range store {
 					if strings.HasPrefix(k, prefix) {
 						mt := modTimes[k].Format(time.RFC3339)
-						sb.WriteString(fmt.Sprintf(`<Contents><Key>%s</Key><LastModified>%s</LastModified><Size>%d</Size></Contents>`, k, mt, len(v)))
+						fmt.Fprintf(&sb, `<Contents><Key>%s</Key><LastModified>%s</LastModified><Size>%d</Size></Contents>`, k, mt, len(v))
 					}
 				}
 				mu.RUnlock()
