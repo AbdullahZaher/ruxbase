@@ -144,9 +144,20 @@ If a suitable published archive is available, download it from the [releases pag
 DATABASE_URL="postgres://user:pass@localhost:5432/ruxbase" ./ruxbase serve
 ```
 
-The database needs the `pgcrypto` extension (and `vector` for the vector
-fields). The app role needs the `CREATEROLE` attribute for the RLS roles (see
-[RLS.md](docs/RLS.md)).
+The database needs the `pgcrypto` extension (and `vector` for vector
+fields). The Docker and binary commands above illustrate **development or
+legacy auto-bootstrap**, not a production least-privilege deployment. In the
+legacy path, creating RLS roles may require elevated provisioning authority;
+this is **not** a reason to grant `CREATEROLE`, `SUPERUSER`, `BYPASSRLS`
+or database/object ownership to the restricted serving role.
+
+For separated-role deployments, an authorized operator must prepare roles,
+extensions and schema outside the serving process, then validate the proposed
+runtime identity and reviewed grants before admitting traffic. See the
+[RLS role boundaries](docs/RLS.md), [Wave 01 operator runbook](docs/architecture/W01-M01-PROVISIONING-READINESS.md)
+and [release-gate decision](docs/architecture/W11-08-PRODUCTION-GO-NOGO.md).
+Target-environment qualification (`W01-M01-08`) remains open; these quick
+start examples do not authorize production serving.
 
 ### Development
 

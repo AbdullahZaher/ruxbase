@@ -8,6 +8,15 @@ description: "Plan external PostgreSQL deployment, TLS, persistent storage and r
 ## Before deployment
 This is a configuration guide, not a production-readiness approval. Provision external PostgreSQL, DNS/TLS, database backups, storage and a dedicated app identity. Use a reviewed build of the exact commit and keep secrets outside Git.
 
+The bare `DATABASE_URL` examples use the development/legacy bootstrap path.
+Do not copy its owner-level privileges into a restricted production serving
+identity or grant it `CREATEROLE` to satisfy migrations. Prepare schema and
+RLS roles separately with authorized operator/migrator identities, then check
+the proposed serving role and explicit grant manifests as described in the
+[RLS guide](/ruxbase/authorization/row-level-security/) and the
+[Wave 01 operator runbook](https://github.com/AbdullahZaher/ruxbase/blob/main/docs/architecture/W01-M01-PROVISIONING-READINESS.md).
+Deployment-specific production qualification (`W01-M01-08`) is still pending.
+
 ## Local Docker Compose Quickstart
 
 For development, start with [Docker Compose Quickstart](/ruxbase/getting-started/quickstart/), which provisions the application, PostgreSQL 18 and pgvector with persistent named volumes. PostgreSQL is accessible only on the private Compose network and the app listens on host loopback. The quickstart database account is its initial owner; this is **not** a secure production role design. Keep local credentials in the Git-ignored `.env.quickstart` and distinguish `down` (retains data) from `down -v` (deletes volumes).

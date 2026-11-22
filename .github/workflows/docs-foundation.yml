@@ -18,5 +18,9 @@ jobs:
           node-version: '25.2.1'
       - name: Test documentation foundation
         run: node --test website/tests/foundation.test.mjs website/tests/legacy-links.test.mjs
+      - name: Verify release checklist counts and regression tests
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_release_evidence.py'
+          python3 scripts/check-release-evidence.py
       - name: Verify originals and stage public sources
         run: node website/scripts/prepare.mjs

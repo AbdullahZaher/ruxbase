@@ -26,7 +26,9 @@
 
 ### Dimension 1: Requirement Completion
 - **Verified Files:** `MASTER-CHECKLIST.md`, `docs/architecture/FINAL-RELEASE-REQUIREMENTS-MATRIX.md`.
-- **Audit Finding:** **106 of 111** roadmap and user-journey items (`W00`–`W11`, `JOURNEY-01`–`JOURNEY-12`) are checked `[x]` with verified code, migration, test, and merged PR evidence (`PR #30` through `PR #63`). The **5** unchecked `[ ]` items (`W00-08`, `W01-M01-08`, `W11-05`, `W11-06`, `W11-08`, and `JOURNEY-11`) accurately reflect non-fabricable external wall-clock, dedicated multi-stack benchmark host, target deployment, and human owner release gates.
+- **Audit Finding (post-merge arithmetic reconciliation):** **121 of 127** unique roadmap and journey checklist items (`W00`–`W11`, `JOURNEY-01`–`JOURNEY-12`) are checked `[x]`: **110 of 115** Wave items and **11 of 12** journeys. The **6** unchecked `[ ]` entries (`W00-08`, `W01-M01-08`, `W11-05`, `W11-06`, `W11-08`, and `JOURNEY-11`) remain independently countable. They map to **4** external operational/human gate categories because three IDs track the shared matched-benchmark dependency. These corrected counts do not imply that any open gate has been closed.
+
+<!-- release-checklist-counts: waves=110/115 journeys=11/12 combined=121/127 open=6 gate-categories=4 -->
 
 ### Dimension 2: Architectural Coherence Across Waves 00–11
 - **Verified Files:** `apis/cluster_forward.go`, `core/tx_scope.go`, `core/rls.go`, `migrations/1761700000_ruxbase_jobs.go`..`migrations/1762000000_ruxbase_ai_platform.go`.
@@ -62,4 +64,16 @@
 
 ### Dimension 10: Honesty of Remaining Limitations
 - **Verified Files:** `docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`, `docs/architecture/W11-06-MATCHED-SUPABASE-BENCHMARK.md`, `docs/architecture/W11-08-PRODUCTION-GO-NOGO.md`.
-- **Audit Finding:** All release qualification documents report actual executed commands and honest gate statuses (`PENDING_STAGING_EVIDENCE`, `PENDING_MATCHED_BENCHMARK`, `PENDING_DEPLOYMENT_QUALIFICATION`, `PENDING_OWNER_AUTHORIZATION`) without fabricating soak hours, Supabase Self-Hosted comparative measurements, or human approvals. Both P2 documentation hygiene items identified during the initial read-only pass were resolved prior to freezing the final candidate commit.
+- **Audit Finding:** All release qualification documents report actual executed commands and honest gate statuses (`PENDING_STAGING_EVIDENCE`, `PENDING_MATCHED_BENCHMARK`, `PENDING_DEPLOYMENT_QUALIFICATION`, `PENDING_OWNER_AUTHORIZATION`) without fabricating soak hours, Supabase Self-Hosted comparative measurements, or human approvals. The original audit recorded its two then-known P2 documentation hygiene items as resolved before freezing the candidate. The subsequent checklist-counting and PostgreSQL-role-documentation discrepancies are separate post-merge findings addressed by an editorial reconciliation, not evidence of a new independent security audit.
+
+---
+
+## Post-merge evidence reconciliation (2026-11-22)
+
+The source candidate and independent auditor's original verdict are historical
+records. This follow-up corrects checklist arithmetic and the explanation of
+restricted versus legacy database roles without altering code permissions,
+the original test results, the release candidate SHA or the auditor's
+authority. The corrected counts are derived from the explicit `[x]`/`[ ]`
+entries in `MASTER-CHECKLIST.md`. Independent review of this documentation
+correction is still required; production remains **NO-GO**.

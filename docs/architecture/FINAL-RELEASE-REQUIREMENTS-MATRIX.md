@@ -12,8 +12,10 @@
 
 This matrix records the complete, authoritative verification state of all twelve roadmap waves (`W00`–`W11`) and the twelve mandatory self-hosted user journeys (`JOURNEY-01`–`JOURNEY-12`) against the integrated `main` platform baseline and the `release/final-qualification-20261122` qualification candidate.
 
-- **Completed & Verified Roadmap Requirements:** **106 / 111** checklist items (`[x]`) across Waves 00–11 and Journeys 01–12.
-- **Remaining Non-Fabricable / Operational Release Gates (`[ ]`):** **5** items referencing 4 distinct pre-GA operational/human gates:
+- **Completed & Verified Roadmap and Journey Requirements:** **121 / 127** unique checklist items (`[x]`), comprising **110 / 115** Wave 00–11 requirements and **11 / 12** mandatory journeys.
+- **Remaining Non-Fabricable / Operational Release Gates (`[ ]`):** **6** distinct unchecked IDs representing **4** pre-GA operational/human gate categories. The benchmark dependency has three separate checklist IDs (`W00-08`, `W11-06`, `JOURNEY-11`), not one counted entry:
+
+<!-- release-checklist-counts: waves=110/115 journeys=11/12 combined=121/127 open=6 gate-categories=4 -->
   1. **`W00-08` / `W11-06` / `JOURNEY-11` (`PENDING_MATCHED_BENCHMARK`):** Side-by-side matched hardware benchmark comparing Ruxbase against the full official 7+ container Supabase Self-Hosted stack (`self-hosted/v0.8.4`). The matched benchmark harness (`bench/matched.go`, `bench/matched-supabase.sql`, `bench/MATCHED-HTTP.md`) is implemented, unit-tested, and verified live against Ruxbase (`6,941.59 req/s` reads, `4,373.39 req/s` writes); the external Supabase Self-Hosted stack comparison remains pending a dedicated isolated benchmark host.
   2. **`W01-M01-08` (`PENDING_DEPLOYMENT_QUALIFICATION`):** Target-environment privilege manifest, live production operator execution, and deployment-specific recovery qualification.
   3. **`W11-05` (`PENDING_STAGING_EVIDENCE`):** 168-hour (7 consecutive days) continuous unattended staging soak (`docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`). Cannot be compressed or simulated.

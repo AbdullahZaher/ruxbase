@@ -4,13 +4,21 @@ ruxbase compiles the collection API rules to Postgres row level security (RLS)
 policies, so that the same rules apply to the clients connected directly to the
 database (BI tools, other services, ETL).
 
-The app connection role owns the tables (or is a superuser) and bypasses the
-policies, so the app itself behaves the same as PocketBase.
+In the **legacy owner-capable/automatic-bootstrap path**, the app connection
+may own the tables (or be a superuser) and thus bypass their policies. This
+describes that historical compatibility mode, **not** the restricted Wave 01
+serving-role contract. A restricted runtime must not own application objects,
+hold elevated PostgreSQL attributes or execute provisioning/migrations.
+Role creation, migration and approved object ownership belong to separately
+authorized operator/migrator identities. This documentation does not establish
+production readiness; see [the operator runbook](https://github.com/AbdullahZaher/ruxbase/blob/main/docs/architecture/W01-M01-PROVISIONING-READINESS.md)
+and the open `W01-M01-08` qualification gate.
 
 ## Roles
 
-The system migration creates three roles if they don't exist (they are
-server-wide and shared by all ruxbase databases of the server):
+The legacy system migration can create three roles if they do not exist (they
+are server-wide and shared by all ruxbase databases of the server).
+In a separated-role deployment, an authorized operator prepares them offline:
 
 | Role                    | Used by                                 | Privileges                                      |
 | ----------------------- | --------------------------------------- | ----------------------------------------------- |
@@ -18,11 +26,14 @@ server-wide and shared by all ruxbase databases of the server):
 | `ruxbase_authenticated` | external clients with an auth record    | the collection policies, the non-hidden columns |
 | `ruxbase_api`           | the API in strict mode (see below)      | the collection policies, all columns            |
 
-The roles are `NOLOGIN`, without `SUPERUSER` or `BYPASSRLS`. The app connection
-role is granted `SET` on them (without inheriting their privileges).
+The roles are `NOLOGIN`, without `SUPERUSER` or `BYPASSRLS`. The historical
+app connection is granted `SET` on them (without inheriting their privileges).
 
-Creating the roles requires the `CREATEROLE` attribute. Without it, the
-migration fails and prints the SQL that a database administrator must execute:
+Creating roles requires elevated authority (for example, `CREATEROLE`) on the
+**provisioner**, never on a restricted serving identity. In the legacy
+migration path, if the roles are missing and creation is not permitted, the
+migration can report SQL for a database administrator to review and execute
+separately:
 
 ```sql
 CREATE ROLE ruxbase_anon NOLOGIN NOINHERIT;
@@ -30,6 +41,14 @@ CREATE ROLE ruxbase_authenticated NOLOGIN NOINHERIT;
 CREATE ROLE ruxbase_api NOLOGIN NOINHERIT;
 GRANT ruxbase_anon, ruxbase_authenticated, ruxbase_api TO <app role> WITH INHERIT FALSE, SET TRUE;
 ```
+
+The placeholder `<app role>` above refers to a legacy app identity or an
+explicitly reviewed and authorized role; it is not blanket permission to grant
+privileges to `ruxbase_app`. Any role memberships and effective grants for a
+restricted runtime must be justified in a deployment-specific manifest.
+`ruxbase-role-check` performs conservative read-only authority checks and
+does not create roles or certify production serving. Keep operator and
+migration credentials out of the serving process.
 
 ## Connecting as an external client
 
@@ -163,5 +182,9 @@ filtering.
 - The policies use the collection rules of the database where they were
   generated. A rule that references another collection is regenerated when that
   collection changes.
-- The policies don't apply to the app connection role (the tables owner) and the
-  database superusers.
+- In the legacy owner-capable/automatic-bootstrap path, compiled policies
+  do not constrain the app connection when it owns the tables (or is a
+  superuser). This historical exception does not authorize a restricted Wave 01
+  serving identity to bypass RLS: do not grant that role object ownership,
+  `SUPERUSER` or `BYPASSRLS`. Independently verify effective permissions,
+  policy behavior and deployment-specific role manifests before serving.
