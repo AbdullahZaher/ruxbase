@@ -96,12 +96,44 @@ type WebhookAttempt struct {
 // JobHandler executes a claimed job.
 type JobHandler func(ctx context.Context, job *Job) error
 
+// OutboxProcessOptions configures transactional outbox claiming, lease lifecycle,
+// batch pre-publish lease refresh, and optional background lease renewal.
+type OutboxProcessOptions struct {
+	// Limit is the maximum number of events claimed per batch (default 50).
+	Limit int
+	// LeaseDuration is the lease TTL assigned on claim and renewal (default 60s).
+	LeaseDuration time.Duration
+	// RenewInterval, when > 0, runs a fenced background heartbeat that extends leased_until
+	// while a publisher is running. If lease ownership is lost (0 rows affected), the
+	// publisher context is canceled immediately.
+	RenewInterval time.Duration
+	// PublishTimeout, when > 0, bounds each event's publisher execution context.
+	PublishTimeout time.Duration
+}
+
+// outboxFaultHooks provides deterministic test-only fault injection and synchronization barriers.
+type outboxFaultHooks struct {
+	beforeClaim    func() error
+	afterClaim     func(events []*OutboxEvent) error
+	beforeRenew    func(evt *OutboxEvent) error
+	beforeMarkPub  func(evt *OutboxEvent) error
+	afterMarkPub   func(evt *OutboxEvent, affected int64) error
+	beforeMarkFail func(evt *OutboxEvent) error
+}
+
 // JobsManager manages durable background jobs, leasing, worker execution, and the transactional outbox.
 type JobsManager struct {
 	app        App
 	mu         sync.RWMutex
 	handlers   map[string]JobHandler
 	httpClient *http.Client
+	faultHooks *outboxFaultHooks
+}
+
+func (jm *JobsManager) getOutboxFaultHooks() *outboxFaultHooks {
+	jm.mu.RLock()
+	defer jm.mu.RUnlock()
+	return jm.faultHooks
 }
 
 // NewJobsManager creates a new JobsManager.
@@ -508,6 +540,9 @@ func (jm *JobsManager) PublishOutbox(event string, topic string, payload map[str
 	return outbox, nil
 }
 
+// ErrOutboxLeaseLost indicates that an outbox event's claim lease expired or was reclaimed by another worker.
+var ErrOutboxLeaseLost = errors.New("outbox lease lost: claim token no longer active")
+
 // ProcessPendingOutbox fetches and dispatches pending outbox events using the default 60-second lease.
 func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *OutboxEvent) error) (int, error) {
 	return jm.ProcessPendingOutboxWithLease(limit, 60*time.Second, publisher)
@@ -515,22 +550,57 @@ func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *Outbo
 
 // ProcessPendingOutboxWithLease fetches and dispatches pending outbox events using the provided publisher
 // with an explicit lease duration and unique per-claim fencing token.
-//
-// Delivery Semantics: At-Least-Once Delivery.
-// Note: Distributed systems cannot guarantee exactly-once external delivery because a worker may crash
-// after dispatching an external event but before recording status='published' in PostgreSQL, or a network
-// partition may cause lease expiration while external dispatch is in flight. External consumers must be
-// idempotent and deduplicate using the stable OutboxEvent.Id or an idempotency key in the payload.
 func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration time.Duration, publisher func(evt *OutboxEvent) error) (int, error) {
-	if limit <= 0 {
-		limit = 50
+	return jm.ProcessPendingOutboxWithOptions(context.Background(), OutboxProcessOptions{
+		Limit:         limit,
+		LeaseDuration: leaseDuration,
+	}, func(_ context.Context, evt *OutboxEvent) error {
+		return publisher(evt)
+	})
+}
+
+// ProcessPendingOutboxWithOptions fetches and dispatches pending outbox events with full lease lifecycle
+// management:
+//   - Atomic single-statement claim using UPDATE ... RETURNING with FOR UPDATE SKIP LOCKED
+//   - Sub-second millisecond lease precision and unique per-claim fencing tokens (claim_token)
+//   - Batch lease expiration protection: before publishing subsequent events in a claimed batch
+//     (or whenever remaining lease headroom drops below half the lease duration), verifies and
+//     refreshes the event's lease in PostgreSQL fenced by claim_token AND leased_until > now().
+//     Events whose lease already expired are skipped instead of blindly published.
+//   - Optional background lease heartbeat (RenewInterval > 0) that extends leased_until while
+//     a long-running publisher executes, canceling the publisher context if ownership is lost.
+//   - Strict DB error propagation: claim, renewal, completion, and retry UPDATE errors are never
+//     silently converted into successful publication counts.
+//
+// Delivery Semantics: At-Least-Once Delivery (NOT exactly-once).
+// If a worker's lease expires while an external HTTP/broker dispatch remains in flight, another
+// worker may reclaim and re-deliver the event. Similarly, if an external dispatch succeeds and the
+// subsequent PostgreSQL acknowledgment fails or experiences an unknown transaction outcome, the
+// event may be re-delivered after lease expiry. Downstream consumers MUST be idempotent and
+// deduplicate using the stable OutboxEvent.Id or an application idempotency key in Payload.
+func (jm *JobsManager) ProcessPendingOutboxWithOptions(
+	ctx context.Context,
+	opts OutboxProcessOptions,
+	publisher func(ctx context.Context, evt *OutboxEvent) error,
+) (int, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if leaseDuration <= 0 {
-		leaseDuration = 60 * time.Second
+	if opts.Limit <= 0 {
+		opts.Limit = 50
 	}
-	leaseSec := int(leaseDuration.Seconds())
-	if leaseSec <= 0 {
-		leaseSec = 1
+	if opts.LeaseDuration <= 0 {
+		opts.LeaseDuration = 60 * time.Second
+	}
+	leaseMs := opts.LeaseDuration.Milliseconds()
+	if leaseMs < 50 {
+		leaseMs = 50
+	}
+
+	if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.beforeClaim != nil {
+		if err := hooks.beforeClaim(); err != nil {
+			return 0, fmt.Errorf("failed to claim pending outbox events: %w", err)
+		}
 	}
 
 	var events []*OutboxEvent
@@ -550,7 +620,7 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 		    [[attempts]] = [[attempts]] + 1,
 		    [[claim_token]] = gen_random_uuid()::text,
 		    [[leased_at]] = now(),
-		    [[leased_until]] = now() + ({:leaseSec} * INTERVAL '1 second')
+		    [[leased_until]] = now() + ({:leaseMs} * INTERVAL '1 millisecond')
 		WHERE [[id]] IN (
 			SELECT [[id]]
 			FROM {{_outbox_events}}
@@ -561,22 +631,110 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 			LIMIT {:limit}
 		)
 		RETURNING [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[claim_token]], [[leased_at]], [[leased_until]], [[created]], [[published_at]]
-	`).Bind(dbx.Params{
-		"limit":    limit,
-		"leaseSec": leaseSec,
+	`).WithContext(ctx).Bind(dbx.Params{
+		"limit":   opts.Limit,
+		"leaseMs": leaseMs,
 	}).All(&events)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to claim pending outbox events: %w", err)
 	}
 
+	if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.afterClaim != nil {
+		if hookErr := hooks.afterClaim(events); hookErr != nil {
+			return 0, hookErr
+		}
+	}
+
 	count := 0
-	for _, evt := range events {
-		pubErr := publisher(evt)
+	var errs []error
+
+	for idx, evt := range events {
+		if ctx.Err() != nil {
+			errs = append(errs, ctx.Err())
+			break
+		}
+
+		// Batch lease expiration guard: for subsequent events in a batch, or whenever remaining
+		// lease headroom is below half the lease duration, perform a fenced lease check & refresh
+		// against PostgreSQL's clock before invoking the external publisher. Also extend any
+		// remaining still-valid tail events in the same claimed batch so healthy sequential
+		// progress does not starve later events in the batch.
+		remaining := time.Until(evt.LeasedUntil.Time())
+		if idx > 0 || remaining <= opts.LeaseDuration/2 {
+			refreshedUntil, renewErr := jm.renewOutboxLease(ctx, evt, leaseMs)
+			if renewErr != nil {
+				if errors.Is(renewErr, ErrOutboxLeaseLost) {
+					jm.app.Logger().Warn("skipping outbox event publish: lease expired before publish started", "id", evt.Id, "token", evt.ClaimToken)
+					continue
+				}
+				jm.app.Logger().Error("failed to verify/renew outbox lease before publish", "id", evt.Id, "error", renewErr)
+				errs = append(errs, fmt.Errorf("outbox lease renewal failed for %s: %w", evt.Id, renewErr))
+				continue
+			}
+			evt.LeasedUntil = refreshedUntil
+
+			// Keep remaining still-valid events in this claimed batch alive while this worker makes progress.
+			for j := idx + 1; j < len(events); j++ {
+				if time.Until(events[j].LeasedUntil.Time()) <= opts.LeaseDuration/2 {
+					if tailUntil, tailErr := jm.renewOutboxLease(ctx, events[j], leaseMs); tailErr == nil {
+						events[j].LeasedUntil = tailUntil
+					}
+				}
+			}
+		}
+
+		pubCtx := ctx
+		var cancelPub context.CancelFunc
+		if opts.PublishTimeout > 0 {
+			pubCtx, cancelPub = context.WithTimeout(ctx, opts.PublishTimeout)
+		} else {
+			pubCtx, cancelPub = context.WithCancel(ctx)
+		}
+
+		var hbWg sync.WaitGroup
+		stopHb := make(chan struct{})
+		if opts.RenewInterval > 0 {
+			hbWg.Add(1)
+			go func(e *OutboxEvent) {
+				defer hbWg.Done()
+				ticker := time.NewTicker(opts.RenewInterval)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-stopHb:
+						return
+					case <-pubCtx.Done():
+						return
+					case <-ticker.C:
+						if _, rErr := jm.renewOutboxLease(pubCtx, e, leaseMs); rErr != nil {
+							if errors.Is(rErr, ErrOutboxLeaseLost) {
+								jm.app.Logger().Warn("outbox heartbeat lost lease ownership; canceling publisher", "id", e.Id, "token", e.ClaimToken)
+								cancelPub()
+								return
+							}
+							jm.app.Logger().Warn("outbox heartbeat renewal error", "id", e.Id, "error", rErr)
+						}
+					}
+				}
+			}(evt)
+		}
+
+		pubErr := publisher(pubCtx, evt)
+		close(stopHb)
+		hbWg.Wait()
+		cancelPub()
+
 		if pubErr != nil {
 			newStatus := "pending"
 			if evt.Attempts >= 5 {
 				newStatus = "failed"
+			}
+			if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.beforeMarkFail != nil {
+				if hookErr := hooks.beforeMarkFail(evt); hookErr != nil {
+					errs = append(errs, fmt.Errorf("failed to record outbox failure status for %s: %w", evt.Id, hookErr))
+					continue
+				}
 			}
 			// Fenced update: only transition status if our claim_token matches.
 			// If our lease expired and another worker reclaimed this event, claim_token will differ,
@@ -589,7 +747,7 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 				WHERE [[id]] = {:id}
 				  AND [[claim_token]] = {:claimToken}
 				  AND [[status]] = 'processing'
-			`).Bind(dbx.Params{
+			`).WithContext(ctx).Bind(dbx.Params{
 				"id":         evt.Id,
 				"claimToken": evt.ClaimToken,
 				"status":     newStatus,
@@ -597,6 +755,7 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 			}).Execute()
 			if updateErr != nil {
 				jm.app.Logger().Error("failed to record outbox failure status", "id", evt.Id, "error", updateErr)
+				errs = append(errs, fmt.Errorf("failed to record outbox failure status for %s: %w", evt.Id, updateErr))
 			} else {
 				affected, _ := res.RowsAffected()
 				if affected == 0 {
@@ -604,6 +763,12 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 				}
 			}
 		} else {
+			if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.beforeMarkPub != nil {
+				if hookErr := hooks.beforeMarkPub(evt); hookErr != nil {
+					errs = append(errs, fmt.Errorf("failed to record outbox published status for %s: %w", evt.Id, hookErr))
+					continue
+				}
+			}
 			// Fenced update: only mark 'published' if our claim_token matches and status is still 'processing'.
 			// If our lease expired and another worker reclaimed this event, claim_token will differ,
 			// preventing this stale worker from overwriting the newer worker's state.
@@ -616,14 +781,21 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 				WHERE [[id]] = {:id}
 				  AND [[claim_token]] = {:claimToken}
 				  AND [[status]] = 'processing'
-			`).Bind(dbx.Params{
+			`).WithContext(ctx).Bind(dbx.Params{
 				"id":         evt.Id,
 				"claimToken": evt.ClaimToken,
 			}).Execute()
 			if updateErr != nil {
 				jm.app.Logger().Error("failed to record outbox published status", "id", evt.Id, "error", updateErr)
+				errs = append(errs, fmt.Errorf("failed to record outbox published status for %s: %w", evt.Id, updateErr))
 			} else {
 				affected, _ := res.RowsAffected()
+				if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.afterMarkPub != nil {
+					if hookErr := hooks.afterMarkPub(evt, affected); hookErr != nil {
+						errs = append(errs, fmt.Errorf("unknown outcome after outbox published status update for %s: %w", evt.Id, hookErr))
+						continue
+					}
+				}
 				if affected > 0 {
 					count++
 				} else {
@@ -633,7 +805,37 @@ func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration ti
 		}
 	}
 
-	return count, nil
+	return count, errors.Join(errs...)
+}
+
+func (jm *JobsManager) renewOutboxLease(ctx context.Context, evt *OutboxEvent, leaseMs int64) (types.DateTime, error) {
+	if hooks := jm.getOutboxFaultHooks(); hooks != nil && hooks.beforeRenew != nil {
+		if err := hooks.beforeRenew(evt); err != nil {
+			return types.DateTime{}, err
+		}
+	}
+
+	var refreshed types.DateTime
+	err := jm.app.DB().NewQuery(`
+		UPDATE {{_outbox_events}}
+		SET [[leased_until]] = now() + ({:leaseMs} * INTERVAL '1 millisecond')
+		WHERE [[id]] = {:id}
+		  AND [[claim_token]] = {:claimToken}
+		  AND [[status]] = 'processing'
+		  AND [[leased_until]] > now()
+		RETURNING [[leased_until]]
+	`).WithContext(ctx).Bind(dbx.Params{
+		"id":         evt.Id,
+		"claimToken": evt.ClaimToken,
+		"leaseMs":    leaseMs,
+	}).Row(&refreshed)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return types.DateTime{}, ErrOutboxLeaseLost
+		}
+		return types.DateTime{}, err
+	}
+	return refreshed, nil
 }
 
 // RegisterWebhook creates or updates a webhook target.
