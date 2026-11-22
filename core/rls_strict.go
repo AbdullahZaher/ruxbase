@@ -23,18 +23,8 @@ func (app *BaseApp) IsRLSStrict() bool {
 // The optional rule (RLSRuleList or RLSRuleView) restricts the SELECT policies
 // to the policy of that collection rule.
 func RunAsRLSRole(app App, auth *Record, rule string, fn func(txApp App) error) error {
-	var token string
-
-	if auth != nil {
-		if auth.IsSuperuser() {
-			return errors.New("the superusers bypass the RLS policies")
-		}
-
-		var err error
-		token, err = auth.NewRLSToken(rlsStrictTokenDuration)
-		if err != nil {
-			return err
-		}
+	if auth != nil && auth.IsSuperuser() {
+		return errors.New("the superusers bypass the RLS policies")
 	}
 
 	return app.RunInTransaction(func(txApp App) error {
@@ -45,10 +35,13 @@ func RunAsRLSRole(app App, auth *Record, rule string, fn func(txApp App) error) 
 			"rule":        rule,
 		}
 
-		if token != "" {
-			// Pre-verify token and warm backend _auth_cache, then switch to RLS API role
-			setClaimsSQL = "SELECT " + RLSSchema + ".set_claims({:token}, true), set_config('role', {:role}, true), set_config({:ruleSetting}, {:rule}, true)"
-			params["token"] = token
+		if auth != nil {
+			expEpoch := time.Now().Add(rlsStrictTokenDuration).Unix()
+			setClaimsSQL = "SELECT " + RLSSchema + ".set_claims_direct({:authId}, {:collectionId}, {:collectionName}, {:expEpoch}, true), set_config('role', {:role}, true), set_config({:ruleSetting}, {:rule}, true)"
+			params["authId"] = auth.Id
+			params["collectionId"] = auth.Collection().Id
+			params["collectionName"] = auth.Collection().Name
+			params["expEpoch"] = expEpoch
 		} else {
 			setClaimsSQL = "SELECT set_config('role', {:role}, true), set_config({:tokenSetting}, '', true), set_config({:ruleSetting}, {:rule}, true)"
 			params["tokenSetting"] = RLSTokenSetting

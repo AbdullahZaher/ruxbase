@@ -274,6 +274,52 @@ func InstallRLS(txApp App) error {
 		END
 		$ruxbase$;
 
+		-- set_claims_direct directly injects verified claims from the trusted app role
+		-- into _auth_cache and sets the transaction setting, bypassing JWT parsing and HMAC overhead.
+		-- It is intentionally NOT granted to the external roles (PUBLIC, ruxbase_anon, ruxbase_authenticated, ruxbase_api).
+		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.set_claims_direct(
+			auth_id text,
+			collection_id text,
+			collection_name text,
+			exp_epoch numeric,
+			is_local boolean DEFAULT true
+		) RETURNS jsonb
+		LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+		SET search_path = ` + searchPath + ` AS $ruxbase$
+		DECLARE
+			claims jsonb;
+			current_pid int;
+		BEGIN
+			IF auth_id IS NULL OR auth_id = '' THEN
+				PERFORM set_config('` + RLSTokenSetting + `', '', is_local);
+				RETURN NULL;
+			END IF;
+
+			claims := jsonb_build_object(
+				'id', auth_id,
+				'collectionId', collection_id,
+				'collectionName', collection_name
+			);
+
+			PERFORM set_config('` + RLSTokenSetting + `', 'direct:' || auth_id, is_local);
+
+			current_pid := pg_backend_pid();
+			BEGIN
+				INSERT INTO ` + RLSSchema + `._auth_cache (pid, token, claims, expires_at, updated_at)
+				VALUES (current_pid, 'direct:' || auth_id, claims, exp_epoch, clock_timestamp())
+				ON CONFLICT (pid) DO UPDATE SET
+					token = EXCLUDED.token,
+					claims = EXCLUDED.claims,
+					expires_at = EXCLUDED.expires_at,
+					updated_at = EXCLUDED.updated_at;
+			EXCEPTION WHEN others THEN
+				NULL;
+			END;
+
+			RETURN claims;
+		END
+		$ruxbase$;
+
 		REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ` + RLSSchema + ` FROM PUBLIC;
 		GRANT EXECUTE ON FUNCTION ` + RLSSchema + `.auth(), ` + RLSSchema + `.set_claims(text, boolean) TO ` + roles + `;
 	`).Execute()
