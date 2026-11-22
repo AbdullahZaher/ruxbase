@@ -26,6 +26,14 @@ agent_protocol: docs/roadmap/AI-EXECUTION-PROTOCOL.md
 
 ### Current verified checkpoint (snapshot, 2026-11-22)
 
+**Checklist accounting:** 121 of 127 unique requirement IDs are checked:
+110 of 115 Wave 00–11 items and 11 of 12 mandatory journeys. Six distinct
+IDs remain unchecked (`W00-08`, `W01-M01-08`, `W11-05`, `W11-06`,
+`W11-08`, `JOURNEY-11`), representing four types of operational/human
+release gates because the benchmark dependency is tracked by three IDs.
+These are counts of checklist entries, not completed independent releases;
+do not combine IDs when counting checkboxes.
+
 | Item | Current known status | Durable evidence / qualification |
 | --- | --- | --- |
 | Wave 00 / M00 | **GOVERNANCE & CLOSURE PR MERGED (`6b443e4b`); W00-08 MATCHED BENCHMARK PENDING** | [Issue #4](https://github.com/AbdullahZaher/ruxbase/issues/4) and [Issue #36](https://github.com/AbdullahZaher/ruxbase/issues/36) closed after merged [PR #63](https://github.com/AbdullahZaher/ruxbase/pull/63) (`6b443e4b2aaa9ee50276416af5830ba9daf11db6`, tree `2d4de9f4731d30360532bba555649ee015dedccb`) with independent `APPROVED` review by `vibress` and 7/7 passing post-merge `main` workflows; live side-by-side Supabase Self-Hosted measurement remains open under `W00-08` / `W11-06`. |

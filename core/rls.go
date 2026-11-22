@@ -19,7 +19,10 @@ import (
 //
 // The policies apply to the external roles (RLSAnonRole and RLSAuthenticatedRole),
 // eg. a BI tool or another service connected directly to the database.
-// The app connection role is the tables owner (or a superuser) and bypasses them.
+// In the legacy owner-capable bootstrap path, the app connection owns the
+// tables (or is a superuser) and bypasses their policies. This does NOT
+// describe the Wave 01 restricted serving identity, which is checked for
+// elevated attributes and object ownership before prepared admission.
 //
 // The auth record is identified with a ruxbase RLS token (see Record.NewRLSToken)
 // stored in the "ruxbase.token" setting (see ruxbase_rls.set_claims()). The policies
