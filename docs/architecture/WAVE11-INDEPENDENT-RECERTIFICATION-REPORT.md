@@ -51,7 +51,7 @@ Under this remediation candidate, these issues have been completely resolved:
 
 ---
 
-## 2. Phase 1 — Evidence Verification & Claim Reconciliation
+## 2. Stage 1 — Evidence Verification & Claim Reconciliation
 
 The original stress-test artifacts from run `20261122-131525` were retrieved and independently inspected by A11. Cryptographic SHA-256 checksums of all 13 artifacts in `bench/stress/results/20261122-131525/SHA256SUMS.txt` were 100% verified against raw files.
 
@@ -59,8 +59,8 @@ Five previously inconsistent or conflicting claims were formally reconciled:
 
 | Claim Under Audit | Original Text in Initial Report | Audit Findings & Reconciliation |
 | :--- | :--- | :--- |
-| **Claim 1: Zero Data Integrity Defects vs Multipart Race** | "Data Integrity: 0 defects across all tests" | **RECONCILED:** The initial claim conflated relational data integrity with storage uploads. While PostgreSQL tables had 0 corrupt rows, Corestress Test F logged `multipartConcurrentLostBytes: 1835008`. This was a severe P1 data loss defect in parallel chunk uploads. Remediated in Phase 2. |
-| **Claim 2: Zero Duplicate Executions vs Outbox Concurrency** | "Zero duplicate business executions" | **RECONCILED:** Durable background jobs had unique idempotency constraints, but the transactional outbox subsystem logged `outboxDuplicateDeliveries: 60` during multi-worker stress. Remediated in Phase 3. |
+| **Claim 1: Zero Data Integrity Defects vs Multipart Race** | "Data Integrity: 0 defects across all tests" | **RECONCILED:** The initial claim conflated relational data integrity with storage uploads. While PostgreSQL tables had 0 corrupt rows, Corestress Test F logged `multipartConcurrentLostBytes: 1835008`. This was a severe P1 data loss defect in parallel chunk uploads. Remediated in Stage 2. |
+| **Claim 2: Zero Duplicate Executions vs Outbox Concurrency** | "Zero duplicate business executions" | **RECONCILED:** Durable background jobs had unique idempotency constraints, but the transactional outbox subsystem logged `outboxDuplicateDeliveries: 60` during multi-worker stress. Remediated in Stage 3. |
 | **Claim 3: Zero Memory Leaks Based on 5-Minute Soak** | "Zero memory leaks, flat endurance slope" | **RECONCILED:** The 300-second endurance test demonstrated heap and goroutine stability (-1.46 goroutines/min), but a 5-minute synthetic test does not satisfy roadmap gate W11-05 (168-hour unattended soak under live workloads). |
 | **Claim 4: Production Certification vs Pending Release Gates** | "Ruxbase is hereby independently PERFORMANCE CERTIFIED" | **RECONCILED:** Status is formally corrected to `NO-GO (ENGINEERING_COMPLETE_RELEASE_GATES_PENDING)`. AI agents cannot override mandatory human sign-off (W11-08) or staging soak requirements (W11-05). |
 | **Claim 5: Auditor Role Separation** | Initial report signed by A01 as both executor and certifier | **RECONCILED:** Strict role separation enforced. A01 acts as Implementation and Remediation Coordinator. A11 acts as the strictly read-only, independent certification auditor. |
