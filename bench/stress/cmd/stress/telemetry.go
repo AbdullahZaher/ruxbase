@@ -300,25 +300,6 @@ func (p *pgTelemetry) topStatements(ctx context.Context, limit int) []PGTopQuery
 	return out
 }
 
-func (p *pgTelemetry) explainAnalyze(ctx context.Context, sqlText string, args ...any) ([]string, error) {
-	if p == nil {
-		return nil, fmt.Errorf("pg telemetry not configured")
-	}
-	rows, err := p.pool.Query(ctx, "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) "+sqlText, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var lines []string
-	for rows.Next() {
-		var l string
-		if err := rows.Scan(&l); err == nil {
-			lines = append(lines, l)
-		}
-	}
-	return lines, rows.Err()
-}
-
 func fetchOpsMetrics(client *http.Client, baseURL, superToken string) *OpsSnap {
 	if superToken == "" || baseURL == "" {
 		return nil

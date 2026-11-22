@@ -23,7 +23,6 @@ type sseConn struct {
 	res        *http.Response
 	reader     *bufio.Reader
 	latencies  []time.Duration
-	seqNums    []int
 	outOfOrder atomic.Int64
 	received   atomic.Int64
 	leaks      atomic.Int64

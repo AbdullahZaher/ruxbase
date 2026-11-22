@@ -64,6 +64,8 @@ services:
   # Loopback-pprof-instrumented wrapper around exact candidate core (Section 13 profiling only)
   ruxbase-pprof:
     <<: *base
+    ports:
+      - "127.0.0.1:6060:6060"
     command: ["/bench/ruxbase-pprof", "serve", "--http=0.0.0.0:8090", "--dir=/data", "--dev=false"]
     depends_on:
       postgres:

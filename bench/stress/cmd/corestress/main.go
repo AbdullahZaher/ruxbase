@@ -80,7 +80,7 @@ func main() {
 	if err := app.Bootstrap(); err != nil {
 		log.Fatalf("bootstrap failed: %v", err)
 	}
-	defer app.ResetBootstrapState()
+	defer app.ClearBootstrap()
 
 	ctx := context.Background()
 

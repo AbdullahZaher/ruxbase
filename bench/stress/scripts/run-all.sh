@@ -102,10 +102,12 @@ init_pg_stack() {
   local pg_image="$1"
   local pg_cpus="${2:-2.5}"
   local pg_mem="${3:-3584m}"
+  export STRESS_POSTGRES_IMAGE="$pg_image"
+  export STRESS_PG_CPUS="$pg_cpus"
+  export STRESS_PG_MEM="$pg_mem"
   echo "== Starting isolated PostgreSQL ($pg_image, cpus=$pg_cpus, mem=$pg_mem)"
   compose down -v >/dev/null 2>&1 || true
-  STRESS_POSTGRES_IMAGE="$pg_image" STRESS_PG_CPUS="$pg_cpus" STRESS_PG_MEM="$pg_mem" \
-    STRESS_PG_SUPER_PASSWORD="$PG_SUPER_PASS" STRESS_APP_PASSWORD="$APP_PASS" \
+  STRESS_PG_SUPER_PASSWORD="$PG_SUPER_PASS" STRESS_APP_PASSWORD="$APP_PASS" \
     compose up -d postgres runner
   wait_pg
   compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 \
@@ -519,22 +521,21 @@ if has_phase "profile"; then
     -state /tmp/state_pprof.json -stages "250" -repeat-stages "" -open-rates "" -warmup 2s -d 18s >/dev/null &
   LOAD_PID=$!
   sleep 3
-  compose exec -T runner python3 -c "
+  python3 -c "
 import urllib.request
 for name, url in [
-    ('cpu_rls_250vu.pprof', 'http://ruxbase-pprof:6060/debug/pprof/profile?seconds=12'),
-    ('heap_rls_250vu.pprof', 'http://ruxbase-pprof:6060/debug/pprof/heap'),
-    ('allocs_rls_250vu.pprof', 'http://ruxbase-pprof:6060/debug/pprof/allocs'),
-    ('goroutine_rls_250vu.pprof', 'http://ruxbase-pprof:6060/debug/pprof/goroutine'),
-    ('mutex_rls_250vu.pprof', 'http://ruxbase-pprof:6060/debug/pprof/mutex'),
+    ('cpu_rls_250vu.pprof', 'http://127.0.0.1:6060/debug/pprof/profile?seconds=12'),
+    ('heap_rls_250vu.pprof', 'http://127.0.0.1:6060/debug/pprof/heap'),
+    ('allocs_rls_250vu.pprof', 'http://127.0.0.1:6060/debug/pprof/allocs'),
+    ('goroutine_rls_250vu.pprof', 'http://127.0.0.1:6060/debug/pprof/goroutine'),
+    ('mutex_rls_250vu.pprof', 'http://127.0.0.1:6060/debug/pprof/mutex'),
 ]:
-    with urllib.request.urlopen(url, timeout=30) as r:
-        open('/results/$RUN_ID/profiles/' + name, 'wb').write(r.read())
-" 2>/dev/null || compose exec -T runner bash -c '
-    fetch() {
-      python3 -c "import urllib.request; open(\"$2\",\"wb\").write(urllib.request.urlopen(\"$1\",timeout=30).read())" 2>/dev/null || true
-    }
-  '
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:
+            open('$OUT_DIR/profiles/' + name, 'wb').write(r.read())
+    except Exception as e:
+        print(f'pprof fetch {name} err: {e}')
+"
   wait "$LOAD_PID" || true
 
   # Export concise human-readable text top tables and remove heavy binary pprofs if desired (keep compact summaries)

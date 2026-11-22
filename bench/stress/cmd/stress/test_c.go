@@ -21,7 +21,7 @@ import (
 // enforcing restricted roles + real RLS (never disabling RLS or granting superuser access to app queries).
 func runTestC(ctx context.Context, baseURL string, st *FixtureState, pgAdmin *pgTelemetry, appDSN string, sizesCSV string, dur time.Duration) error {
 	if pgAdmin == nil || appDSN == "" {
-		return errors.New("Test C requires both -pg-admin-url (for telemetry/seeding) and -pg-app-url (restricted ruxbase_app role)")
+		return errors.New("test C requires both -pg-admin-url (for telemetry/seeding) and -pg-app-url (restricted ruxbase_app role)")
 	}
 	if err := pgAdmin.verifyAppRoleRestricted(ctx, "ruxbase_app"); err != nil {
 		return err
@@ -48,7 +48,7 @@ func runTestC(ctx context.Context, baseURL string, st *FixtureState, pgAdmin *pg
 		return err
 	}
 	if isSuper || isBypass {
-		return fmt.Errorf("Test C refused: app DSN connected as privileged role %q (super=%v bypassrls=%v)", curRole, isSuper, isBypass)
+		return fmt.Errorf("test C refused: app DSN connected as privileged role %q (super=%v bypassrls=%v)", curRole, isSuper, isBypass)
 	}
 	log.Printf("[Test C] verified restricted PG connection role=%s (rolsuper=false, rolbypassrls=false)", curRole)
 

@@ -82,7 +82,7 @@ func authWriteOp(ctx context.Context, client *http.Client, baseURL string, st *F
 		"tenant_id":     tu.TenantID,
 		"owner":         tu.UserID,
 		"category":      fmt.Sprintf("cat_%d", seq%10),
-		"n":             int(st.InitialItems) + int(seq),
+		"n":             st.InitialItems + int(seq),
 		"amount":        float64(seq%500) + 2.25,
 		"published":     seq%2 == 0,
 		"title":         fmt.Sprintf("Write #%d", seq),

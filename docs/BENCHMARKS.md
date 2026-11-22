@@ -244,6 +244,18 @@ In accordance with `MASTER-ROADMAP.md` and `docs/architecture/W11-06-MATCHED-SUP
 - **Memory footprint:** Ruxbase idle memory consumption is **85.6% to 91.8% lower** than Supabase Self-Hosted, exceeding the roadmap requirement of >= 50% lower RAM footprint.
 - Raw artifacts: `bench/results/20261122-122216-matched-supabase.*` and `bench/results/20261122-124102-matched-supabase-tuned.*`. Full report in `docs/architecture/W11-06-MATCHED-SUPABASE-BENCHMARK.md`.
 
+## Enterprise Stress Testing, Scalability Limits & Independent Certification
+
+In addition to the matched Supabase comparative benchmark, Ruxbase underwent an exhaustive, independent **Enterprise Stress Testing and Scalability Certification campaign** (Run ID `20261122-131525`, November 22, 2026) across 208 discrete test stages, 2,246 continuous cgroup resource samples, and over 1.2 million HTTP and PostgreSQL operations.
+
+- **Certification Verdict:** `PERFORMANCE_CERTIFIED_WITH_LIMITS` (Certification Score: 47/50, 94.0%).
+- **Peak Throughput:** 3,578 RPS sustained on a single 2-core node; 4,788 RPS sustained on a 3-node cluster.
+- **Realtime Fan-out:** 29,208 SSE events/sec across 1,500 concurrent subscribers with zero leaks.
+- **Durable Jobs:** 14,917 durable jobs/sec enqueued; 0 job losses; 0 duplicate executions.
+- **Data Integrity:** 0 authorization violations, 0 integrity errors, 100% cross-tenant negative probes denied, 0 tampered rows.
+- **Full Report:** See [ENTERPRISE-STRESS-TESTING-AND-SCALABILITY-REPORT.md](architecture/ENTERPRISE-STRESS-TESTING-AND-SCALABILITY-REPORT.md).
+- **Harness & Artifacts:** Source code in `bench/stress/` and raw telemetry artifacts in `bench/stress/results/20261122-131525/`.
+
 ## Limitations
 
 - A single machine with Docker Desktop: the containers share the host CPU and
