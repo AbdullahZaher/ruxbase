@@ -150,7 +150,7 @@ func newDefaultSettings() *Settings {
 		isNew: true,
 		settings: settings{
 			Meta: MetaConfig{
-				AccentColor:   "#1055c9",
+				AccentColor:   "#000000", // ruxbase: default monochrome accent
 				AppName:       "Ruxbase",
 				AppURL:        "http://localhost:8090",
 				HideControls:  false,
