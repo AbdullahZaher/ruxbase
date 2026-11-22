@@ -11,7 +11,7 @@ serving-role contract. A restricted runtime must not own application objects,
 hold elevated PostgreSQL attributes or execute provisioning/migrations.
 Role creation, migration and approved object ownership belong to separately
 authorized operator/migrator identities. This documentation does not establish
-production readiness; see [the operator runbook](architecture/W01-M01-PROVISIONING-READINESS.md)
+production readiness; see [the operator runbook](https://github.com/AbdullahZaher/ruxbase/blob/main/docs/architecture/W01-M01-PROVISIONING-READINESS.md)
 and the open `W01-M01-08` qualification gate.
 
 ## Roles
