@@ -11,6 +11,7 @@ import (
 
 	"github.com/AbdullahZaher/ruxbase/core"
 	"github.com/AbdullahZaher/ruxbase/tests"
+	"github.com/pocketbase/dbx"
 )
 
 func TestJobsManager_OutboxConcurrency(t *testing.T) {
@@ -811,15 +812,19 @@ func TestJobsManager_Outbox_DBErrorHandling(t *testing.T) {
 	if err := appClosed.Bootstrap(); err != nil {
 		t.Fatalf("failed to bootstrap disposable appClosed: %v", err)
 	}
+	defer appClosed.ClearBootstrap()
+
 	jmClosed := appClosed.Jobs()
-	// Close DB connections underneath jmClosed
-	_ = appClosed.ResetBootstrapState()
-	// Attempting claim on closed/unbootstrapped DB must fail or not panic
-	if appClosed.DB() != nil {
-		nClosed, errClosed := jmClosed.ProcessPendingOutbox(1, func(e *core.OutboxEvent) error { return nil })
-		if errClosed == nil || nClosed != 0 {
-			t.Fatalf("expected real DB error on closed connection pool, got n=%d err=%v", nClosed, errClosed)
-		}
+	dbxDB, ok := appClosed.DB().(*dbx.DB)
+	if !ok || dbxDB == nil {
+		t.Fatalf("expected *dbx.DB on bootstrapped appClosed, got %T", appClosed.DB())
+	}
+	if err := dbxDB.DB().Close(); err != nil {
+		t.Fatalf("failed to close underlying sql.DB pool: %v", err)
+	}
+	nClosed, errClosed := jmClosed.ProcessPendingOutbox(1, func(e *core.OutboxEvent) error { return nil })
+	if errClosed == nil || nClosed != 0 {
+		t.Fatalf("expected real DB error on closed connection pool, got n=%d err=%v", nClosed, errClosed)
 	}
 }
 

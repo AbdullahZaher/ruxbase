@@ -247,7 +247,26 @@ func (sm *StorageManager) UploadObject(
 		}
 	}
 
-	// 3. Compute ETag (SHA-256)
+	// 3. Guard against racing an actively completing multipart upload on the exact same target key
+	var multipartCompleting bool
+	if err := sm.app.DB().NewQuery(`
+		SELECT EXISTS (
+			SELECT 1 FROM {{_storage_uploads}}
+			WHERE [[bucket_id]] = {:bucketId}
+			  AND [[name]] = {:name}
+			  AND [[status]] = 'completing'
+		)
+	`).WithContext(ctx).Bind(dbx.Params{
+		"bucketId": b.Id,
+		"name":     objectName,
+	}).Row(&multipartCompleting); err != nil {
+		return nil, fmt.Errorf("failed to check active multipart completion: %w", err)
+	}
+	if multipartCompleting {
+		return nil, fmt.Errorf("%w: cannot overwrite %s/%s while multipart completion is in flight", ErrStorageUploadInProgress, b.Id, objectName)
+	}
+
+	// 4. Compute ETag (SHA-256)
 	hash := sha256.Sum256(data)
 	etag := hex.EncodeToString(hash[:])
 

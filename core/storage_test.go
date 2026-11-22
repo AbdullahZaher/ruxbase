@@ -924,6 +924,11 @@ func TestStorageManager_Multipart_LiveCompletionNotStolenOrAbandoned(t *testing.
 		t.Fatalf("expected AbortMultipartUpload to fail during live completion")
 	}
 
+	// Concurrent single-shot UploadObject targeting the same key MUST also be rejected
+	if _, upErr := sm.UploadObject(ctx, bucketName, "live.bin", "tenant_test", "application/octet-stream", []byte("competing-single-shot"), nil); !errors.Is(upErr, core.ErrStorageUploadInProgress) {
+		t.Fatalf("expected ErrStorageUploadInProgress when UploadObject races in-flight multipart completion, got %v", upErr)
+	}
+
 	close(releaseCh)
 	if err := <-worker1Err; err != nil {
 		t.Fatalf("Worker 1 live completion failed: %v", err)
