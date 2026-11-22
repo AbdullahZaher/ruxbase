@@ -20,8 +20,13 @@ window.app.store = store({
         }
     }),
 
-    mainLogo: import.meta.env.BASE_URL + "images/logo.svg",
-    headerLogo: import.meta.env.BASE_URL + "images/logo_white.svg",
+    get mainLogo() {
+        return import.meta.env.BASE_URL
+            + (app.store.activeColorScheme === "dark"
+                ? "images/logo_white.svg?v=ruxbase"
+                : "images/logo.svg?v=ruxbase");
+    },
+    headerLogo: import.meta.env.BASE_URL + "images/logo_white.svg?v=ruxbase",
     favicon: "", // leave empty to fallback to the default one
 
     title: "",
@@ -123,14 +128,14 @@ window.app.store = store({
             },
             {
                 href: "#/settings/operations",
-                icon: "ri-pulse-line",
+                icon: "ri-slash-commands-2",
                 label: "Operations & Studio",
             },
         ],
     },
 
     predefinedAccentColors: [
-        "#1055c9",
+        "#000000",
         "#a3142a",
         "#096d5c",
         "#e6620a",

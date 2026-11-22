@@ -47,7 +47,7 @@
     --dangerTxtHintColor: var(--primaryTxtHintColor);
     --dangerTxtDisabledColor: var(--primaryTxtDisabledColor);
 
-    --accentColor: #1055c9;
+    --accentColor: #000000;
     --accentAlt1Color: color-mix(in srgb, var(--accentColor), white 10%);
     --accentAlt2Color: color-mix(in srgb, var(--accentColor), white 15%);
     --accentTxtColor: #fff;

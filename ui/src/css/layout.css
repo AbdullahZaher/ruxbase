@@ -40,6 +40,8 @@
         border-radius: var(--borderRadius);
         img {
             vertical-align: top;
+            width: 24px;
+            height: 24px;
             max-height: 26px;
         }
     }
