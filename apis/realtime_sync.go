@@ -45,6 +45,12 @@ func realtimeDeltaSync(e *core.RequestEvent) error {
 		}
 	}
 
+	var syncTimestamp time.Time
+	_ = e.App.DB().NewQuery("SELECT clock_timestamp()").Row(&syncTimestamp)
+	if syncTimestamp.IsZero() {
+		syncTimestamp = time.Now().UTC()
+	}
+
 	reqInfo, _ := e.RequestInfo()
 
 	// Query updated records
@@ -99,7 +105,7 @@ func realtimeDeltaSync(e *core.RequestEvent) error {
 
 	return e.JSON(http.StatusOK, map[string]any{
 		"collection": col.Name,
-		"syncedAt":   time.Now().UTC().Format(time.RFC3339Nano),
+		"syncedAt":   syncTimestamp.UTC().Format(time.RFC3339Nano),
 		"records":    accessibleRecords,
 		"deleted":    deletedIds,
 	})
@@ -134,6 +140,12 @@ func realtimeBatchSync(e *core.RequestEvent) error {
 	col, err := e.App.FindCollectionByNameOrId(strings.TrimSpace(form.Collection))
 	if err != nil {
 		return e.NotFoundError("Collection not found", err)
+	}
+
+	var syncTimestamp time.Time
+	_ = e.App.DB().NewQuery("SELECT clock_timestamp()").Row(&syncTimestamp)
+	if syncTimestamp.IsZero() {
+		syncTimestamp = time.Now().UTC()
 	}
 
 	reqInfo, _ := e.RequestInfo()
@@ -353,7 +365,7 @@ func realtimeBatchSync(e *core.RequestEvent) error {
 
 	return e.JSON(http.StatusOK, map[string]any{
 		"collection": col.Name,
-		"syncedAt":   time.Now().UTC().Format(time.RFC3339Nano),
+		"syncedAt":   syncTimestamp.UTC().Format(time.RFC3339Nano),
 		"applied":    applied,
 		"conflicts":  conflicts,
 	})
