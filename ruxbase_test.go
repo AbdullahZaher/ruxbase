@@ -208,3 +208,26 @@ func TestSkipBootstrap(t *testing.T) {
 		}
 	}
 }
+
+func TestPocketBaseExposesDatabaseURLsForRestore(t *testing.T) {
+	app := NewWithConfig(Config{
+		DefaultDataDir:  t.TempDir(),
+		DatabaseURL:     "postgres://user:pass@127.0.0.1:5432/appdb?sslmode=disable",
+		LogsDatabaseURL: "postgres://user:pass@127.0.0.1:5432/logsdb?sslmode=disable",
+		HideStartBanner: true,
+	})
+
+	urls, ok := any(app).(interface {
+		DatabaseURL() string
+		LogsDatabaseURL() string
+	})
+	if !ok {
+		t.Fatal("Expected *PocketBase to expose DatabaseURL and LogsDatabaseURL for cmd.NewRestoreCommand")
+	}
+	if urls.DatabaseURL() != "postgres://user:pass@127.0.0.1:5432/appdb?sslmode=disable" {
+		t.Fatalf("Unexpected DatabaseURL: %q", urls.DatabaseURL())
+	}
+	if urls.LogsDatabaseURL() != "postgres://user:pass@127.0.0.1:5432/logsdb?sslmode=disable" {
+		t.Fatalf("Unexpected LogsDatabaseURL: %q", urls.LogsDatabaseURL())
+	}
+}

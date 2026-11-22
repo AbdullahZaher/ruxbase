@@ -1,0 +1,155 @@
+# Isolated disposable Docker Compose environment for Ruxbase Enterprise Stress Testing.
+#
+# Always invoke with an explicit project name to guarantee isolation from dev/other stacks:
+#   docker compose --project-name ruxbase-stress -f bench/stress/docker-compose.yml ...
+#
+# Resource budgets are explicitly parameterized and kept within host Docker VM limits
+# (zero CPU oversubscription across simultaneously active containers).
+name: ruxbase-stress
+
+x-ulimits: &ulimits
+  nofile:
+    soft: 65536
+    hard: 65536
+
+x-base: &base
+  image: ${STRESS_BASE_IMAGE:-pgvector/pgvector:0.8.7-pg18-trixie}
+  entrypoint: []
+  ulimits: *ulimits
+
+services:
+  postgres:
+    image: ${STRESS_POSTGRES_IMAGE:-pgvector/pgvector:0.8.7-pg18-trixie}
+    command: ["postgres", "-c", "config_file=/etc/postgresql/stress.conf"]
+    environment:
+      POSTGRES_PASSWORD: ${STRESS_PG_SUPER_PASSWORD:-stress-super-disposable}
+    volumes:
+      - ./postgres.conf:/etc/postgresql/stress.conf:ro
+      - ./init-stress-db.sql:/stress/init-stress-db.sql:ro
+      - pg_data:/var/lib/postgresql
+    ulimits: *ulimits
+    deploy:
+      resources:
+        limits:
+          cpus: "${STRESS_PG_CPUS:-2.5}"
+          memory: "${STRESS_PG_MEM:-3584m}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -q"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Single-node unmodified candidate binary (exact main HEAD build)
+  ruxbase:
+    <<: *base
+    command: ["/bench/ruxbase", "serve", "--http=0.0.0.0:8090", "--dir=/data", "--dev=false"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://ruxbase_app:${STRESS_APP_PASSWORD:-stress-app-disposable}@${STRESS_DB_HOST:-postgres}:${STRESS_DB_PORT:-5432}/${STRESS_SINGLE_DB:-stress_single}?sslmode=disable"
+      RUXBASE_DB_MAX_CONNS: "${STRESS_DB_MAX_CONNS:-20}"
+      RUXBASE_DB_CONN_MAX_LIFETIME: "${STRESS_DB_CONN_MAX_LIFETIME:-30m}"
+      RUXBASE_RLS_STRICT: "${STRESS_RLS_STRICT:-false}"
+      RUXBASE_REALTIME_SOURCE: "${STRESS_SINGLE_RT_SOURCE:-hooks}"
+    volumes:
+      - ./.bin:/bench:ro
+      - ruxbase_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "${STRESS_APP_CPUS:-2.0}"
+          memory: "${STRESS_APP_MEM:-1536m}"
+
+  # Loopback-pprof-instrumented wrapper around exact candidate core (Section 13 profiling only)
+  ruxbase-pprof:
+    <<: *base
+    ports:
+      - "127.0.0.1:6060:6060"
+    command: ["/bench/ruxbase-pprof", "serve", "--http=0.0.0.0:8090", "--dir=/data", "--dev=false"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://ruxbase_app:${STRESS_APP_PASSWORD:-stress-app-disposable}@postgres:5432/${STRESS_SINGLE_DB:-stress_single}?sslmode=disable"
+      RUXBASE_DB_MAX_CONNS: "${STRESS_DB_MAX_CONNS:-20}"
+      RUXBASE_RLS_STRICT: "${STRESS_RLS_STRICT:-false}"
+      RUXBASE_REALTIME_SOURCE: "${STRESS_SINGLE_RT_SOURCE:-hooks}"
+      STRESS_PPROF_ADDR: "0.0.0.0:6060"
+    volumes:
+      - ./.bin:/bench:ro
+      - ruxbase_pprof_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "${STRESS_APP_CPUS:-2.0}"
+          memory: "${STRESS_APP_MEM:-1536m}"
+
+  # Multi-node cluster services (Test E & Test G failover)
+  node1: &cluster_node
+    <<: *base
+    command: ["/bench/ruxbase", "serve", "--http=0.0.0.0:8090", "--dir=/data", "--dev=false"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://ruxbase_app:${STRESS_APP_PASSWORD:-stress-app-disposable}@postgres:5432/stress_cluster?sslmode=disable"
+      RUXBASE_DB_MAX_CONNS: "${STRESS_CLUSTER_DB_MAX_CONNS:-25}"
+      RUXBASE_RLS_STRICT: "${STRESS_RLS_STRICT:-false}"
+      RUXBASE_REALTIME_SOURCE: "${STRESS_CLUSTER_RT_SOURCE:-replication}"
+    volumes:
+      - ./.bin:/bench:ro
+      - node1_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "${STRESS_NODE_CPUS:-1.0}"
+          memory: "${STRESS_NODE_MEM:-1024m}"
+
+  node2:
+    <<: *cluster_node
+    volumes:
+      - ./.bin:/bench:ro
+      - node2_data:/data
+
+  node3:
+    <<: *cluster_node
+    volumes:
+      - ./.bin:/bench:ro
+      - node3_data:/data
+
+  # Deterministic TCP latency/jitter/pause chaos proxy (Test G network latency & outage simulation)
+  netproxy:
+    <<: *base
+    command: ["/bench/netproxy", "-listen", "0.0.0.0:5432", "-target", "postgres:5432", "-admin", "0.0.0.0:9090"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./.bin:/bench:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "256m"
+
+  # Dedicated isolated load generator & core stress runner container
+  runner:
+    <<: *base
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./.bin:/bench:ro
+      - ./results:/results
+    deploy:
+      resources:
+        limits:
+          cpus: "${STRESS_RUNNER_CPUS:-1.5}"
+          memory: "${STRESS_RUNNER_MEM:-1536m}"
+
+volumes:
+  pg_data:
+  ruxbase_data:
+  ruxbase_pprof_data:
+  node1_data:
+  node2_data:
+  node3_data:

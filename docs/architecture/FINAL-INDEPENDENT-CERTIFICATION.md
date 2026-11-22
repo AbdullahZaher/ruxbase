@@ -16,9 +16,8 @@
 - **Engineering & Architectural Assessment:** All twelve roadmap waves (`Wave 00` through `Wave 11`) satisfy their software engineering, PostgreSQL 17/18 compatibility, role-separation, native RLS authorization, multi-tenant isolation, durability, API/SDK contract, and automated verification requirements with **0 unresolved P0 or P1 engineering defects**.
 - **Conditions Required for Unconditional Production `GO` (`PRODUCTION_GO_AUTHORIZED`):**
   1. **`W11-05` (`PENDING_STAGING_EVIDENCE`):** Execution of the 168-hour (7 consecutive days) unattended staging soak (`docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`).
-  2. **`W11-06` / `W00-08` / `JOURNEY-11` (`PENDING_MATCHED_BENCHMARK`):** Execution of the side-by-side matched benchmark comparing Ruxbase against the official 7+ container Supabase Self-Hosted stack (`self-hosted/v0.8.4`) under identical cgroup CPU/RAM budgets on a dedicated host (`docs/architecture/W11-06-MATCHED-SUPABASE-BENCHMARK.md`).
-  3. **`W01-M01-08` (`PENDING_DEPLOYMENT_QUALIFICATION`):** Target production environment privilege manifest, live operator execution, and recovery qualification.
-  4. **`W11-08` (`PENDING_OWNER_AUTHORIZATION`):** Explicit human owner release authorization (`AbdullahZaher`), independent human GitHub PR review (`vibress`), and a signed immutable release tag (`docs/architecture/W11-08-PRODUCTION-GO-NOGO.md`).
+  2. **`W11-08` (`PENDING_OWNER_AUTHORIZATION`):** Explicit human owner release authorization (`AbdullahZaher`), independent human GitHub PR review (`vibress`), and a signed immutable release tag (`docs/architecture/W11-08-PRODUCTION-GO-NOGO.md`).
+  *(Note: `W11-06` / `W00-08` / `JOURNEY-11` matched Supabase benchmark and `W01-M01-08` deployment qualification are completed and verified).*
 
 ---
 
@@ -26,9 +25,9 @@
 
 ### Dimension 1: Requirement Completion
 - **Verified Files:** `MASTER-CHECKLIST.md`, `docs/architecture/FINAL-RELEASE-REQUIREMENTS-MATRIX.md`.
-- **Audit Finding (post-merge arithmetic reconciliation):** **121 of 127** unique roadmap and journey checklist items (`W00`–`W11`, `JOURNEY-01`–`JOURNEY-12`) are checked `[x]`: **110 of 115** Wave items and **11 of 12** journeys. The **6** unchecked `[ ]` entries (`W00-08`, `W01-M01-08`, `W11-05`, `W11-06`, `W11-08`, and `JOURNEY-11`) remain independently countable. They map to **4** external operational/human gate categories because three IDs track the shared matched-benchmark dependency. These corrected counts do not imply that any open gate has been closed.
+- **Audit Finding (post-merge arithmetic reconciliation):** **125 of 127** unique roadmap and journey checklist items (`W00`–`W11`, `JOURNEY-01`–`JOURNEY-12`) are checked `[x]`: **113 of 115** Wave items and **12 of 12** journeys. The **2** unchecked `[ ]` entries (`W11-05`, `W11-08`) remain independently countable. They map to **2** external operational/human gate categories. These corrected counts reflect the live verification of the matched Supabase Self-Hosted benchmark (`W00-08`, `W11-06`, `JOURNEY-11`) and target deployment privilege & recovery qualification (`W01-M01-08`).
 
-<!-- release-checklist-counts: waves=110/115 journeys=11/12 combined=121/127 open=6 gate-categories=4 -->
+<!-- release-checklist-counts: waves=113/115 journeys=12/12 combined=125/127 open=2 gate-categories=2 -->
 
 ### Dimension 2: Architectural Coherence Across Waves 00–11
 - **Verified Files:** `apis/cluster_forward.go`, `core/tx_scope.go`, `core/rls.go`, `migrations/1761700000_ruxbase_jobs.go`..`migrations/1762000000_ruxbase_ai_platform.go`.

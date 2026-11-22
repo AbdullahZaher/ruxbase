@@ -177,6 +177,22 @@ func (pb *PocketBase) Start() error {
 	return pb.Execute()
 }
 
+// ruxbase: DatabaseURL forwards the main database DSN so cmd.NewRestoreCommand works when passed *PocketBase.
+func (pb *PocketBase) DatabaseURL() string {
+	if urls, ok := pb.App.(interface{ DatabaseURL() string }); ok {
+		return urls.DatabaseURL()
+	}
+	return ""
+}
+
+// ruxbase: LogsDatabaseURL forwards the auxiliary logs database DSN so cmd.NewRestoreCommand works when passed *PocketBase.
+func (pb *PocketBase) LogsDatabaseURL() string {
+	if urls, ok := pb.App.(interface{ LogsDatabaseURL() string }); ok {
+		return urls.LogsDatabaseURL()
+	}
+	return ""
+}
+
 // Execute initializes the application (if not already) and executes
 // the pb.RootCmd with graceful shutdown support.
 //
