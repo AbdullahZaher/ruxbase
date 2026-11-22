@@ -104,8 +104,14 @@ def verify(checklist: str, matrix: str, certification: str) -> tuple[dict[str, i
         errors.append(f"{MATRIX}: outstanding item table must list each open ID once")
 
     dimension = certification.partition("### Dimension 1:")[2].partition("### Dimension 2:")[0]
-    certified_open_ids = re.findall(
-        r"`(W\d{2}-(?:M\d{2}-)?\d{2}|JOURNEY-\d{2})`", dimension
+    # Extract only the explicit unchecked-entry list, not the journey-range
+    # label (`JOURNEY-01`–`JOURNEY-12`) which also appears in Dimension 1.
+    unchecked_list = re.search(
+        r"unchecked\s+`\[\s\]`\s+entries\s+\(([^)]*)\)", dimension
+    )
+    certified_open_ids = (
+        re.findall(r"`(W\d{2}-(?:M\d{2}-)?\d{2}|JOURNEY-\d{2})`", unchecked_list.group(1))
+        if unchecked_list else []
     )
     if set(certified_open_ids) != open_ids or len(certified_open_ids) != len(open_ids):
         errors.append(f"{CERTIFICATION}: Dimension 1 must list open IDs exactly once")

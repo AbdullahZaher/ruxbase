@@ -27,8 +27,8 @@ SAMPLE_MATRIX = f"""
 SAMPLE_CERTIFICATION = f"""
 ### Dimension 1: Requirement Completion
 **1 of 4** total, **1 of 3** waves, **0 of 1** journeys;
-**3** unchecked IDs, **1** gate categories.
-(`W00-08`, `W11-06`, `JOURNEY-11`).
+the mandatory `JOURNEY-01`–`JOURNEY-12` range is not an open-ID list.
+The **3** unchecked `[ ]` entries (`W00-08`, `W11-06`, `JOURNEY-11`) map to **1** gate categories.
 {MARKER}
 ### Dimension 2: Architecture
 """
