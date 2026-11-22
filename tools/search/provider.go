@@ -314,15 +314,8 @@ func (s *Provider) Exec(items any) (*Result, error) {
 		// added by RecordFieldResolver.UpdateQuery
 
 		// note: countQuery is shallow cloned and slice/map in-place modifications should be avoided
-		selectExpr := "COUNT(DISTINCT [[" + countCol + "]])"
-		if len(queryInfo.Join) == 0 {
-			// When there are no joins, every row from the base table is unique by definition of primary key,
-			// so COUNT([[col]]) yields identical results without expensive deduplication hashing in PostgreSQL.
-			selectExpr = "COUNT([[" + countCol + "]])"
-		}
-
 		err := countQuery.Distinct(false).
-			Select(selectExpr).
+			Select("COUNT(DISTINCT [[" + countCol + "]])").
 			GroupBy( /* reset */ ).
 			OrderBy( /* reset */ ).
 			Row(&totalCount)
