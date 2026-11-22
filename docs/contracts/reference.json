@@ -28,7 +28,7 @@
     "apis/record_crud.go": "6c78acada4ccb7c849f335e30bc3cc4bbbcb0650",
     "apis/record_crud_test.go": "ba813bc33a180cf1f08431307c3b72d649aeb3b2",
     "apis/record_vector_search.go": "1bbca01c9b42587382a52cccb3a74fec6c6a3858",
-    "tools/search/provider.go": "be37981dc87773620c0227cf189c6fe098f69f55",
+    "tools/search/provider.go": "75d48cfacd8b48ce7e0e1944c7bc4fed9308c43a",
     "apis/middlewares.go": "4b55fe6001bd1c8206feb97ef4535ab8b76b8465",
     "apis/record_auth.go": "19e2b01457ad726b5d3202daa73b2121188d2b01",
     "apis/record_auth_methods.go": "494152d3131f2a30562f67b197da7aa59494826a",
