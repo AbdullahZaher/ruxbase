@@ -182,5 +182,9 @@ filtering.
 - The policies use the collection rules of the database where they were
   generated. A rule that references another collection is regenerated when that
   collection changes.
-- The policies don't apply to the app connection role (the tables owner) and the
-  database superusers.
+- In the legacy owner-capable/automatic-bootstrap path, compiled policies
+  do not constrain the app connection when it owns the tables (or is a
+  superuser). This historical exception does not authorize a restricted Wave 01
+  serving identity to bypass RLS: do not grant that role object ownership,
+  `SUPERUSER` or `BYPASSRLS`. Independently verify effective permissions,
+  policy behavior and deployment-specific role manifests before serving.

@@ -153,11 +153,12 @@
     },
     {
       "id": "rls-owner",
-      "query": "Does the app connection role bypass compiled row level security policies?",
+      "query": "When does the legacy Ruxbase application role bypass RLS, and what is forbidden for a restricted serving role?",
       "target": "authorization/row-level-security.md",
       "evidence": [
-        "owns the tables",
-        "bypasses the policies"
+        "legacy owner-capable/automatic-bootstrap path",
+        "may own the tables (or be a superuser) and thus bypass their policies",
+        "a restricted runtime must not own application objects"
       ],
       "critical": true
     },
