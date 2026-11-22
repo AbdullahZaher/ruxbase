@@ -4,7 +4,7 @@
 **Requirement ID:** `W11-08 / P0 / GATE`  
 **Repository:** `AbdullahZaher/ruxbase`  
 **Release Qualification Branch:** `release/operational-gates-20261122`  
-**Candidate Commit Baseline:** `1066124fe2cf93f71d42a677cab1cf8ad738a87f` (tree `9c37c5583286fc6b452ef9082e4ddbdd633b47b7`)  
+**Candidate Commit Baseline:** `0fa9fc683ad9b24af531ce693a517ce39fb7f8cb` (tree `987b470e25533579eece533a980fb12242be8092`)  
 **Date:** `2026-11-23`  
 
 ---
@@ -29,7 +29,7 @@ In accordance with `MASTER-ROADMAP.md`, `MASTER-CHECKLIST.md`, `AGENTS.md`, and 
 | **3. Platform Kernel, Role Separation & Native RLS (`Wave 01`, `Wave 03`)** | **PASS (`COMPLETE`)** | Non-superuser `ruxbase_app` guard (`internal/pgrolecheck`), `ScopedTransaction` isolation, security-invoker views, fail-closed policy evaluation, and cross-tenant negative test matrix passing on PostgreSQL 17 and 18. | No |
 | **4. Native PostgreSQL Engine & Unified Data API (`Wave 02`, `Wave 04`)** | **PASS (`COMPLETE`)** | Authorized introspection, FK/composite keys, drift detection, 4-phase online schema lifecycle, SQL RPC, normalized error contract, 60-route invariant, CLI (`init`/`check`/`deploy`), 19/19 JS SDK tests, React/Next.js starters. | No |
 | **5. Realtime, Durable Jobs, Storage, Functions, Ops, Studio & AI (`Waves 05–10`)** | **PASS (`COMPLETE`)** | Committed-only SSE/WAL events, broadcast/presence, LWW offline sync, transactional outbox + leased workers + DLQ + HMAC webhooks + DAG workflows, storage buckets + multipart + signed URLs, isolated Goja JS runtime, `/api/ops/*` Prometheus metrics & release blockers, Studio Operations UI (`ui/dist/`), scoped AI agents + human tool approvals + Plugin SDK. | No |
-| **6. Reproducible Build & Provenance (`W11-01`, `W11-07`)** | **PASS (`COMPLETE`)** | `./scripts/generate-rc-provenance.sh` verifies `go mod verify` and produces deterministic `-trimpath` `CGO_ENABLED=0` binary SHA-256 (`df9def4127579a9fe8f9d0a19335f1ec99b6887520bd5becf251c8c528a0afae`). | No |
+| **6. Reproducible Build & Provenance (`W11-01`, `W11-07`)** | **PASS (`COMPLETE`)** | `./scripts/generate-rc-provenance.sh` verifies `go mod verify` and produces deterministic `-trimpath` `CGO_ENABLED=0` binary SHA-256 (`8e2202040edf4a19fbd4fa48ddee7e3b1d7acbc56d23515f47454a47733bee99` on engineering commit `0fa9fc68`, `go1.27.0 darwin/arm64`; regenerated on final tagged commit at sign-off). | No |
 | **7. 168-Hour Continuous Staging Soak (`W11-05`)** | **`PENDING_STAGING_EVIDENCE`** | Protocol and telemetry ready (`docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`); 168 consecutive wall-clock hours require external pre-GA staging deployment. | **YES** |
 | **8. Matched Supabase Self-Hosted Benchmark (`W11-06`, `W00-08`, `JOURNEY-11`)** | **PASS (`COMPLETE`)** | Side-by-side benchmark completed against official Supabase Self-Hosted `self-hosted/v0.8.4` (Envoy `api-gw`, 11 containers, 5.00 CPUs / 6.00 GiB RAM). Ruxbase delivered 2.05x read and 2.53x write throughput at c=200, with 85.6%–91.8% lower idle RAM (156–272 MiB vs 1,895 MiB). Documented in `docs/architecture/W11-06-MATCHED-SUPABASE-BENCHMARK.md` and `docs/BENCHMARKS.md`. | No |
 | **9. Target Deployment Privilege & Recovery Qualification (`W01-M01-08`)** | **PASS (`COMPLETE`)** | Role separation (`ruxbase_app`, `ruxbase_migrator`, `ruxbase_ci_wal`, `ruxbase_monitor`), `ruxbase-prepare`, `ruxbase-role-check`, negative DDL denial, `cmd/restore` forwarding fix, and live end-to-end PG18 recovery rehearsal verified. Documented in `docs/architecture/W01-M01-08-DEPLOYMENT-QUALIFICATION.md`. | No |
