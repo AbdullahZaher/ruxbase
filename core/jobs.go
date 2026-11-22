@@ -62,6 +62,9 @@ type OutboxEvent struct {
 	Status      string             `db:"status" json:"status"`
 	Attempts    int                `db:"attempts" json:"attempts"`
 	LastError   string             `db:"last_error" json:"lastError,omitempty"`
+	ClaimToken  string             `db:"claim_token" json:"claimToken,omitempty"`
+	LeasedAt    types.DateTime     `db:"leased_at" json:"leasedAt,omitempty"`
+	LeasedUntil types.DateTime     `db:"leased_until" json:"leasedUntil,omitempty"`
 	Created     types.DateTime     `db:"created" json:"created"`
 	PublishedAt types.DateTime     `db:"published_at" json:"publishedAt,omitempty"`
 }
@@ -505,34 +508,63 @@ func (jm *JobsManager) PublishOutbox(event string, topic string, payload map[str
 	return outbox, nil
 }
 
-// ProcessPendingOutbox fetches and dispatches pending outbox events using the provided publisher.
-// It uses an atomic state transition in PostgreSQL to claim events exclusively, preventing concurrent
-// workers from duplicate processing, and includes lease reclamation for crashed workers.
+// ProcessPendingOutbox fetches and dispatches pending outbox events using the default 60-second lease.
 func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *OutboxEvent) error) (int, error) {
+	return jm.ProcessPendingOutboxWithLease(limit, 60*time.Second, publisher)
+}
+
+// ProcessPendingOutboxWithLease fetches and dispatches pending outbox events using the provided publisher
+// with an explicit lease duration and unique per-claim fencing token.
+//
+// Delivery Semantics: At-Least-Once Delivery.
+// Note: Distributed systems cannot guarantee exactly-once external delivery because a worker may crash
+// after dispatching an external event but before recording status='published' in PostgreSQL, or a network
+// partition may cause lease expiration while external dispatch is in flight. External consumers must be
+// idempotent and deduplicate using the stable OutboxEvent.Id or an idempotency key in the payload.
+func (jm *JobsManager) ProcessPendingOutboxWithLease(limit int, leaseDuration time.Duration, publisher func(evt *OutboxEvent) error) (int, error) {
 	if limit <= 0 {
 		limit = 50
 	}
+	if leaseDuration <= 0 {
+		leaseDuration = 60 * time.Second
+	}
+	leaseSec := int(leaseDuration.Seconds())
+	if leaseSec <= 0 {
+		leaseSec = 1
+	}
 
 	var events []*OutboxEvent
-	// Atomically claim rows: transition status to 'processing' and increment attempts in a single
-	// UPDATE ... RETURNING statement with FOR UPDATE SKIP LOCKED.
-	// This guarantees that concurrent workers will never claim the same rows simultaneously.
-	// Stuck 'processing' rows older than 60 seconds are also reclaimed for worker crash recovery.
+	// Atomically claim rows: transition status to 'processing', assign a fresh claim token (fencing token),
+	// record leased_at and leased_until, and increment attempts in a single UPDATE ... RETURNING statement
+	// with FOR UPDATE SKIP LOCKED.
+	//
+	// Claim Criteria:
+	// 1. Status is 'pending' (newly published or retried after failure), OR
+	// 2. Status is 'processing' AND leased_until < now() (genuinely expired lease from a crashed or stalled worker).
+	//
+	// Note: We deliberately DO NOT check created < now() - INTERVAL '60s' because an event created hours ago
+	// must NOT be prematurely reclaimed while its active worker holds a valid lease.
 	err := jm.app.DB().NewQuery(`
 		UPDATE {{_outbox_events}}
 		SET [[status]] = 'processing',
-		    [[attempts]] = [[attempts]] + 1
+		    [[attempts]] = [[attempts]] + 1,
+		    [[claim_token]] = gen_random_uuid()::text,
+		    [[leased_at]] = now(),
+		    [[leased_until]] = now() + ({:leaseSec} * INTERVAL '1 second')
 		WHERE [[id]] IN (
 			SELECT [[id]]
 			FROM {{_outbox_events}}
 			WHERE [[status]] = 'pending'
-			   OR ([[status]] = 'processing' AND [[created]] < now() - INTERVAL '60 seconds')
+			   OR ([[status]] = 'processing' AND [[leased_until]] < now())
 			ORDER BY [[created]] ASC
 			FOR UPDATE SKIP LOCKED
 			LIMIT {:limit}
 		)
-		RETURNING [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[created]], [[published_at]]
-	`).Bind(dbx.Params{"limit": limit}).All(&events)
+		RETURNING [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[claim_token]], [[leased_at]], [[leased_until]], [[created]], [[published_at]]
+	`).Bind(dbx.Params{
+		"limit":    limit,
+		"leaseSec": leaseSec,
+	}).All(&events)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to claim pending outbox events: %w", err)
@@ -546,31 +578,57 @@ func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *Outbo
 			if evt.Attempts >= 5 {
 				newStatus = "failed"
 			}
-			_, updateErr := jm.app.DB().NewQuery(`
+			// Fenced update: only transition status if our claim_token matches.
+			// If our lease expired and another worker reclaimed this event, claim_token will differ,
+			// preventing this stale worker from corrupting newer attempts or resetting retry counters.
+			res, updateErr := jm.app.DB().NewQuery(`
 				UPDATE {{_outbox_events}}
 				SET [[status]] = {:status},
-				    [[last_error]] = {:err}
+				    [[last_error]] = {:err},
+				    [[leased_until]] = NULL
 				WHERE [[id]] = {:id}
+				  AND [[claim_token]] = {:claimToken}
+				  AND [[status]] = 'processing'
 			`).Bind(dbx.Params{
-				"id":     evt.Id,
-				"status": newStatus,
-				"err":    pubErr.Error(),
+				"id":         evt.Id,
+				"claimToken": evt.ClaimToken,
+				"status":     newStatus,
+				"err":        pubErr.Error(),
 			}).Execute()
 			if updateErr != nil {
 				jm.app.Logger().Error("failed to record outbox failure status", "id", evt.Id, "error", updateErr)
+			} else {
+				affected, _ := res.RowsAffected()
+				if affected == 0 {
+					jm.app.Logger().Warn("outbox failure status update dropped: claim token fencing detected stale worker", "id", evt.Id, "token", evt.ClaimToken)
+				}
 			}
 		} else {
-			_, updateErr := jm.app.DB().NewQuery(`
+			// Fenced update: only mark 'published' if our claim_token matches and status is still 'processing'.
+			// If our lease expired and another worker reclaimed this event, claim_token will differ,
+			// preventing this stale worker from overwriting the newer worker's state.
+			res, updateErr := jm.app.DB().NewQuery(`
 				UPDATE {{_outbox_events}}
 				SET [[status]] = 'published',
 				    [[published_at]] = now(),
-				    [[last_error]] = ''
+				    [[last_error]] = '',
+				    [[leased_until]] = NULL
 				WHERE [[id]] = {:id}
-			`).Bind(dbx.Params{"id": evt.Id}).Execute()
+				  AND [[claim_token]] = {:claimToken}
+				  AND [[status]] = 'processing'
+			`).Bind(dbx.Params{
+				"id":         evt.Id,
+				"claimToken": evt.ClaimToken,
+			}).Execute()
 			if updateErr != nil {
 				jm.app.Logger().Error("failed to record outbox published status", "id", evt.Id, "error", updateErr)
 			} else {
-				count++
+				affected, _ := res.RowsAffected()
+				if affected > 0 {
+					count++
+				} else {
+					jm.app.Logger().Warn("outbox published status update dropped: claim token fencing detected stale worker", "id", evt.Id, "token", evt.ClaimToken)
+				}
 			}
 		}
 	}

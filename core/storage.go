@@ -62,6 +62,7 @@ type StorageUploadPart struct {
 	PartNumber int    `json:"partNumber"`
 	Size       int64  `json:"size"`
 	Etag       string `json:"etag"`
+	StorageKey string `json:"storageKey,omitempty"`
 }
 
 // StorageUploadSession represents a multi-part resumable upload session.
@@ -523,21 +524,23 @@ func (sm *StorageManager) StartMultipartUpload(bucketNameOrId, objectName, owner
 }
 
 // UploadPart writes a single chunk part for an active multipart upload session.
-// It uses row locking inside a database transaction to prevent concurrency races
-// on part metadata and total size calculation.
+// It uses immutable per-attempt temporary file keys to prevent filesystem races and
+// row locking inside a database transaction to prevent concurrency races on part metadata.
 func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byte) (*StorageUploadPart, error) {
 	if partNumber < 1 || partNumber > 10000 {
 		return nil, fmt.Errorf("invalid part number %d: must be between 1 and 10000", partNumber)
 	}
 
-	// Write chunk to temporary filesystem key first
 	fsys, err := sm.app.NewFilesystem()
 	if err != nil {
 		return nil, err
 	}
 	defer fsys.Close()
 
-	partKey := sm.uploadPartKey(uploadId, partNumber)
+	// Immutable per-attempt temporary storage key prevents concurrent uploads
+	// of the same part number from overwriting each other's filesystem contents.
+	attemptToken := security.RandomStringWithAlphabet(16, "abcdefghijklmnopqrstuvwxyz0123456789")
+	partKey := fmt.Sprintf("_storage_uploads/%s/part_%d_%s", uploadId, partNumber, attemptToken)
 	if err := fsys.Upload(data, partKey); err != nil {
 		return nil, fmt.Errorf("failed to upload part %d: %w", partNumber, err)
 	}
@@ -549,7 +552,10 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 		PartNumber: partNumber,
 		Size:       int64(len(data)),
 		Etag:       etag,
+		StorageKey: partKey,
 	}
+
+	var oldKeyToDelete string
 
 	// Update session parts atomically with row lock
 	err = sm.app.RunInTransaction(func(txApp App) error {
@@ -571,6 +577,10 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 		replaced := false
 		for i, p := range session.Parts {
 			if p.PartNumber == partNumber {
+				oldKeyToDelete = p.StorageKey
+				if oldKeyToDelete == "" {
+					oldKeyToDelete = sm.uploadPartKey(uploadId, partNumber)
+				}
 				session.Parts[i] = part
 				replaced = true
 				break
@@ -597,18 +607,25 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 			return fmt.Errorf("failed to serialize parts: %w", err)
 		}
 
-		_, err = txApp.DB().NewQuery(`
+		res, err := txApp.DB().NewQuery(`
 			UPDATE {{_storage_uploads}}
 			SET [[parts]] = {:parts}::jsonb,
 			    [[total_size]] = {:totalSize},
 			    [[updated]] = now()
-			WHERE [[id]] = {:id}
+			WHERE [[id]] = {:id} AND [[status]] = 'pending'
 		`).Bind(dbx.Params{
 			"id":        uploadId,
 			"parts":     string(partsBytes),
 			"totalSize": session.TotalSize,
 		}).Execute()
-		return err
+		if err != nil {
+			return err
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return fmt.Errorf("upload session %s is no longer pending", uploadId)
+		}
+		return nil
 	})
 
 	if err != nil {
@@ -616,13 +633,20 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 		return nil, err
 	}
 
+	// Safely clean up the replaced older attempt's temporary file if any
+	if oldKeyToDelete != "" && oldKeyToDelete != partKey {
+		_ = fsys.Delete(oldKeyToDelete)
+	}
+
 	return &part, nil
 }
 
 // CompleteMultipartUpload combines all uploaded parts into the final storage object.
-// It verifies contiguous parts, validates SHA-256 ETags, and atomically transitions status.
+// It verifies contiguous parts, validates SHA-256 ETags, enforces an atomic state machine,
+// and supports crash recovery if object creation succeeded before final acknowledgment.
 func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId string) (*StorageObject, error) {
 	var session StorageUploadSession
+	var alreadyCompletedObj *StorageObject
 
 	// Atomically verify pending status, non-empty contiguous parts, and transition to 'completing'
 	err := sm.app.RunInTransactionWithContext(ctx, func(txApp App) error {
@@ -635,6 +659,42 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 		if err != nil {
 			return fmt.Errorf("upload session not found: %w", err)
 		}
+
+		// Reject already completed upload sessions (cannot complete twice)
+		if session.Status == "completed" {
+			return fmt.Errorf("cannot complete already completed upload session")
+		}
+
+		// Crash recovery check: if session is in 'completing' state, check if object was already created
+		if session.Status == "completing" {
+			existing := &StorageObject{}
+			objErr := txApp.DB().NewQuery(`
+				SELECT [[id]], [[bucket_id]], [[name]], [[owner_id]], [[size]], [[mime_type]],
+				       [[etag]], [[metadata]], [[created]], [[updated]]
+				FROM {{_storage_objects}}
+				WHERE [[bucket_id]] = {:bucketId} AND [[name]] = {:name}
+			`).Bind(dbx.Params{
+				"bucketId": session.BucketId,
+				"name":     session.Name,
+			}).One(existing)
+			if objErr == nil && existing.Size == session.TotalSize {
+				// Object was persisted before worker crashed; finalize session status to completed
+				res, finalizeErr := txApp.DB().NewQuery(`
+					UPDATE {{_storage_uploads}}
+					SET [[status]] = 'completed',
+					    [[updated]] = now()
+					WHERE [[id]] = {:id}
+				`).Bind(dbx.Params{"id": uploadId}).Execute()
+				if finalizeErr == nil {
+					if aff, _ := res.RowsAffected(); aff > 0 {
+						alreadyCompletedObj = existing
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("upload session is currently being assembled (status: completing)")
+		}
+
 		if session.Status != "pending" {
 			return fmt.Errorf("upload session not pending (status: %s)", session.Status)
 		}
@@ -656,17 +716,27 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 		}
 
 		// Atomically lock session into 'completing'
-		_, err = txApp.DB().NewQuery(`
+		res, err := txApp.DB().NewQuery(`
 			UPDATE {{_storage_uploads}}
 			SET [[status]] = 'completing',
 			    [[updated]] = now()
 			WHERE [[id]] = {:id} AND [[status]] = 'pending'
 		`).Bind(dbx.Params{"id": uploadId}).Execute()
-		return err
+		if err != nil {
+			return err
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return fmt.Errorf("failed to transition upload session %s to completing", uploadId)
+		}
+		return nil
 	})
 
 	if err != nil {
 		return nil, err
+	}
+	if alreadyCompletedObj != nil {
+		return alreadyCompletedObj, nil
 	}
 
 	fsys, err := sm.app.NewFilesystem()
@@ -684,7 +754,10 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 	}
 
 	for _, part := range session.Parts {
-		partKey := sm.uploadPartKey(uploadId, part.PartNumber)
+		partKey := part.StorageKey
+		if partKey == "" {
+			partKey = sm.uploadPartKey(uploadId, part.PartNumber)
+		}
 		reader, err := fsys.GetReader(partKey)
 		if err != nil {
 			_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
@@ -715,16 +788,28 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 		return nil, err
 	}
 
-	// Mark session completed in DB
-	_, _ = sm.app.DB().NewQuery(`
+	// Mark session completed in DB with affected-row and error check
+	res, updateErr := sm.app.DB().NewQuery(`
 		UPDATE {{_storage_uploads}}
 		SET [[status]] = 'completed',
 		    [[updated]] = now()
-		WHERE [[id]] = {:id}
+		WHERE [[id]] = {:id} AND [[status]] = 'completing'
 	`).Bind(dbx.Params{"id": uploadId}).Execute()
+	if updateErr != nil {
+		sm.app.Logger().Error("failed to record upload session completed status", "id", uploadId, "error", updateErr)
+		return nil, fmt.Errorf("failed to finalize upload status to completed: %w", updateErr)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return nil, fmt.Errorf("upload session %s was not in completing state during final status update", uploadId)
+	}
 
 	// Clean up parts only after successful assembly and metadata commit
 	for _, part := range session.Parts {
+		k := part.StorageKey
+		if k != "" {
+			_ = fsys.Delete(k)
+		}
 		_ = fsys.Delete(sm.uploadPartKey(uploadId, part.PartNumber))
 	}
 
@@ -732,7 +817,7 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 }
 
 // AbortMultipartUpload cancels an active session and purges all staged parts.
-// It safely handles concurrent calls with CompleteMultipartUpload and UploadPart.
+// It safely rejects aborted completed or in-flight completing sessions.
 func (sm *StorageManager) AbortMultipartUpload(uploadId string) error {
 	var session StorageUploadSession
 
@@ -746,14 +831,21 @@ func (sm *StorageManager) AbortMultipartUpload(uploadId string) error {
 		if err != nil {
 			return fmt.Errorf("upload session not found: %w", err)
 		}
-		if session.Status == "completed" {
-			return fmt.Errorf("cannot abort completed upload")
+		if session.Status == "completed" || session.Status == "completing" {
+			return fmt.Errorf("cannot abort upload in %s state", session.Status)
 		}
 
-		_, err = txApp.DB().NewQuery(`
-			DELETE FROM {{_storage_uploads}} WHERE [[id]] = {:id}
+		res, err := txApp.DB().NewQuery(`
+			DELETE FROM {{_storage_uploads}} WHERE [[id]] = {:id} AND [[status]] = 'pending'
 		`).Bind(dbx.Params{"id": uploadId}).Execute()
-		return err
+		if err != nil {
+			return err
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return fmt.Errorf("upload session %s cannot be aborted (not pending)", uploadId)
+		}
+		return nil
 	})
 
 	if err != nil {
@@ -764,9 +856,68 @@ func (sm *StorageManager) AbortMultipartUpload(uploadId string) error {
 	if err == nil {
 		defer fsys.Close()
 		for _, part := range session.Parts {
+			if part.StorageKey != "" {
+				_ = fsys.Delete(part.StorageKey)
+			}
 			_ = fsys.Delete(sm.uploadPartKey(uploadId, part.PartNumber))
 		}
 	}
 
 	return nil
+}
+
+// CleanupOrphanedUploads purges temporary files of upload sessions that are either
+// completed, aborted, or expired (older than maxAge without completion).
+// Active pending sessions within maxAge are strictly preserved.
+func (sm *StorageManager) CleanupOrphanedUploads(ctx context.Context, maxAge time.Duration) (int, error) {
+	if maxAge <= 0 {
+		maxAge = 24 * time.Hour
+	}
+
+	fsys, err := sm.app.NewFilesystem()
+	if err != nil {
+		return 0, err
+	}
+	defer fsys.Close()
+
+	items, err := fsys.List("_storage_uploads")
+	if err != nil {
+		return 0, err
+	}
+
+	purged := 0
+	for _, item := range items {
+		// Key format: _storage_uploads/<uploadId>/part_<num>_<token>
+		parts := strings.Split(strings.TrimPrefix(item.Key, "_storage_uploads/"), "/")
+		if len(parts) == 0 || parts[0] == "" {
+			continue
+		}
+		uploadId := parts[0]
+
+		var session StorageUploadSession
+		err := sm.app.DB().NewQuery(`
+			SELECT [[id]], [[status]], [[updated]]
+			FROM {{_storage_uploads}}
+			WHERE [[id]] = {:id}
+		`).Bind(dbx.Params{"id": uploadId}).One(&session)
+
+		shouldDelete := false
+		if errors.Is(err, sql.ErrNoRows) {
+			// Session no longer exists in DB -> orphaned
+			shouldDelete = true
+		} else if err == nil {
+			if session.Status == "completed" {
+				shouldDelete = true
+			} else if session.Status == "pending" && time.Since(session.Updated.Time()) > maxAge {
+				shouldDelete = true
+			}
+		}
+
+		if shouldDelete {
+			_ = fsys.Delete(item.Key)
+			purged++
+		}
+	}
+
+	return purged, nil
 }
