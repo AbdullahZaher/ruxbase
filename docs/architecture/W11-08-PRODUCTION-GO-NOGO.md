@@ -4,8 +4,8 @@
 **Requirement ID:** `W11-08 / P0 / GATE`  
 **Repository:** `AbdullahZaher/ruxbase`  
 **Release Qualification Branch:** `release/operational-gates-20261122`  
-**Candidate Commit Baseline:** `66d34926df05c5ac1505944b7bf43ed650c057f8` (tree `93444ff643b17aca19fb7bd442a5030ddeb3bed7`)  
-**Date:** `2026-11-22`  
+**Candidate Commit Baseline:** `2973b6115e2fa7e5e0c69c24a0fffa4c68d4b833` (tree `e2fdf9cc2f5ec742f48a165fbbbac3c9772d5728`)  
+**Date:** `2026-11-23`  
 
 ---
 
