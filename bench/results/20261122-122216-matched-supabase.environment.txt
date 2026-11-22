@@ -1,0 +1,48 @@
+sourceCommit=66d34926df05c5ac1505944b7bf43ed650c057f8
+sourceTree=93444ff643b17aca19fb7bd442a5030ddeb3bed7
+sourceClean=true
+supabaseTag=self-hosted/v0.8.4
+supabaseCommit=189adda99d1b56da55fc5a6ee3f849354aaea92a
+supabaseGateway=envoyproxy/envoy:v1.39.6 (api-gw default)
+matchedBudget=5.00 CPUs, 6144 MiB (6.00 GiB) RAM per stack
+records=10000
+duration=20s
+runs=3
+concurrencies=50 200
+warmup=5s @ c=50
+startedAt=2026-11-22T12:22:16Z
+go version go1.27.0 darwin/arm64
+Darwin 24.6.0 arm64
+docker=29.9.3 architecture=aarch64 cpus=6 memoryBytes=12526833664 cgroupDriver=cgroupfs cgroupVersion=2
+Docker Compose version v5.7.0
+ruxbase_pg.effective_cache_size=2GB
+ruxbase_pg.max_connections=400
+ruxbase_pg.server_version=17.12 (Debian 17.12-1.pgdg13+1)
+ruxbase_pg.shared_buffers=1GB
+ruxbase_pg.wal_level=logical
+measurementTarget=ruxbase-1node
+container=/ruxbase-matched-bench-postgres-1 image=pgvector/pgvector:0.8.7-pg17-trixie@sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7 imageID=sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7 nanoCPUs=2500000000 memoryBytes=3221225472
+container=/ruxbase-matched-bench-ruxbase-1 image=ruxbase:qual-feaa7451 imageID=sha256:1dd61a1e1984e4d18e0791694685a38164a495bc61670ce12d6965a4fc934ac0 nanoCPUs=2500000000 memoryBytes=3221225472
+measurementTarget=ruxbase-3nodes
+container=/ruxbase-matched-bench-api-gw-1 image=envoyproxy/envoy:v1.39.6 imageID=sha256:1fde8efee875e4e4f6a39a90fe49d9338e1caacce5762034ef9fb4bbb9ad6aed nanoCPUs=400000000 memoryBytes=402653184
+container=/ruxbase-matched-bench-node1-1 image=ruxbase:qual-feaa7451 imageID=sha256:1dd61a1e1984e4d18e0791694685a38164a495bc61670ce12d6965a4fc934ac0 nanoCPUs=700000000 memoryBytes=939524096
+container=/ruxbase-matched-bench-node2-1 image=ruxbase:qual-feaa7451 imageID=sha256:1dd61a1e1984e4d18e0791694685a38164a495bc61670ce12d6965a4fc934ac0 nanoCPUs=700000000 memoryBytes=939524096
+container=/ruxbase-matched-bench-node3-1 image=ruxbase:qual-feaa7451 imageID=sha256:1dd61a1e1984e4d18e0791694685a38164a495bc61670ce12d6965a4fc934ac0 nanoCPUs=700000000 memoryBytes=939524096
+container=/ruxbase-matched-bench-postgres-1 image=pgvector/pgvector:0.8.7-pg17-trixie@sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7 imageID=sha256:89947206f52eac3a9df9b663df7e76987cbdc623be6576b3a524953d568700d7 nanoCPUs=2500000000 memoryBytes=3221225472
+supabase_pg.effective_cache_size=128MB
+supabase_pg.max_connections=100
+supabase_pg.server_version=17.6
+supabase_pg.shared_buffers=128MB
+supabase_pg.wal_level=logical
+measurementTarget=supabase-v0.8.4
+container=/realtime-dev.supabase-realtime image=supabase/realtime:v2.148.3 imageID=sha256:25cf375b9b7cb71d90cdf6e04a1a30996e39a8df866ebd0525bba1d959edc8d6 nanoCPUs=250000000 memoryBytes=536870912
+container=/supabase-auth image=supabase/gotrue:v2.197.0 imageID=sha256:1736a63078f5922b198c4cbe50f80ab9a2d3b54fe8b7b6cfb2e9dc5dbbc12c6b nanoCPUs=200000000 memoryBytes=268435456
+container=/supabase-db image=supabase/postgres:17.6.1.136 imageID=sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00 nanoCPUs=1750000000 memoryBytes=2147483648
+container=/supabase-edge-functions image=supabase/edge-runtime:v1.77.9 imageID=sha256:6b850a2ccf0bf50ecac9accff8098095cd191c389c2a53c59b857aa0f53a8343 nanoCPUs=150000000 memoryBytes=536870912
+container=/supabase-envoy image=envoyproxy/envoy:v1.39.6 imageID=sha256:1fde8efee875e4e4f6a39a90fe49d9338e1caacce5762034ef9fb4bbb9ad6aed nanoCPUs=650000000 memoryBytes=268435456
+container=/supabase-imgproxy image=darthsim/imgproxy:v4.0.21 imageID=sha256:69ae09dbc3349944564cb2f66cf35f80a4a9a78fda73d06061a337849520ab1f nanoCPUs=100000000 memoryBytes=268435456
+container=/supabase-meta image=supabase/postgres-meta:v0.100.0 imageID=sha256:145325b7e39f8ef4931d6e8cfd3f6f4d655de09d72a2ccc96d9513542c2202bd nanoCPUs=150000000 memoryBytes=402653184
+container=/supabase-pooler image=supabase/supavisor:2.9.13 imageID=sha256:07f1a6098ffc04b80263bca4eb5c3e7bd2e03dfd1fc465aa108d7329000a1a4e nanoCPUs=400000000 memoryBytes=536870912
+container=/supabase-rest image=postgrest/postgrest:v14.18 imageID=sha256:c7cd7e265a85b05248abf53f4473fcec7e327c282d0bd0cf60f1551996d09fcf nanoCPUs=1000000000 memoryBytes=536870912
+container=/supabase-storage image=supabase/storage-api:v1.89.12 imageID=sha256:8526956cb462e9f7d392e9848ec77133b2769982ed614e9753cc687e8e4339a6 nanoCPUs=150000000 memoryBytes=402653184
+container=/supabase-studio image=supabase/studio:2026.11.02-sha-a05e7ec imageID=sha256:727a7f37b15f4c76c44e0d765e6be231d8d71c67f2933b2df8c6cbcc9b04c5d0 nanoCPUs=200000000 memoryBytes=536870912

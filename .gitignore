@@ -24,3 +24,7 @@ LICENSE.html
 .env.quickstart
 ruxbase_data/
 test-output.jsonl
+
+# Python cache
+__pycache__/
+*.py[cod]

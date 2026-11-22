@@ -1,0 +1,12 @@
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":50,"durationSeconds":20.014628583,"requests":69581,"errors":0,"rps":3476.5071813074073,"p50ms":14.156,"p95ms":16.847,"p99ms":18.525}
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":50,"durationSeconds":20.010277583,"requests":71586,"errors":0,"rps":3577.4616170650647,"p50ms":13.76,"p95ms":16.298,"p99ms":17.993}
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":50,"durationSeconds":20.011002583,"requests":71278,"errors":0,"rps":3561.9404727153947,"p50ms":13.818,"p95ms":16.345,"p99ms":18.068}
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":200,"durationSeconds":20.048845459,"requests":70097,"errors":0,"rps":3496.3110540878156,"p50ms":56.875,"p95ms":62.343,"p99ms":65.383}
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":200,"durationSeconds":20.036463625,"requests":69751,"errors":0,"rps":3481.2031357155224,"p50ms":57.023,"p95ms":63.138,"p99ms":68.559}
+{"target":"supabase-v0.8.4","scenario":"matched-reads","concurrency":200,"durationSeconds":20.04625075,"requests":69296,"errors":0,"rps":3456.8060064797905,"p50ms":56.502,"p95ms":64.322,"p99ms":71.978}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":50,"durationSeconds":20.011310125,"requests":69628,"errors":0,"rps":3479.432359254389,"p50ms":14.025,"p95ms":16.568,"p99ms":21.393}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":50,"durationSeconds":20.009229375,"requests":69125,"errors":0,"rps":3454.6557843135324,"p50ms":14.043,"p95ms":16.656,"p99ms":25.814}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":50,"durationSeconds":20.011885166,"requests":69448,"errors":0,"rps":3470.3377230043016,"p50ms":14.045,"p95ms":16.679,"p99ms":21.477}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":200,"durationSeconds":20.059548709,"requests":58594,"errors":0,"rps":2921.002902408815,"p50ms":60.2,"p95ms":105.932,"p99ms":200.618}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":200,"durationSeconds":20.056657625,"requests":61070,"errors":0,"rps":3044.8742328770745,"p50ms":59.23,"p95ms":92.439,"p99ms":129.304}
+{"target":"supabase-v0.8.4","scenario":"matched-writes","concurrency":200,"durationSeconds":20.051167709,"requests":50161,"errors":0,"rps":2501.649815511001,"p50ms":65.302,"p95ms":175.601,"p99ms":291.36}
