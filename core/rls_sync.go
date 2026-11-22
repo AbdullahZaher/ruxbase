@@ -109,15 +109,6 @@ func InstallRLS(txApp App) error {
 		REVOKE ALL ON SCHEMA ` + RLSSchema + ` FROM PUBLIC;
 		GRANT USAGE ON SCHEMA ` + RLSSchema + ` TO ` + roles + `;
 
-		CREATE UNLOGGED TABLE IF NOT EXISTS ` + RLSSchema + `._auth_cache (
-			[[pid]] integer PRIMARY KEY,
-			[[token]] text NOT NULL,
-			[[claims]] jsonb NOT NULL,
-			[[expires_at]] numeric NOT NULL,
-			[[updated_at]] timestamptz NOT NULL DEFAULT clock_timestamp()
-		);
-		REVOKE ALL ON TABLE ` + RLSSchema + `._auth_cache FROM PUBLIC;
-
 		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.base64url_decode(input text) RETURNS bytea
 		LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $ruxbase$
 			SELECT decode(rpad(translate(input, '-_', '+/'), length(input) + (4 - length(input) % 4) % 4, '='), 'base64')
@@ -131,17 +122,14 @@ func InstallRLS(txApp App) error {
 		-- auth returns the auth record of the current ruxbase.token setting
 		-- ({id, collectionId, collectionName}) or NULL if missing or invalid.
 		--
-		-- The token is verified on every call or fetched from the backend _auth_cache
-		-- (HS256 signature with record tokenKey + collection secret, auth type and expiration).
+		-- The token is verified on every call because any role can change
+		-- the setting (the same checks as the app: HS256 signature with the
+		-- record tokenKey + collection secret, auth type and expiration).
 		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.auth() RETURNS jsonb
 		LANGUAGE plpgsql STABLE SECURITY DEFINER
 		SET search_path = ` + searchPath + ` AS $ruxbase$
 		DECLARE
 			token text := current_setting('` + RLSTokenSetting + `', true);
-			cached_claims jsonb;
-			cached_exp numeric;
-			current_pid int;
-			now_epoch numeric;
 			parts text[];
 			header jsonb;
 			payload jsonb;
@@ -153,21 +141,6 @@ func InstallRLS(txApp App) error {
 			IF token IS NULL OR token = '' THEN
 				RETURN NULL;
 			END IF;
-
-			current_pid := pg_backend_pid();
-			now_epoch := extract(epoch FROM clock_timestamp());
-
-			BEGIN
-				SELECT c.claims, c.expires_at INTO cached_claims, cached_exp
-				FROM ` + RLSSchema + `._auth_cache c
-				WHERE c.pid = current_pid AND c.token = token;
-
-				IF cached_claims IS NOT NULL AND cached_exp > now_epoch THEN
-					RETURN cached_claims;
-				END IF;
-			EXCEPTION WHEN others THEN
-				NULL;
-			END;
 
 			parts := string_to_array(token, '.');
 			IF array_length(parts, 1) IS DISTINCT FROM 3 THEN
@@ -191,7 +164,7 @@ func InstallRLS(txApp App) error {
 			END IF;
 
 			-- clock_timestamp (not now) so that the token expires also inside a long transaction
-			IF jsonb_typeof(payload -> 'exp') IS DISTINCT FROM 'number' OR (payload ->> 'exp')::numeric <= now_epoch THEN
+			IF jsonb_typeof(payload -> 'exp') IS DISTINCT FROM 'number' OR (payload ->> 'exp')::numeric <= extract(epoch FROM clock_timestamp()) THEN
 				RETURN NULL;
 			END IF;
 
@@ -231,16 +204,12 @@ func InstallRLS(txApp App) error {
 		$ruxbase$;
 
 		-- set_claims verifies the provided RLS token and stores it in the
-		-- ruxbase.token setting (of the session or, with is_local, of the transaction),
-		-- caching the verified identity in _auth_cache for high-throughput policy evaluation.
+		-- ruxbase.token setting (of the session or, with is_local, of the transaction).
 		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.set_claims(token text, is_local boolean DEFAULT false) RETURNS jsonb
-		LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-		SET search_path = ` + searchPath + ` AS $ruxbase$
+		LANGUAGE plpgsql VOLATILE
+		SET search_path = pg_catalog, pg_temp AS $ruxbase$
 		DECLARE
 			claims jsonb;
-			parts text[];
-			payload jsonb;
-			current_pid int;
 		BEGIN
 			PERFORM set_config('` + RLSTokenSetting + `', coalesce(token, ''), is_local);
 
@@ -253,68 +222,6 @@ func InstallRLS(txApp App) error {
 				PERFORM set_config('` + RLSTokenSetting + `', '', is_local);
 				RAISE EXCEPTION 'invalid or expired ruxbase RLS token' USING ERRCODE = '28000';
 			END IF;
-
-			current_pid := pg_backend_pid();
-			BEGIN
-				parts := string_to_array(token, '.');
-				payload := convert_from(` + RLSSchema + `.base64url_decode(parts[2]), 'UTF8')::jsonb;
-
-				INSERT INTO ` + RLSSchema + `._auth_cache (pid, token, claims, expires_at, updated_at)
-				VALUES (current_pid, token, claims, (payload ->> 'exp')::numeric, clock_timestamp())
-				ON CONFLICT (pid) DO UPDATE SET
-					token = EXCLUDED.token,
-					claims = EXCLUDED.claims,
-					expires_at = EXCLUDED.expires_at,
-					updated_at = EXCLUDED.updated_at;
-			EXCEPTION WHEN others THEN
-				NULL;
-			END;
-
-			RETURN claims;
-		END
-		$ruxbase$;
-
-		-- set_claims_direct directly injects verified claims from the trusted app role
-		-- into _auth_cache and sets the transaction setting, bypassing JWT parsing and HMAC overhead.
-		-- It is intentionally NOT granted to the external roles (PUBLIC, ruxbase_anon, ruxbase_authenticated, ruxbase_api).
-		CREATE OR REPLACE FUNCTION ` + RLSSchema + `.set_claims_direct(
-			auth_id text,
-			collection_id text,
-			collection_name text,
-			exp_epoch numeric,
-			is_local boolean DEFAULT true
-		) RETURNS jsonb
-		LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-		SET search_path = ` + searchPath + ` AS $ruxbase$
-		DECLARE
-			claims jsonb;
-			current_pid int;
-		BEGIN
-			IF auth_id IS NULL OR auth_id = '' THEN
-				PERFORM set_config('` + RLSTokenSetting + `', '', is_local);
-				RETURN NULL;
-			END IF;
-
-			claims := jsonb_build_object(
-				'id', auth_id,
-				'collectionId', collection_id,
-				'collectionName', collection_name
-			);
-
-			PERFORM set_config('` + RLSTokenSetting + `', 'direct:' || auth_id, is_local);
-
-			current_pid := pg_backend_pid();
-			BEGIN
-				INSERT INTO ` + RLSSchema + `._auth_cache (pid, token, claims, expires_at, updated_at)
-				VALUES (current_pid, 'direct:' || auth_id, claims, exp_epoch, clock_timestamp())
-				ON CONFLICT (pid) DO UPDATE SET
-					token = EXCLUDED.token,
-					claims = EXCLUDED.claims,
-					expires_at = EXCLUDED.expires_at,
-					updated_at = EXCLUDED.updated_at;
-			EXCEPTION WHEN others THEN
-				NULL;
-			END;
 
 			RETURN claims;
 		END
