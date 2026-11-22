@@ -3,8 +3,8 @@
 **Document:** `docs/architecture/WAVE11-INDEPENDENT-RECERTIFICATION-REPORT.md`  
 **Repository:** `AbdullahZaher/ruxbase`  
 **Operational Release Branch:** `release/operational-gates-20261122` (PR #67)  
-**Remediation Candidate Commit:** `0a7db88ddabbdaebb2231e7453eaf07459688178`  
-**Candidate Git Tree:** `e6c5bdd9f876bb3c654da55b1dd95ddf0625e644` (`candidateClean = true`)  
+**Remediation Candidate Commit:** `c7798b8fdfeecc54e3d7e69204418ff36e1582fa`  
+**Candidate Git Tree:** `279dee0105142e7327b0ed77affd42e08b1227df` (`candidateClean = true`)  
 **Baseline Test Candidate:** `feaa7451eb783b4e96ba02c3417497868482d2cd`  
 **Baseline Campaign ID:** `20261122-131525`  
 **Remediation Regression Campaign IDs:** `20261122-172848` and `20261122-173839`  
@@ -205,8 +205,8 @@ The artifacts, metrics, environment logs, and test evidence supporting this rece
 ========================================================================================
                          CANDIDATE CRYPTOGRAPHIC MANIFEST
 ========================================================================================
-Remediation Candidate Commit: 0a7db88ddabbdaebb2231e7453eaf07459688178
-Candidate Git Tree:           e6c5bdd9f876bb3c654da55b1dd95ddf0625e644
+Remediation Candidate Commit: c7798b8fdfeecc54e3d7e69204418ff36e1582fa
+Candidate Git Tree:           279dee0105142e7327b0ed77affd42e08b1227df
 Pull Request:                 https://github.com/AbdullahZaher/ruxbase/pull/67
 
 Campaign 20261122-172848 SHA-256 Sums:
