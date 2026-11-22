@@ -3,7 +3,7 @@
 **Document:** `docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`  
 **Requirement ID:** `W11-05 / P1 / GATE`  
 **Status:** **`PENDING_STAGING_EVIDENCE`**  
-**Candidate Commit Baseline:** `2973b6115e2fa7e5e0c69c24a0fffa4c68d4b833` (`release/operational-gates-20261122`)  
+**Candidate Commit Baseline:** `1066124fe2cf93f71d42a677cab1cf8ad738a87f` (`release/operational-gates-20261122`)  
 **Date:** `2026-11-23`  
 
 ---
