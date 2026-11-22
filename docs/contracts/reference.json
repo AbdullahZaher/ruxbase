@@ -25,7 +25,7 @@
     "docs/VECTOR.md": "ab8b7d917dd2bbb48e72066caf55dffdb12f5299",
     "ruxbase.go": "0ab8bde00e196fd30d7fd5652228d230b448a985",
     "ruxbase_dev.go": "a8114190b1c3246cc97e4bac690e5e09ea225f19",
-    "apis/record_crud.go": "6c78acada4ccb7c849f335e30bc3cc4bbbcb0650",
+    "apis/record_crud.go": "1a889edb8ee17cea02b8c38bd739ebbf5b947041",
     "apis/record_crud_test.go": "ba813bc33a180cf1f08431307c3b72d649aeb3b2",
     "apis/record_vector_search.go": "1bbca01c9b42587382a52cccb3a74fec6c6a3858",
     "tools/search/provider.go": "be37981dc87773620c0227cf189c6fe098f69f55",
