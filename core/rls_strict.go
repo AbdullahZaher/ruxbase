@@ -38,15 +38,23 @@ func RunAsRLSRole(app App, auth *Record, rule string, fn func(txApp App) error) 
 	}
 
 	return app.RunInTransaction(func(txApp App) error {
-		_, err := txApp.DB().NewQuery(
-			"SELECT set_config('role', {:role}, true), set_config({:tokenSetting}, {:token}, true), set_config({:ruleSetting}, {:rule}, true)",
-		).Bind(dbx.Params{
-			"role":         RLSAPIRole,
-			"tokenSetting": RLSTokenSetting,
-			"token":        token,
-			"ruleSetting":  RLSRuleSetting,
-			"rule":         rule,
-		}).Execute()
+		var setClaimsSQL string
+		params := dbx.Params{
+			"role":        RLSAPIRole,
+			"ruleSetting": RLSRuleSetting,
+			"rule":        rule,
+		}
+
+		if token != "" {
+			// Pre-verify token and warm backend _auth_cache, then switch to RLS API role
+			setClaimsSQL = "SELECT " + RLSSchema + ".set_claims({:token}, true), set_config('role', {:role}, true), set_config({:ruleSetting}, {:rule}, true)"
+			params["token"] = token
+		} else {
+			setClaimsSQL = "SELECT set_config('role', {:role}, true), set_config({:tokenSetting}, '', true), set_config({:ruleSetting}, {:rule}, true)"
+			params["tokenSetting"] = RLSTokenSetting
+		}
+
+		_, err := txApp.DB().NewQuery(setClaimsSQL).Bind(params).Execute()
 		if err != nil {
 			return err
 		}

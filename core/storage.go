@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -12,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -521,19 +523,14 @@ func (sm *StorageManager) StartMultipartUpload(bucketNameOrId, objectName, owner
 }
 
 // UploadPart writes a single chunk part for an active multipart upload session.
+// It uses row locking inside a database transaction to prevent concurrency races
+// on part metadata and total size calculation.
 func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byte) (*StorageUploadPart, error) {
-	session := &StorageUploadSession{}
-	err := sm.app.DB().NewQuery(`
-		SELECT [[id]], [[bucket_id]], [[name]], [[owner_id]], [[parts]], [[total_size]], [[status]], [[created]], [[updated]]
-		FROM {{_storage_uploads}}
-		WHERE [[id]] = {:id} AND [[status]] = 'pending'
-	`).Bind(dbx.Params{"id": uploadId}).One(session)
-
-	if err != nil {
-		return nil, fmt.Errorf("upload session not found or not pending: %w", err)
+	if partNumber < 1 || partNumber > 10000 {
+		return nil, fmt.Errorf("invalid part number %d: must be between 1 and 10000", partNumber)
 	}
 
-	// Write chunk to temporary filesystem key
+	// Write chunk to temporary filesystem key first
 	fsys, err := sm.app.NewFilesystem()
 	if err != nil {
 		return nil, err
@@ -554,24 +551,68 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 		Etag:       etag,
 	}
 
-	// Update session parts
-	session.Parts = append(session.Parts, part)
-	session.TotalSize += part.Size
-	partsBytes, _ := json.Marshal(session.Parts)
+	// Update session parts atomically with row lock
+	err = sm.app.RunInTransaction(func(txApp App) error {
+		session := &StorageUploadSession{}
+		err := txApp.DB().NewQuery(`
+			SELECT [[id]], [[bucket_id]], [[name]], [[owner_id]], [[parts]], [[total_size]], [[status]], [[created]], [[updated]]
+			FROM {{_storage_uploads}}
+			WHERE [[id]] = {:id}
+			FOR UPDATE
+		`).Bind(dbx.Params{"id": uploadId}).One(session)
+		if err != nil {
+			return fmt.Errorf("upload session not found: %w", err)
+		}
+		if session.Status != "pending" {
+			return fmt.Errorf("upload session is not pending (status: %s)", session.Status)
+		}
 
-	_, err = sm.app.DB().NewQuery(`
-		UPDATE {{_storage_uploads}}
-		SET [[parts]] = {:parts}::jsonb,
-		    [[total_size]] = {:totalSize},
-		    [[updated]] = now()
-		WHERE [[id]] = {:id}
-	`).Bind(dbx.Params{
-		"id":        uploadId,
-		"parts":     string(partsBytes),
-		"totalSize": session.TotalSize,
-	}).Execute()
+		// Upsert part: replace if already exists, else append
+		replaced := false
+		for i, p := range session.Parts {
+			if p.PartNumber == partNumber {
+				session.Parts[i] = part
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			session.Parts = append(session.Parts, part)
+		}
+
+		// Sort parts by PartNumber
+		slices.SortFunc(session.Parts, func(a, b StorageUploadPart) int {
+			return cmp.Compare(a.PartNumber, b.PartNumber)
+		})
+
+		// Recalculate TotalSize accurately as the sum of all distinct parts
+		var totalSize int64
+		for _, p := range session.Parts {
+			totalSize += p.Size
+		}
+		session.TotalSize = totalSize
+
+		partsBytes, err := json.Marshal(session.Parts)
+		if err != nil {
+			return fmt.Errorf("failed to serialize parts: %w", err)
+		}
+
+		_, err = txApp.DB().NewQuery(`
+			UPDATE {{_storage_uploads}}
+			SET [[parts]] = {:parts}::jsonb,
+			    [[total_size]] = {:totalSize},
+			    [[updated]] = now()
+			WHERE [[id]] = {:id}
+		`).Bind(dbx.Params{
+			"id":        uploadId,
+			"parts":     string(partsBytes),
+			"totalSize": session.TotalSize,
+		}).Execute()
+		return err
+	})
 
 	if err != nil {
+		_ = fsys.Delete(partKey)
 		return nil, err
 	}
 
@@ -579,49 +620,102 @@ func (sm *StorageManager) UploadPart(uploadId string, partNumber int, data []byt
 }
 
 // CompleteMultipartUpload combines all uploaded parts into the final storage object.
+// It verifies contiguous parts, validates SHA-256 ETags, and atomically transitions status.
 func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId string) (*StorageObject, error) {
-	session := &StorageUploadSession{}
-	err := sm.app.DB().NewQuery(`
-		SELECT [[id]], [[bucket_id]], [[name]], [[owner_id]], [[parts]], [[total_size]], [[status]], [[created]], [[updated]]
-		FROM {{_storage_uploads}}
-		WHERE [[id]] = {:id} AND [[status]] = 'pending'
-	`).Bind(dbx.Params{"id": uploadId}).One(session)
+	var session StorageUploadSession
+
+	// Atomically verify pending status, non-empty contiguous parts, and transition to 'completing'
+	err := sm.app.RunInTransactionWithContext(ctx, func(txApp App) error {
+		err := txApp.DB().NewQuery(`
+			SELECT [[id]], [[bucket_id]], [[name]], [[owner_id]], [[parts]], [[total_size]], [[status]], [[created]], [[updated]]
+			FROM {{_storage_uploads}}
+			WHERE [[id]] = {:id}
+			FOR UPDATE
+		`).Bind(dbx.Params{"id": uploadId}).One(&session)
+		if err != nil {
+			return fmt.Errorf("upload session not found: %w", err)
+		}
+		if session.Status != "pending" {
+			return fmt.Errorf("upload session not pending (status: %s)", session.Status)
+		}
+		if len(session.Parts) == 0 {
+			return fmt.Errorf("cannot complete multipart upload with zero parts")
+		}
+
+		// Sort parts by PartNumber
+		slices.SortFunc(session.Parts, func(a, b StorageUploadPart) int {
+			return cmp.Compare(a.PartNumber, b.PartNumber)
+		})
+
+		// Verify contiguous part numbers starting from 1
+		for idx, p := range session.Parts {
+			expectedPartNum := idx + 1
+			if p.PartNumber != expectedPartNum {
+				return fmt.Errorf("multipart upload has missing or non-contiguous parts: expected part %d, got %d", expectedPartNum, p.PartNumber)
+			}
+		}
+
+		// Atomically lock session into 'completing'
+		_, err = txApp.DB().NewQuery(`
+			UPDATE {{_storage_uploads}}
+			SET [[status]] = 'completing',
+			    [[updated]] = now()
+			WHERE [[id]] = {:id} AND [[status]] = 'pending'
+		`).Bind(dbx.Params{"id": uploadId}).Execute()
+		return err
+	})
 
 	if err != nil {
-		return nil, fmt.Errorf("upload session not found or not pending: %w", err)
+		return nil, err
 	}
 
 	fsys, err := sm.app.NewFilesystem()
 	if err != nil {
+		// Revert to pending
+		_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
 		return nil, err
 	}
 	defer fsys.Close()
 
-	// Read and concatenate all parts in order
+	// Read and concatenate all parts in verified order
 	var combinedData []byte
+	if session.TotalSize > 0 && session.TotalSize < 2*1024*1024*1024 {
+		combinedData = make([]byte, 0, session.TotalSize)
+	}
+
 	for _, part := range session.Parts {
 		partKey := sm.uploadPartKey(uploadId, part.PartNumber)
 		reader, err := fsys.GetReader(partKey)
 		if err != nil {
+			_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
 			return nil, fmt.Errorf("missing upload part %d: %w", part.PartNumber, err)
 		}
 		partBytes, readErr := io.ReadAll(reader)
-		reader.Close()
+		_ = reader.Close()
 		if readErr != nil {
+			_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
 			return nil, fmt.Errorf("failed to read part %d: %w", part.PartNumber, readErr)
 		}
+
+		// Verify ETag checksum of part
+		h := sha256.Sum256(partBytes)
+		etag := hex.EncodeToString(h[:])
+		if etag != part.Etag {
+			_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
+			return nil, fmt.Errorf("part %d checksum mismatch: expected %s, got %s", part.PartNumber, part.Etag, etag)
+		}
+
 		combinedData = append(combinedData, partBytes...)
-		// Clean up part file
-		_ = fsys.Delete(partKey)
 	}
 
 	// Save final assembled object via UploadObject
 	obj, err := sm.UploadObject(ctx, session.BucketId, session.Name, session.OwnerId, "application/octet-stream", combinedData, nil)
 	if err != nil {
+		_, _ = sm.app.DB().NewQuery("UPDATE {{_storage_uploads}} SET [[status]] = 'pending', [[updated]] = now() WHERE [[id]] = {:id}").Bind(dbx.Params{"id": uploadId}).Execute()
 		return nil, err
 	}
 
-	// Mark session completed
+	// Mark session completed in DB
 	_, _ = sm.app.DB().NewQuery(`
 		UPDATE {{_storage_uploads}}
 		SET [[status]] = 'completed',
@@ -629,17 +723,38 @@ func (sm *StorageManager) CompleteMultipartUpload(ctx context.Context, uploadId 
 		WHERE [[id]] = {:id}
 	`).Bind(dbx.Params{"id": uploadId}).Execute()
 
+	// Clean up parts only after successful assembly and metadata commit
+	for _, part := range session.Parts {
+		_ = fsys.Delete(sm.uploadPartKey(uploadId, part.PartNumber))
+	}
+
 	return obj, nil
 }
 
 // AbortMultipartUpload cancels an active session and purges all staged parts.
+// It safely handles concurrent calls with CompleteMultipartUpload and UploadPart.
 func (sm *StorageManager) AbortMultipartUpload(uploadId string) error {
-	session := &StorageUploadSession{}
-	err := sm.app.DB().NewQuery(`
-		SELECT [[id]], [[bucket_id]], [[name]], [[parts]]
-		FROM {{_storage_uploads}}
-		WHERE [[id]] = {:id}
-	`).Bind(dbx.Params{"id": uploadId}).One(session)
+	var session StorageUploadSession
+
+	err := sm.app.RunInTransaction(func(txApp App) error {
+		err := txApp.DB().NewQuery(`
+			SELECT [[id]], [[bucket_id]], [[name]], [[parts]], [[status]]
+			FROM {{_storage_uploads}}
+			WHERE [[id]] = {:id}
+			FOR UPDATE
+		`).Bind(dbx.Params{"id": uploadId}).One(&session)
+		if err != nil {
+			return fmt.Errorf("upload session not found: %w", err)
+		}
+		if session.Status == "completed" {
+			return fmt.Errorf("cannot abort completed upload")
+		}
+
+		_, err = txApp.DB().NewQuery(`
+			DELETE FROM {{_storage_uploads}} WHERE [[id]] = {:id}
+		`).Bind(dbx.Params{"id": uploadId}).Execute()
+		return err
+	})
 
 	if err != nil {
 		return err
@@ -653,9 +768,5 @@ func (sm *StorageManager) AbortMultipartUpload(uploadId string) error {
 		}
 	}
 
-	_, err = sm.app.DB().NewQuery(`
-		DELETE FROM {{_storage_uploads}} WHERE [[id]] = {:id}
-	`).Bind(dbx.Params{"id": uploadId}).Execute()
-
-	return err
+	return nil
 }

@@ -506,47 +506,72 @@ func (jm *JobsManager) PublishOutbox(event string, topic string, payload map[str
 }
 
 // ProcessPendingOutbox fetches and dispatches pending outbox events using the provided publisher.
+// It uses an atomic state transition in PostgreSQL to claim events exclusively, preventing concurrent
+// workers from duplicate processing, and includes lease reclamation for crashed workers.
 func (jm *JobsManager) ProcessPendingOutbox(limit int, publisher func(evt *OutboxEvent) error) (int, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 
 	var events []*OutboxEvent
+	// Atomically claim rows: transition status to 'processing' and increment attempts in a single
+	// UPDATE ... RETURNING statement with FOR UPDATE SKIP LOCKED.
+	// This guarantees that concurrent workers will never claim the same rows simultaneously.
+	// Stuck 'processing' rows older than 60 seconds are also reclaimed for worker crash recovery.
 	err := jm.app.DB().NewQuery(`
-		SELECT [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[created]], [[published_at]]
-		FROM {{_outbox_events}}
-		WHERE [[status]] = 'pending'
-		ORDER BY [[created]] ASC
-		LIMIT {:limit}
-		FOR UPDATE SKIP LOCKED
+		UPDATE {{_outbox_events}}
+		SET [[status]] = 'processing',
+		    [[attempts]] = [[attempts]] + 1
+		WHERE [[id]] IN (
+			SELECT [[id]]
+			FROM {{_outbox_events}}
+			WHERE [[status]] = 'pending'
+			   OR ([[status]] = 'processing' AND [[created]] < now() - INTERVAL '60 seconds')
+			ORDER BY [[created]] ASC
+			FOR UPDATE SKIP LOCKED
+			LIMIT {:limit}
+		)
+		RETURNING [[id]], [[event]], [[topic]], [[payload]], [[status]], [[attempts]], [[last_error]], [[created]], [[published_at]]
 	`).Bind(dbx.Params{"limit": limit}).All(&events)
 
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to claim pending outbox events: %w", err)
 	}
 
 	count := 0
 	for _, evt := range events {
 		pubErr := publisher(evt)
 		if pubErr != nil {
-			_, _ = jm.app.DB().NewQuery(`
+			newStatus := "pending"
+			if evt.Attempts >= 5 {
+				newStatus = "failed"
+			}
+			_, updateErr := jm.app.DB().NewQuery(`
 				UPDATE {{_outbox_events}}
-				SET [[status]] = 'failed',
-				    [[attempts]] = [[attempts]] + 1,
+				SET [[status]] = {:status},
 				    [[last_error]] = {:err}
 				WHERE [[id]] = {:id}
 			`).Bind(dbx.Params{
-				"id":  evt.Id,
-				"err": pubErr.Error(),
+				"id":     evt.Id,
+				"status": newStatus,
+				"err":    pubErr.Error(),
 			}).Execute()
+			if updateErr != nil {
+				jm.app.Logger().Error("failed to record outbox failure status", "id", evt.Id, "error", updateErr)
+			}
 		} else {
-			_, _ = jm.app.DB().NewQuery(`
+			_, updateErr := jm.app.DB().NewQuery(`
 				UPDATE {{_outbox_events}}
 				SET [[status]] = 'published',
-				    [[published_at]] = now()
+				    [[published_at]] = now(),
+				    [[last_error]] = ''
 				WHERE [[id]] = {:id}
 			`).Bind(dbx.Params{"id": evt.Id}).Execute()
-			count++
+			if updateErr != nil {
+				jm.app.Logger().Error("failed to record outbox published status", "id", evt.Id, "error", updateErr)
+			} else {
+				count++
+			}
 		}
 	}
 
