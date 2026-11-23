@@ -237,9 +237,8 @@ func (s *Settings) PostScan() error {
 
 // String returns a serialized string representation of the current settings.
 func (s *Settings) String() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
+	// ruxbase: MarshalJSON already takes the read lock; avoid recursively
+	// acquiring RWMutex.RLock when a concurrent settings reload is waiting to write.
 	raw, _ := s.MarshalJSON()
 	return string(raw)
 }
@@ -255,7 +254,9 @@ func (s *Settings) DBExport(app App) (map[string]any, error) {
 		"id": s.PK(),
 	}
 
-	if s.IsNew() {
+	// ruxbase: DBExport already holds the read lock. Calling IsNew here would
+	// recursively RLock and can deadlock when a settings writer is queued.
+	if s.isNew {
 		result["created"] = now
 	}
 	result["updated"] = now
