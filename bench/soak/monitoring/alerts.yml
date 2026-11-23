@@ -1,0 +1,112 @@
+groups:
+  - name: ruxbase_w11_05_critical_safety
+    rules:
+      - alert: CrossTenantDataLeakage
+        expr: ruxbase_soak_cross_tenant_leaks_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "CRITICAL: Unauthorized cross-tenant data exposure detected"
+          description: "The W11-05 soak engine recorded {{ $value }} cross-tenant leak(s). Campaign is invalidated and emergency stop must trigger immediately."
+
+      - alert: StorageChecksumOrIntegrityViolation
+        expr: (ruxbase_soak_integrity_violations_total + ruxbase_soak_worker_integrity_errors_total) > 0
+        for: 0m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "CRITICAL: Storage SHA-256 or persisted data integrity violation"
+          description: "Independent integrity verification detected {{ $value }} corruption or committed data loss defect(s)."
+
+      - alert: DeadLetterQueueNonEmpty
+        expr: ruxbase_jobs_dead > 0
+        for: 2m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Unrecoverable durable jobs entered DLQ"
+          description: "{{ $value }} job(s) are currently in dead-letter status in _jobs."
+
+      - alert: OutboxDeliveryFailures
+        expr: ruxbase_outbox_failed > 0
+        for: 2m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Transactional outbox events failed delivery"
+          description: "{{ $value }} transactional outbox event(s) are in failed state."
+
+      - alert: DBPoolSaturationCritical
+        expr: ruxbase_db_pool_max_open > 0 and (ruxbase_db_pool_in_use / ruxbase_db_pool_max_open) > 0.90
+        for: 3m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Ruxbase PostgreSQL connection pool saturated (>90%)"
+          description: "Active DB pool utilization has exceeded 90% for 3 minutes."
+
+      - alert: UnboundedWALRetention
+        expr: ruxbase_cluster_retained_wal_bytes > 800000000
+        for: 2m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "PostgreSQL WAL retention approaching hard limit"
+          description: "Retained WAL bytes ({{ $value }}) exceeded 800 MB warning/stop threshold."
+
+      - alert: DiskExhaustionRisk
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 2m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Staging VPS free disk space below 15%"
+          description: "Root filesystem headroom dropped below 15%; immediate intervention or emergency stop required."
+
+      - alert: SustainedApplicationUnavailable
+        expr: up{job="ruxbase"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Ruxbase staging server unreachable for >3m"
+          description: "Prometheus cannot scrape Ruxbase /api/ops/metrics."
+
+      - alert: ContinuousWorkloadInterrupted
+        expr: (time() - ruxbase_soak_heartbeat_unix) > 180
+        for: 1m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "W11-05 continuous workload heartbeat stalled (>180s)"
+          description: "Load generator has not emitted a heartbeat in over 3 minutes."
+
+      - alert: PersistentMetricsCollectionInterrupted
+        expr: up{job="postgres_exporter"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "PostgreSQL metrics exporter unreachable"
+          description: "Telemetry collection gap risk for W11-05 qualification."
+
+      - alert: BackupVerificationFailed
+        expr: ruxbase_soak_elapsed_seconds > 46800 and ruxbase_soak_last_backup_verified == 0
+        for: 5m
+        labels:
+          severity: critical
+          gate: W11-05
+        annotations:
+          summary: "Online backup & isolated restore verification missing or failed"
+          description: "Last scheduled backup verification did not report verified status."

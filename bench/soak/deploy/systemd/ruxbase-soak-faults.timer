@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every 15 minutes whether scheduled W11-05 fault injections (H24/H72/H120) are due
+
+[Timer]
+OnBootSec=15m
+OnUnitActiveSec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

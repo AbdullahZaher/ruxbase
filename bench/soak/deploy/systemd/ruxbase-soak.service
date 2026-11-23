@@ -1,0 +1,19 @@
+[Unit]
+Description=Ruxbase W11-05 168-Hour Continuous Staging Soak Campaign
+Documentation=https://github.com/AbdullahZaher/ruxbase/blob/main/bench/soak/README.md
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/ruxbase-soak/repo
+EnvironmentFile=/srv/ruxbase-soak/.env.staging
+ExecStartPre=/usr/bin/docker compose --env-file /srv/ruxbase-soak/.env.staging -f bench/soak/deploy/docker-compose.staging.yml up -d postgres postgres-restore-target ruxbase soak-worker postgres-exporter node-exporter prometheus grafana
+ExecStart=/usr/bin/docker compose --env-file /srv/ruxbase-soak/.env.staging -f bench/soak/deploy/docker-compose.staging.yml --profile soak up --abort-on-container-exit=false soak-engine
+ExecStop=/usr/bin/docker compose --env-file /srv/ruxbase-soak/.env.staging -f bench/soak/deploy/docker-compose.staging.yml stop -t 45 soak-engine
+Restart=on-failure
+RestartSec=15s
+TimeoutStopSec=60s
+
+[Install]
+WantedBy=multi-user.target

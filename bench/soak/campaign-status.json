@@ -1,0 +1,29 @@
+{
+  "gateId": "W11-05",
+  "status": "INFRASTRUCTURE_PREPARING",
+  "launchState": "BLOCKED",
+  "blockerCategory": "DEDICATED_STAGING_HOST_REQUIRED",
+  "blockerSummary": "Available execution host is a shared multi-tenant production VPS (2 vCPU, 7.8 GiB RAM with 2.1 GiB swap active, 29 GB free disk, 27 running containers including live production stacks and 5 PM2 production services) with no separate authorized staging VPS configured. Per Phase 0 Mandatory Isolation, live pilot, 168-hour soak, and fault injections are blocked until a dedicated staging VPS is provisioned.",
+  "candidateBaseline": {
+    "repository": "https://github.com/AbdullahZaher/ruxbase",
+    "baseBranch": "main",
+    "baseCommitSha": "d7b9a3dcd55ea14beadeeecaec065b23eeb5f345",
+    "baseTreeSha": "891c2e1ac1d22b37a3b1cfa09de650c593ce8a1e",
+    "soakHarnessBranch": "chore/w11-05-staging-soak-harness-20261123"
+  },
+  "pilot": {
+    "status": "NOT_STARTED",
+    "startUtc": null,
+    "endUtc": null
+  },
+  "officialSoak": {
+    "status": "BLOCKED",
+    "campaignId": null,
+    "officialStartUtc": null,
+    "earliestValidEndUtc": null,
+    "evidenceLocation": "/srv/ruxbase-soak/evidence/<campaign-id>/ (pending dedicated staging VPS)"
+  },
+  "independentCertificationA11": "PENDING_STAGING_EVIDENCE",
+  "productionReleaseDecision": "PRODUCTION_NO_GO",
+  "updatedAtUtc": "2026-11-23T08:56:00Z"
+}

@@ -1,0 +1,319 @@
+# Persistent, isolated staging topology for Ruxbase W11-05 168-Hour Continuous Soak.
+#
+# MANDATORY ISOLATION:
+#   Deploy ONLY on a dedicated staging VPS or isolated VM — NEVER on a shared production host.
+#   All host port bindings are strictly loopback-only (127.0.0.1); PostgreSQL has NO host port.
+#   Volumes are named and persistent; runner exit never destroys staging volumes.
+#
+# Usage (from repository root after generating mode-600 .env.staging via bench/soak/scripts/deploy-staging.sh):
+#   docker compose --env-file /srv/ruxbase-soak/.env.staging \
+#     -f bench/soak/deploy/docker-compose.staging.yml up -d
+
+name: ruxbase-w11-05-staging
+
+networks:
+  staging_internal:
+    driver: bridge
+  monitoring_internal:
+    driver: bridge
+
+volumes:
+  ruxbase_soak_pgdata:
+    name: ruxbase_soak_pgdata
+  ruxbase_soak_restore_pgdata:
+    name: ruxbase_soak_restore_pgdata
+  ruxbase_soak_app_data:
+    name: ruxbase_soak_app_data
+  ruxbase_soak_prometheus:
+    name: ruxbase_soak_prometheus
+  ruxbase_soak_grafana:
+    name: ruxbase_soak_grafana
+
+services:
+  postgres:
+    image: ${RUXBASE_PG_IMAGE:-pgvector/pgvector:0.8.7-pg18-trixie}
+    container_name: ruxbase-soak-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?POSTGRES_SUPERUSER_PASSWORD is required}
+      POSTGRES_DB: postgres
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    volumes:
+      - ruxbase_soak_pgdata:/var/lib/postgresql
+      - ./postgres.conf:/etc/postgresql/postgresql.conf:ro
+      - ./init-staging-roles.sql:/opt/ruxbase/init-staging-roles.sql:ro
+    networks:
+      - staging_internal
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: ${SOAK_PG_CPUS:-2.0}
+    mem_limit: ${SOAK_PG_MEM:-3g}
+    shm_size: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # Isolated restore target for Journey H & Hour 120 backup/restore drills.
+  # Never shares storage with the primary staging PostgreSQL instance.
+  postgres-restore-target:
+    image: ${RUXBASE_PG_IMAGE:-pgvector/pgvector:0.8.7-pg18-trixie}
+    container_name: ruxbase-soak-restore-pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_RESTORE_PASSWORD:?POSTGRES_RESTORE_PASSWORD is required}
+      POSTGRES_DB: ruxbase_restore_verify
+    volumes:
+      - ruxbase_soak_restore_pgdata:/var/lib/postgresql
+    networks:
+      - staging_internal
+    restart: unless-stopped
+    cpus: ${SOAK_RESTORE_PG_CPUS:-0.5}
+    mem_limit: ${SOAK_RESTORE_PG_MEM:-512m}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d ruxbase_restore_verify"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  ruxbase:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${RUXBASE_CANDIDATE_VERSION:-w11-05-staging}
+    image: ${RUXBASE_STAGING_IMAGE:-ruxbase:w11-05-staging}
+    container_name: ruxbase-soak-app
+    environment:
+      # Strictly least-privilege non-superuser role (NOSUPERUSER, NOBYPASSRLS)
+      DATABASE_URL: postgres://ruxbase_app:${RUXBASE_APP_PASSWORD:?RUXBASE_APP_PASSWORD is required}@postgres:5432/ruxbase_staging?sslmode=disable
+      RUXBASE_ENCRYPTION_KEY: ${RUXBASE_ENCRYPTION_KEY:?RUXBASE_ENCRYPTION_KEY is required}
+      RUXBASE_DB_MAX_CONNS: ${RUXBASE_DB_MAX_CONNS:-30}
+      RUXBASE_REALTIME_SOURCE: ${RUXBASE_REALTIME_SOURCE:-replication}
+      RUXBASE_RLS_STRICT: ${RUXBASE_RLS_STRICT:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${RUXBASE_HOST_PORT:-18090}:8090"
+    volumes:
+      - ruxbase_soak_app_data:/app/ruxbase_data
+    networks:
+      - staging_internal
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: ${SOAK_APP_CPUS:-1.5}
+    mem_limit: ${SOAK_APP_MEM:-1536m}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8090;
+          printf "GET /api/health?ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3;
+          IFS= read -r line <&3;
+          [[ "$$line" == HTTP/1.1\ 200* ]]'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # Dedicated supervised background worker exercising Durable Jobs, Workflows,
+  # Transactional Outbox publishing, and Multipart Storage GC against the staging DB.
+  # Target of Hour 24 controlled SIGKILL + lease reclamation fault injection.
+  soak-worker:
+    build:
+      context: ../../..
+      dockerfile: bench/soak/Dockerfile.soak
+    image: ${SOAK_ENGINE_IMAGE:-ruxbase-soak:w11-05}
+    container_name: ruxbase-soak-worker
+    command:
+      - worker
+      - --db=postgres://ruxbase_app:${RUXBASE_APP_PASSWORD}@postgres:5432/ruxbase_staging?sslmode=disable
+      - --data-dir=/app/ruxbase_data
+      - --evidence-dir=/srv/ruxbase-soak/evidence
+      - --campaign-id=${SOAK_CAMPAIGN_ID:-pilot}
+      - --workers=${SOAK_BG_WORKERS:-6}
+      - --metrics-addr=:9109
+    depends_on:
+      ruxbase:
+        condition: service_healthy
+    volumes:
+      - ruxbase_soak_app_data:/app/ruxbase_data
+      - ${SOAK_EVIDENCE_HOST_DIR:-/srv/ruxbase-soak/evidence}:/srv/ruxbase-soak/evidence
+    networks:
+      - staging_internal
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: ${SOAK_WORKER_CPUS:-0.5}
+    mem_limit: ${SOAK_WORKER_MEM:-512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9109/healthz >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # Continuous 168-hour customer-journey workload generator, 60s telemetry collector,
+  # and periodic independent integrity verifier. Enabled under profile "soak" or via systemd.
+  soak-engine:
+    build:
+      context: ../../..
+      dockerfile: bench/soak/Dockerfile.soak
+    image: ${SOAK_ENGINE_IMAGE:-ruxbase-soak:w11-05}
+    container_name: ruxbase-soak-engine
+    profiles: ["soak"]
+    command:
+      - run
+      - --campaign-id=${SOAK_CAMPAIGN_ID:?SOAK_CAMPAIGN_ID must be set before launching soak-engine}
+      - --base-url=http://ruxbase:8090
+      - --db=postgres://ruxbase_app:${RUXBASE_APP_PASSWORD}@postgres:5432/ruxbase_staging?sslmode=disable
+      - --monitor-db=postgres://ruxbase_monitor:${RUXBASE_MONITOR_PASSWORD}@postgres:5432/ruxbase_staging?sslmode=disable
+      - --data-dir=/app/ruxbase_data
+      - --evidence-dir=/srv/ruxbase-soak/evidence
+      - --superuser-email=${SOAK_SUPERUSER_EMAIL:?SOAK_SUPERUSER_EMAIL is required}
+      - --superuser-password=${SOAK_SUPERUSER_PASSWORD:?SOAK_SUPERUSER_PASSWORD is required}
+      - --capacity-rps=${SOAK_CAPACITY_RPS:-40}
+      - --duration=${SOAK_DURATION:-168h}
+      - --metrics-addr=:9108
+    depends_on:
+      ruxbase:
+        condition: service_healthy
+      soak-worker:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${SOAK_METRICS_HOST_PORT:-19108}:9108"
+    volumes:
+      - ruxbase_soak_app_data:/app/ruxbase_data
+      - ${SOAK_EVIDENCE_HOST_DIR:-/srv/ruxbase-soak/evidence}:/srv/ruxbase-soak/evidence
+    networks:
+      - staging_internal
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: ${SOAK_ENGINE_CPUS:-1.0}
+    mem_limit: ${SOAK_ENGINE_MEM:-768m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9108/healthz >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: ruxbase-soak-pg-exporter
+    environment:
+      DATA_SOURCE_URI: postgres:5432/ruxbase_staging?sslmode=disable
+      DATA_SOURCE_USER: ruxbase_monitor
+      DATA_SOURCE_PASS: ${RUXBASE_MONITOR_PASSWORD:?RUXBASE_MONITOR_PASSWORD is required}
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "false"
+      PG_EXPORTER_EXCLUDE_DATABASES: "template0,template1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128m
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: ruxbase-soak-node-exporter
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128m
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: ruxbase-soak-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ${SOAK_PROM_TOKEN_FILE:-/srv/ruxbase-soak/secrets/ruxbase-ops.token}:/etc/prometheus/secrets/ruxbase-ops.token:ro
+      - ruxbase_soak_prometheus:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-19090}:9090"
+    networks:
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: ruxbase-soak-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-soak_admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_HTTP_ADDR: 0.0.0.0
+      GF_SERVER_HTTP_PORT: 3000
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ruxbase_soak_grafana:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-13000}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - monitoring_internal
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
