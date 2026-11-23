@@ -42,8 +42,9 @@ if [ "$test_status" -ne 0 ]; then
   echo
   jq -r 'select(.Action == "output" and .Test != null) | .Output' "$OUT" |
     grep -E -- '--- FAIL|_test\.go:[0-9]+:|golden\.go:[0-9]+:|api\.go:[0-9]+:|panic:' || true
-  # the panics with their stack traces
-  jq -r 'select(.Action == "output") | .Output' "$OUT" | awk '/^panic:/ { n = 80 } n > 0 { print; n-- }' || true
+  # ruxbase: keep enough goroutine frames to reveal the actual blocked test,
+  # not just the testing framework's first 80 lines of a timeout panic.
+  jq -r 'select(.Action == "output") | .Output' "$OUT" | awk '/^panic:/ { n = 300 } n > 0 { print; n-- }' || true
   # the build failures and package level errors
   jq -r 'select(.Action == "output" and .Test == null) | .Output' "$OUT" |
     grep -vE '^(ok|PASS|FAIL|coverage:)|^\s*$|^\[' || true
