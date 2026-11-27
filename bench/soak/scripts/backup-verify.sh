@@ -16,7 +16,7 @@ fi
 
 # Caller-provided SOAK_CAMPAIGN_ID takes precedence over .env.staging so pilot vs official runs never collide.
 CAMPAIGN_ID="${CALLER_CAMPAIGN_ID:-${SOAK_CAMPAIGN_ID:-}}"
-if [[ -z "$CAMPAIGN_ID" || "$CAMPAIGN_ID" == "pilot-pending" ]]; then
+if [[ -z "$CAMPAIGN_ID" || "$CAMPAIGN_ID" == "pilot-pending" || "$CAMPAIGN_ID" == "UNBOUND" || "$CAMPAIGN_ID" == "staging" ]]; then
   echo "ERROR: Valid SOAK_CAMPAIGN_ID is required (got '${CAMPAIGN_ID}')." >&2
   exit 2
 fi

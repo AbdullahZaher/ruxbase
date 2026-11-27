@@ -216,7 +216,7 @@ services:
     networks:
       - staging_internal
       - monitoring_internal
-    restart: unless-stopped
+    restart: on-failure
     cpus: ${SOAK_ENGINE_CPUS:-1.0}
     mem_limit: ${SOAK_ENGINE_MEM:-768m}
     healthcheck:

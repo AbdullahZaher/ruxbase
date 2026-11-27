@@ -142,3 +142,17 @@ func TestMetricsHandlerAndSHA256ManifestVerification(t *testing.T) {
 		t.Fatalf("VerifySHA256Manifest failed: ok=%v mismatches=%v checked=%d err=%v", ok, mismatches, checked, err)
 	}
 }
+
+func TestLatestBackupStatusMatchesCampaign(t *testing.T) {
+	dir := t.TempDir()
+	content := "{\"campaignId\":\"OTHER\",\"timestampUtc\":\"2026-11-27T01:00:00Z\",\"passed\":true}\n" +
+		"{\"campaignId\":\"C1\",\"timestampUtc\":\"2026-11-27T02:00:00Z\",\"passed\":false}\n" +
+		"{\"campaignId\":\"C1\",\"timestampUtc\":\"2026-11-27T03:00:00Z\",\"passed\":true}\n"
+	if err := os.WriteFile(filepath.Join(dir, "backups.jsonl"), []byte(content), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	st, ts := LatestBackupStatus(dir, "C1")
+	if st != "passed" || ts != "2026-11-27T03:00:00Z" {
+		t.Fatalf("unexpected backup status: st=%q ts=%q", st, ts)
+	}
+}

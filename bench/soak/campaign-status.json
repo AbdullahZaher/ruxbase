@@ -37,7 +37,7 @@
     "earliestValidEndUtc": null,
     "evidenceLocation": "/srv/ruxbase-soak/evidence/<campaign-id>/ (pending dedicated staging VPS)"
   },
-  "independentCertificationA11": "ENGINEERING_VERIFIED_OPERATIONAL_W11_05_PENDING",
+  "independentCertificationA11": "AWAITING_A11_FINAL_SIGN_OFF",
   "productionReleaseDecision": "PRODUCTION_NO_GO",
-  "updatedAtUtc": "2026-11-27T21:11:00Z"
+  "updatedAtUtc": "2026-11-27T22:02:00Z"
 }

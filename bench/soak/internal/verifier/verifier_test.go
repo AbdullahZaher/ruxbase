@@ -254,4 +254,25 @@ func TestReconcileAndA11AuditVerdictsAndCompletenessGates(t *testing.T) {
 	if avTamper.Verdict != "W11-05_FAILED" || avTamper.ManifestVerified {
 		t.Fatalf("tampered artifact must fail A11 audit, got %+v", avTamper)
 	}
+
+	// 9. Corrupt metrics.jsonl -> FAIL (never silently skip malformed telemetry)
+	dirCorruptMet := seedCampaignDir(t, 168.05, 0.5, 0, true)
+	_ = os.WriteFile(filepath.Join(dirCorruptMet, "metrics.jsonl"), []byte("{not-json\n"), 0o640)
+	repCorruptMet, _ := Reconcile(dirCorruptMet, 168.0)
+	if repCorruptMet.Verdict != "FAIL" {
+		t.Fatalf("expected FAIL for corrupt metrics.jsonl, got %s", repCorruptMet.Verdict)
+	}
+
+	// 10. Missing /api/ops/metrics runtime heap telemetry -> FAIL
+	dirNoOps := seedCampaignDir(t, 168.05, 0.5, 0, true)
+	_ = writeTestLineFile(filepath.Join(dirNoOps, "metrics.jsonl"), telemetry.Sample{
+		TimestampUTC:  "2026-11-16T00:00:00Z",
+		ElapsedSec:    60,
+		HealthReadyOK: true,
+		Host:          telemetry.HostMetrics{DiskFreePct: 50.0},
+	})
+	repNoOps, _ := Reconcile(dirNoOps, 168.0)
+	if repNoOps.Verdict != "FAIL" {
+		t.Fatalf("expected FAIL when runtime heap telemetry is missing, got %s (%v)", repNoOps.Verdict, repNoOps.FailureReasons)
+	}
 }

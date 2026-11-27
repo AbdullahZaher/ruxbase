@@ -17,7 +17,7 @@ Before flipping a release candidate to production `GO` for high-availability SLA
   - Periodic full atomic backup (`ruxbase backup`) + offline SHA-256 verification (`core.CheckReleaseBlockers`).
 
 ### 1.2 Pass / Anomaly Disposition Criteria
-- Zero unbounded goroutine growth or monotonic heap leak (`ruxbase_runtime_goroutines`, `ruxbase_runtime_heap_alloc_bytes` via `GET /api/ops/metrics`).
+- Zero unbounded goroutine growth or monotonic heap leak (`ruxbase_runtime_goroutines`, `ruxbase_runtime_live_heap_bytes` / `ruxbase_runtime_heap_alloc_bytes` via `GET /api/ops/metrics`).
 - Zero connection pool starvation (`ruxbase_db_pool_wait_count` stable).
 - Zero uncommitted outbox events or un-reclaimed dead jobs not explicitly flagged by `dlq_non_empty`.
 - *Local/CI Status:* Smoke soak harnesses execute deterministically inside `tests/e2e/` and `.github/workflows/benchmark-baseline.yml`; the continuous 168-hour wall-clock staging soak remains an explicit pre-GA operational gate prior to human maintainer tag signing (`W11-08`).

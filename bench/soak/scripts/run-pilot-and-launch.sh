@@ -29,9 +29,12 @@ EVIDENCE_ROOT="${SOAK_EVIDENCE_HOST_DIR:-$SOAK_ROOT/evidence}"
 PILOT_ID="W11-05-PILOT-$(date -u +%Y%m%dT%H%M%SZ)"
 OFFICIAL_ID="W11-05-168H-$(date -u +%Y%m%dT%H%M%SZ)"
 
-echo "[launch] Building soak CLI and reproducible Linux candidate binary..."
-CGO_ENABLED=0 go -C "$REPO_ROOT" build -trimpath -o "$SOAK_ROOT/soak" ./bench/soak/cmd/soak
-CGO_ENABLED=0 go -C "$REPO_ROOT" build -trimpath -o "$SOAK_ROOT/ruxbase-candidate-linux" ./examples/base
+CANDIDATE_VERSION="${RUXBASE_CANDIDATE_VERSION:-w11-05-staging}"
+echo "[launch] Building soak CLI and reproducible Linux candidate binary (version=$CANDIDATE_VERSION)..."
+CGO_ENABLED=0 go -C "$REPO_ROOT" build -trimpath -buildvcs=false -o "$SOAK_ROOT/soak" ./bench/soak/cmd/soak
+CGO_ENABLED=0 go -C "$REPO_ROOT" build -trimpath -buildvcs=false \
+  -ldflags "-s -w -X github.com/AbdullahZaher/ruxbase.Version=${CANDIDATE_VERSION} -X github.com/AbdullahZaher/ruxbase/apis.MCPVersion=${CANDIDATE_VERSION}" \
+  -o "$SOAK_ROOT/ruxbase-candidate-linux" ./examples/base
 
 echo "[launch] Phase 0/1 Preflight verification (strict isolation enforced)..."
 "$SOAK_ROOT/soak" preflight \

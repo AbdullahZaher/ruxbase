@@ -20,10 +20,10 @@ RUN go mod download
 
 COPY . .
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath \
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
     -ldflags "-s -w -X github.com/AbdullahZaher/ruxbase.Version=${VERSION} -X github.com/AbdullahZaher/ruxbase/apis.MCPVersion=${VERSION}" \
     -o /out/ruxbase ./examples/base \
-    && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/ruxbase-import ./cmd/ruxbase-import
+    && CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w" -o /out/ruxbase-import ./cmd/ruxbase-import
 
 FROM debian:trixie-slim@sha256:89c1ea91e897f0fe0a3731595330bc45b8bdef4047464a07116f891a94054b31
 

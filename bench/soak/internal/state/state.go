@@ -593,3 +593,37 @@ func readHostBootID() string {
 	}
 	return strings.TrimSpace(string(raw))
 }
+
+// LatestBackupStatus returns the most recent verified/failed backup status and timestamp
+// recorded in <dir>/backups.jsonl for expectedCampaignID.
+func LatestBackupStatus(dir, expectedCampaignID string) (string, string) {
+	raw, err := os.ReadFile(filepath.Join(dir, "backups.jsonl"))
+	if err != nil {
+		return "", ""
+	}
+	var lastStatus, lastTS string
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var rec struct {
+			CampaignID   string `json:"campaignId"`
+			TimestampUTC string `json:"timestampUtc"`
+			Passed       bool   `json:"passed"`
+		}
+		if json.Unmarshal([]byte(line), &rec) != nil {
+			continue
+		}
+		if expectedCampaignID != "" && rec.CampaignID != "" && rec.CampaignID != expectedCampaignID {
+			continue
+		}
+		if rec.Passed {
+			lastStatus = "passed"
+		} else {
+			lastStatus = "failed"
+		}
+		lastTS = rec.TimestampUTC
+	}
+	return lastStatus, lastTS
+}

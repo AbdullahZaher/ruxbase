@@ -4,7 +4,7 @@
 **Requirement ID:** `W11-05 / P1 / GATE`  
 **Status:** **`PENDING_STAGING_EVIDENCE`** (`PILOT_BLOCKED_PENDING_ISOLATED_STAGING`)  
 **Machine-Readable Status Record:** [`bench/soak/campaign-status.json`](../../bench/soak/campaign-status.json)  
-**Main Candidate Baseline:** `d7b9a3dcd55ea14beadeeecaec065b23eeb5f345` (tree `891c2e1ac1d22b37a3b1cfa09de650c593ce8a1e`, post-PR #67 & PR #68, 17/17 CI green)  
+**Main Candidate Baseline:** `d7b9a3dcd55ea14beadeeecaec065b23eeb5f345` (tree `891c2e1ac1d22b37a3b1cfa09de650c593ce8a1e`, post-PR #67 & PR #68)  
 **Active Remediation Branch / PR:** `chore/w11-05-staging-soak-harness-20261123` (PR #69)  
 **Date:** `2026-11-27`
 

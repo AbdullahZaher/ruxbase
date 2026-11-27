@@ -529,7 +529,10 @@ func verifyRLSAccessSamples(
 
 		// 6c. Direct PostgreSQL strict-RLS check via SET LOCAL ROLE ruxbase_api + ruxbase_rls token
 		if canSetRLSRole && opts.Pool != nil {
-			if rlsTok, tokErr := journeys.FetchTenantRLSToken(ctx, opts.Client, baseURL, owner.Token, 60); tokErr == nil {
+			rlsTok, tokErr := journeys.FetchTenantRLSToken(ctx, opts.Client, baseURL, owner.Token, 60)
+			if tokErr != nil {
+				failCritical(fmt.Sprintf("fetch owner RLS token failed for %s: %v", ent.EntityID, tokErr))
+			} else {
 				var gotTenant string
 				if qErr := queryAsRLSRole(ctx, opts.Pool, rlsTok, ent.EntityID, &gotTenant); qErr == nil && gotTenant == ent.TenantID {
 					rep.RLSSQLVerifiedRows++
@@ -538,7 +541,10 @@ func verifyRLSAccessSamples(
 				}
 			}
 			if hasForeign {
-				if fTok, tokErr := journeys.FetchTenantRLSToken(ctx, opts.Client, baseURL, foreign.Token, 60); tokErr == nil {
+				fTok, tokErr := journeys.FetchTenantRLSToken(ctx, opts.Client, baseURL, foreign.Token, 60)
+				if tokErr != nil {
+					failCritical(fmt.Sprintf("fetch foreign RLS token failed for %s: %v", ent.EntityID, tokErr))
+				} else {
 					var leaked string
 					qErr := queryAsRLSRole(ctx, opts.Pool, fTok, ent.EntityID, &leaked)
 					if errors.Is(qErr, pgx.ErrNoRows) {
@@ -736,12 +742,26 @@ func Reconcile(dir string, requiredHours float64) (*ReconciliationReport, error)
 
 	// 4. Analyze 60-second telemetry samples & workload continuity
 	samples, err := loadTelemetrySamples(filepath.Join(dir, "metrics.jsonl"))
-	if err != nil || len(samples) == 0 {
+	if err != nil {
+		if os.IsNotExist(err) {
+			rep.MissingEvidence = append(rep.MissingEvidence, "metrics.jsonl")
+		} else {
+			rep.FailureReasons = append(rep.FailureReasons, fmt.Sprintf("unreadable/corrupt metrics.jsonl: %v", err))
+		}
+	} else if len(samples) == 0 {
 		rep.MissingEvidence = append(rep.MissingEvidence, "metrics.jsonl")
 	} else {
 		rep.Trends = computeTrends(samples, rep.ElapsedHours)
 	}
-	loadWorkloadContinuity(filepath.Join(dir, "workload.jsonl"), &rep.Trends)
+	if wErr := loadWorkloadContinuity(filepath.Join(dir, "workload.jsonl"), &rep.Trends); wErr != nil {
+		if os.IsNotExist(wErr) {
+			rep.MissingEvidence = append(rep.MissingEvidence, "workload.jsonl")
+		} else {
+			rep.FailureReasons = append(rep.FailureReasons, fmt.Sprintf("unreadable/corrupt workload.jsonl: %v", wErr))
+		}
+	} else if rep.Trends.WorkloadWindows == 0 {
+		rep.MissingEvidence = append(rep.MissingEvidence, "workload.jsonl (zero workload windows)")
+	}
 
 	// 5. Inspect integrity verification ledger (must have >= 1 verified check, 0 failed/incomplete checks)
 	intChecks, intErr := loadIntegrityChecks(filepath.Join(dir, "integrity.jsonl"))
@@ -789,7 +809,10 @@ func Reconcile(dir string, requiredHours float64) (*ReconciliationReport, error)
 	}
 
 	// 8. Inspect scheduled fault drills (H24, H72, H120) for 168h campaigns
-	faults := loadFaultResults(filepath.Join(dir, "faults.jsonl"))
+	faults, fErr := loadFaultResults(filepath.Join(dir, "faults.jsonl"))
+	if fErr != nil && !os.IsNotExist(fErr) {
+		rep.FailureReasons = append(rep.FailureReasons, fmt.Sprintf("unreadable/corrupt faults.jsonl: %v", fErr))
+	}
 	for _, f := range faults {
 		if f.Passed {
 			rep.FaultDrillsCompleted = append(rep.FaultDrillsCompleted, f.Drill)
@@ -825,6 +848,9 @@ func Reconcile(dir string, requiredHours float64) (*ReconciliationReport, error)
 		rep.FailureReasons = append(rep.FailureReasons, fmt.Sprintf("emergency stop triggered: %s", cp.EmergencyStopReason))
 	}
 	if rep.Trends.SampleCount > 0 {
+		if rep.Trends.HeapBaselineMiB <= 0 {
+			rep.FailureReasons = append(rep.FailureReasons, "missing /api/ops/metrics runtime heap telemetry across collected samples")
+		}
 		if rep.Trends.TelemetryCoveragePct < 95.0 {
 			rep.FailureReasons = append(rep.FailureReasons, fmt.Sprintf("telemetry coverage %.2f%% < 95.0%%", rep.Trends.TelemetryCoveragePct))
 		}
@@ -953,34 +979,44 @@ func loadTelemetrySamples(path string) ([]telemetry.Sample, error) {
 			continue
 		}
 		var s telemetry.Sample
-		if err := json.Unmarshal([]byte(line), &s); err == nil {
-			out = append(out, s)
+		if err := json.Unmarshal([]byte(line), &s); err != nil {
+			return nil, fmt.Errorf("parse metrics.jsonl: %w", err)
 		}
+		out = append(out, s)
 	}
 	return out, sc.Err()
 }
 
-func loadWorkloadContinuity(path string, tm *TrendMetrics) {
+func loadWorkloadContinuity(path string, tm *TrendMetrics) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		return err
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
 		var w struct {
 			Success int64 `json:"success"`
 		}
-		if json.Unmarshal(sc.Bytes(), &w) == nil {
-			tm.WorkloadWindows++
-			if w.Success > 0 {
-				tm.ActiveWorkloadWindows++
-			}
+		if err := json.Unmarshal([]byte(line), &w); err != nil {
+			return fmt.Errorf("parse workload.jsonl: %w", err)
 		}
+		tm.WorkloadWindows++
+		if w.Success > 0 {
+			tm.ActiveWorkloadWindows++
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return err
 	}
 	if tm.WorkloadWindows > 0 {
 		tm.WorkloadCoveragePct = round2(float64(tm.ActiveWorkloadWindows) * 100.0 / float64(tm.WorkloadWindows))
 	}
+	return nil
 }
 
 func loadIntegrityChecks(path string) ([]IntegrityCheckReport, error) {
@@ -1196,21 +1232,28 @@ type faultResult struct {
 	Detail string `json:"detail"`
 }
 
-func loadFaultResults(path string) []faultResult {
+func loadFaultResults(path string) ([]faultResult, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer f.Close()
 	var out []faultResult
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
 		var fr faultResult
-		if json.Unmarshal(sc.Bytes(), &fr) == nil && fr.Drill != "" {
+		if err := json.Unmarshal([]byte(line), &fr); err != nil {
+			return nil, fmt.Errorf("parse faults.jsonl: %w", err)
+		}
+		if fr.Drill != "" {
 			out = append(out, fr)
 		}
 	}
-	return out
+	return out, sc.Err()
 }
 
 func avg(xs []float64) float64 {

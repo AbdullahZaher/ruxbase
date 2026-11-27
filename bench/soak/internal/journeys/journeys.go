@@ -645,13 +645,13 @@ func (r *Runner) runCRUDCreate(ctx context.Context, u SyntheticUser, rng *rand.R
 	}
 	if json.Unmarshal(raw, &rec) != nil || rec.ID == "" {
 		decErr := errors.New("missing created id")
-		_ = r.recordAck(intent, false, st, decErr)
-		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, IntegrityErr: true, AppFailure: true, Err: decErr}
+		ackErr := r.recordAck(intent, false, st, decErr)
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: ackErr != nil, IntegrityErr: true, AppFailure: ackErr == nil, GenFailure: ackErr != nil, Err: errors.Join(decErr, ackErr)}
 	}
 	if rec.TenantID != u.TenantID {
 		leakErr := fmt.Errorf("tenant mismatch on create: got %s want %s", rec.TenantID, u.TenantID)
-		_ = r.recordAck(intent, false, st, leakErr)
-		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: leakErr}
+		ackErr := r.recordAck(intent, false, st, leakErr)
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: ackErr != nil, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, GenFailure: ackErr != nil, Err: errors.Join(leakErr, ackErr)}
 	}
 
 	intent.EntityID = rec.ID
@@ -695,20 +695,26 @@ func (r *Runner) runCRUDUpdate(ctx context.Context, u SyntheticUser, rng *rand.R
 		"checksum": chk,
 	})
 	if err != nil {
-		if st == 0 {
-			// Unknown server state on timeout/net error: do not put back into mutable pool blindly
-			_ = r.recordAck(intent, false, 0, err)
-		}
+		// Record non-committed ack on transport/error paths; do not return id blindly while server state is uncertain.
+		ackErr := r.recordAck(intent, false, st, err)
 		out := classifyNetErr(OpCRUDUpdate, time.Since(t0), 1, 0, err)
 		out.MutationsAttempted = 1
+		if ackErr != nil {
+			out.LedgerPersistErr = true
+			out.IntegrityErr = true
+			out.GenFailure = true
+			out.Err = errors.Join(err, ackErr)
+		}
 		return out
 	}
 	if st != http.StatusOK {
 		errMsg := fmt.Errorf("update status %d", st)
-		_ = r.recordAck(intent, false, st, errMsg)
+		ackErr := r.recordAck(intent, false, st, errMsg)
 		if st != http.StatusNotFound {
 			r.returnID(u.TenantID, id)
-			return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
+		}
+		if ackErr != nil {
+			return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: errors.Join(errMsg, ackErr)}
 		}
 		return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
 	}
@@ -748,14 +754,22 @@ func (r *Runner) runCRUDDelete(ctx context.Context, u SyntheticUser, rng *rand.R
 
 	st, _, err := DoJSON(ctx, r.client, http.MethodDelete, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+id, u.Token, nil)
 	if err != nil {
-		_ = r.recordAck(intent, false, 0, err)
+		ackErr := r.recordAck(intent, false, 0, err)
 		out := classifyNetErr(OpCRUDDelete, time.Since(t0), 1, 0, err)
 		out.MutationsAttempted = 1
+		if ackErr != nil {
+			out.LedgerPersistErr = true
+			out.IntegrityErr = true
+			out.GenFailure = true
+			out.Err = errors.Join(err, ackErr)
+		}
 		return out
 	}
 	if st != http.StatusNoContent {
 		errMsg := fmt.Errorf("delete status %d", st)
-		_ = r.recordAck(intent, false, st, errMsg)
+		if ackErr := r.recordAck(intent, false, st, errMsg); ackErr != nil {
+			return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: errors.Join(errMsg, ackErr)}
+		}
 		return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
 	}
 

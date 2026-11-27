@@ -1,7 +1,7 @@
-# Ignore runtime secrets, local evidence outputs, and build artifacts.
+# Ignore runtime secrets, local evidence outputs, and compiled root binaries.
 .env.staging
 .env.staging.*
 evidence/
 *.bin
-soak
-ruxbase-soak
+/soak
+/ruxbase-soak
