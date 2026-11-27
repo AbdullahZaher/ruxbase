@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"runtime"
+	"runtime/metrics"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +20,17 @@ import (
 
 // OpsRuntimeMetrics captures Go process runtime memory and scheduling stats.
 type OpsRuntimeMetrics struct {
-	Goroutines     int    `json:"goroutines"`
-	HeapAllocBytes uint64 `json:"heapAllocBytes"`
-	HeapSysBytes   uint64 `json:"heapSysBytes"`
-	NumGC          uint32 `json:"numGC"`
+	Goroutines        int    `json:"goroutines"`
+	HeapAllocBytes    uint64 `json:"heapAllocBytes"`
+	LiveHeapBytes     uint64 `json:"liveHeapBytes"`
+	HeapInuseBytes    uint64 `json:"heapInuseBytes"`
+	HeapSysBytes      uint64 `json:"heapSysBytes"`
+	HeapReleasedBytes uint64 `json:"heapReleasedBytes"`
+	HeapObjects       uint64 `json:"heapObjects"`
+	NumGC             uint32 `json:"numGC"`
+	PauseTotalNs      uint64 `json:"pauseTotalNs"`
+	RSSBytes          uint64 `json:"rssBytes,omitempty"`
+	OpenFDs           int    `json:"openFds,omitempty"`
 }
 
 // OpsDBPoolMetrics captures Go SQL connection pool statistics.
@@ -110,14 +119,27 @@ func CollectOpsMetrics(ctx context.Context, app App) (*OpsMetricsSnapshot, error
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
+	liveHeap := readLiveHeapBytes()
+	if liveHeap == 0 {
+		liveHeap = mem.HeapAlloc
+	}
+	rssBytes, openFDs := readProcessResourceStats()
+
 	snap := &OpsMetricsSnapshot{
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		NodeId:    app.Cluster().NodeId(),
 		Runtime: OpsRuntimeMetrics{
-			Goroutines:     runtime.NumGoroutine(),
-			HeapAllocBytes: mem.HeapAlloc,
-			HeapSysBytes:   mem.HeapSys,
-			NumGC:          mem.NumGC,
+			Goroutines:        runtime.NumGoroutine(),
+			HeapAllocBytes:    mem.HeapAlloc,
+			LiveHeapBytes:     liveHeap,
+			HeapInuseBytes:    mem.HeapInuse,
+			HeapSysBytes:      mem.HeapSys,
+			HeapReleasedBytes: mem.HeapReleased,
+			HeapObjects:       mem.HeapObjects,
+			NumGC:             mem.NumGC,
+			PauseTotalNs:      mem.PauseTotalNs,
+			RSSBytes:          rssBytes,
+			OpenFDs:           openFDs,
 		},
 		Cluster: OpsClusterMetrics{
 			Enabled:           app.Cluster().Enabled(),
@@ -193,6 +215,13 @@ func FormatPrometheusMetrics(snap *OpsMetricsSnapshot) string {
 
 	writeGauge("ruxbase_runtime_goroutines", "Current number of goroutines.", snap.Runtime.Goroutines)
 	writeGauge("ruxbase_runtime_heap_alloc_bytes", "Bytes of allocated heap objects.", snap.Runtime.HeapAllocBytes)
+	writeGauge("ruxbase_runtime_live_heap_bytes", "Bytes of live heap objects marked by the most recent completed GC.", snap.Runtime.LiveHeapBytes)
+	writeGauge("ruxbase_runtime_heap_inuse_bytes", "Bytes in in-use heap spans.", snap.Runtime.HeapInuseBytes)
+	writeGauge("ruxbase_runtime_heap_sys_bytes", "Bytes of heap memory obtained from the OS.", snap.Runtime.HeapSysBytes)
+	writeGauge("ruxbase_runtime_num_gc", "Total number of completed GC cycles.", snap.Runtime.NumGC)
+	writeGauge("ruxbase_runtime_gc_pause_total_ns", "Cumulative GC stop-the-world pause nanoseconds.", snap.Runtime.PauseTotalNs)
+	writeGauge("ruxbase_runtime_rss_bytes", "Process resident set size in bytes (when available).", snap.Runtime.RSSBytes)
+	writeGauge("ruxbase_runtime_open_fds", "Current open file descriptors (when available).", snap.Runtime.OpenFDs)
 	writeGauge("ruxbase_db_pool_max_open", "Configured maximum open DB connections.", snap.DBPool.MaxOpenConnections)
 	writeGauge("ruxbase_db_pool_in_use", "DB connections currently in use.", snap.DBPool.InUse)
 	writeGauge("ruxbase_db_pool_idle", "Idle DB connections in pool.", snap.DBPool.Idle)
@@ -448,4 +477,32 @@ func CheckReleaseBlockers(ctx context.Context, app App) (*ReleaseBlockerReport, 
 	}
 
 	return report, nil
+}
+
+// readLiveHeapBytes queries Go runtime/metrics for /gc/heap/live:bytes (post-GC live heap,
+// immune to intra-cycle allocation sawtooth variance).
+func readLiveHeapBytes() uint64 {
+	samples := []metrics.Sample{{Name: "/gc/heap/live:bytes"}}
+	metrics.Read(samples)
+	if samples[0].Value.Kind() == metrics.KindUint64 {
+		return samples[0].Value.Uint64()
+	}
+	return 0
+}
+
+// readProcessResourceStats reads Linux /proc/self/statm RSS and /proc/self/fd count
+// when available, returning zeros gracefully on unsupported platforms.
+func readProcessResourceStats() (rssBytes uint64, openFDs int) {
+	if raw, err := os.ReadFile("/proc/self/statm"); err == nil {
+		fields := strings.Fields(string(raw))
+		if len(fields) >= 2 {
+			if pages, convErr := strconv.ParseUint(fields[1], 10, 64); convErr == nil {
+				rssBytes = pages * uint64(os.Getpagesize())
+			}
+		}
+	}
+	if entries, err := os.ReadDir("/proc/self/fd"); err == nil {
+		openFDs = len(entries)
+	}
+	return rssBytes, openFDs
 }

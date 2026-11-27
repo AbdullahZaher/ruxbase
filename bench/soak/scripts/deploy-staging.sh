@@ -32,7 +32,6 @@ if [[ "$ALLOW_NON_EMPTY_HOST" != "1" ]]; then
   fi
 fi
 
-# Verify disk headroom (>= 25% free)
 AVAIL_PCT="$(df -P / | awk 'NR==2 {gsub("%","",$5); print 100 - $5}')"
 if [[ "$AVAIL_PCT" -lt 25 ]]; then
   echo "ERROR: Insufficient free disk space (${AVAIL_PCT}% free; require >= 25% before 168h staging soak)." >&2
@@ -44,8 +43,8 @@ echo "[deploy-staging] Validating scripts/install-selfhosted.sh in dry-run mode.
 
 mkdir -p "$SOAK_ROOT" "$SECRETS_DIR" "$EVIDENCE_DIR"
 chmod 750 "$SOAK_ROOT" "$EVIDENCE_DIR"
-chmod 700 "$SECRETS_DIR"
-chown -R 10001:10001 "$EVIDENCE_DIR" 2>/dev/null || true
+chmod 750 "$SECRETS_DIR"
+chown -R 10001:10001 "$EVIDENCE_DIR" "$SECRETS_DIR" 2>/dev/null || true
 
 if [[ ! -f "$ENV_FILE" ]]; then
   (
@@ -75,7 +74,9 @@ RUXBASE_REALTIME_SOURCE=replication
 RUXBASE_RLS_STRICT=false
 SOAK_CAPACITY_RPS=40
 SOAK_DURATION=168h
+SOAK_CAMPAIGN_ID=UNBOUND
 SOAK_EVIDENCE_HOST_DIR=$EVIDENCE_DIR
+SOAK_SECRETS_HOST_DIR=$SECRETS_DIR
 SOAK_PROM_TOKEN_FILE=$SECRETS_DIR/ruxbase-ops.token
 EOF
   )
@@ -117,10 +118,11 @@ SUPER_TOKEN="$(curl -fsS -X POST "http://127.0.0.1:${RUXBASE_HOST_PORT:-18090}/a
   umask 077
   printf '%s' "$SUPER_TOKEN" > "$SECRETS_DIR/ruxbase-ops.token"
 )
-chmod 640 "$SECRETS_DIR/ruxbase-ops.token"
+chown 10001:10001 "$SECRETS_DIR/ruxbase-ops.token" 2>/dev/null || true
+chmod 644 "$SECRETS_DIR/ruxbase-ops.token"
 
-echo "[deploy-staging] Step 6: Starting durable worker and full monitoring stack..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --wait soak-worker postgres-exporter node-exporter prometheus grafana
+echo "[deploy-staging] Step 6: Starting monitoring stack (worker remains stopped until campaign ID is bound)..."
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --wait postgres-exporter node-exporter prometheus grafana
 
 echo "[deploy-staging] Staging stack deployed cleanly (loopback-only)."
 echo "  Ruxbase API: http://127.0.0.1:${RUXBASE_HOST_PORT:-18090}/api/health?ready"

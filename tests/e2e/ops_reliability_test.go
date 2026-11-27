@@ -99,7 +99,7 @@ func TestOps_ObservabilityMetricsCapacityAndAlertsSecurity(t *testing.T) {
 	if err := json.Unmarshal(recMetrics.Body.Bytes(), &snap); err != nil {
 		t.Fatalf("Failed to unmarshal metrics snapshot: %v", err)
 	}
-	if snap.Runtime.Goroutines <= 0 || snap.Database.SizeBytes <= 0 || snap.Jobs.Dead != 1 {
+	if snap.Runtime.Goroutines <= 0 || snap.Runtime.HeapAllocBytes == 0 || snap.Runtime.LiveHeapBytes == 0 || snap.Runtime.HeapInuseBytes == 0 || snap.Database.SizeBytes <= 0 || snap.Jobs.Dead != 1 {
 		t.Fatalf("Unexpected metrics snapshot values: %+v", snap)
 	}
 
@@ -112,7 +112,7 @@ func TestOps_ObservabilityMetricsCapacityAndAlertsSecurity(t *testing.T) {
 		t.Fatalf("Expected 200 on prometheus metrics, got %d", recProm.Code)
 	}
 	promBody := recProm.Body.String()
-	if !strings.Contains(promBody, "ruxbase_jobs_dead 1") || !strings.Contains(promBody, "ruxbase_db_size_bytes") {
+	if !strings.Contains(promBody, "ruxbase_jobs_dead 1") || !strings.Contains(promBody, "ruxbase_db_size_bytes") || !strings.Contains(promBody, "ruxbase_runtime_live_heap_bytes") {
 		t.Fatalf("Prometheus output missing expected metrics:\n%s", promBody)
 	}
 

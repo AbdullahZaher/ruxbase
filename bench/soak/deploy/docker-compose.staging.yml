@@ -152,7 +152,7 @@ services:
       - --db=postgres://ruxbase_app:${RUXBASE_APP_PASSWORD}@postgres:5432/ruxbase_staging?sslmode=disable
       - --data-dir=/app/ruxbase_data
       - --evidence-dir=/srv/ruxbase-soak/evidence
-      - --campaign-id=${SOAK_CAMPAIGN_ID:-pilot}
+      - --campaign-id=${SOAK_CAMPAIGN_ID:?SOAK_CAMPAIGN_ID must be set}
       - --workers=${SOAK_BG_WORKERS:-6}
       - --metrics-addr=:9109
     depends_on:
@@ -198,6 +198,7 @@ services:
       - --evidence-dir=/srv/ruxbase-soak/evidence
       - --superuser-email=${SOAK_SUPERUSER_EMAIL:?SOAK_SUPERUSER_EMAIL is required}
       - --superuser-password=${SOAK_SUPERUSER_PASSWORD:?SOAK_SUPERUSER_PASSWORD is required}
+      - --prom-token-file=/srv/ruxbase-soak/secrets/ruxbase-ops.token
       - --capacity-rps=${SOAK_CAPACITY_RPS:-40}
       - --duration=${SOAK_DURATION:-168h}
       - --metrics-addr=:9108
@@ -211,6 +212,7 @@ services:
     volumes:
       - ruxbase_soak_app_data:/app/ruxbase_data
       - ${SOAK_EVIDENCE_HOST_DIR:-/srv/ruxbase-soak/evidence}:/srv/ruxbase-soak/evidence
+      - ${SOAK_SECRETS_HOST_DIR:-/srv/ruxbase-soak/secrets}:/srv/ruxbase-soak/secrets
     networks:
       - staging_internal
       - monitoring_internal

@@ -2,71 +2,78 @@
 
 **Document:** `docs/architecture/W11-05-STAGING-SOAK-EVIDENCE.md`  
 **Requirement ID:** `W11-05 / P1 / GATE`  
-**Status:** **`PENDING_STAGING_EVIDENCE`** (`LAUNCH BLOCKED — DEDICATED STAGING VPS REQUIRED`)  
+**Status:** **`PENDING_STAGING_EVIDENCE`** (`PILOT_BLOCKED_PENDING_ISOLATED_STAGING`)  
 **Machine-Readable Status Record:** [`bench/soak/campaign-status.json`](../../bench/soak/campaign-status.json)  
 **Main Candidate Baseline:** `d7b9a3dcd55ea14beadeeecaec065b23eeb5f345` (tree `891c2e1ac1d22b37a3b1cfa09de650c593ce8a1e`, post-PR #67 & PR #68, 17/17 CI green)  
-**Date:** `2026-11-23`
+**Active Remediation Branch / PR:** `chore/w11-05-staging-soak-harness-20261123` (PR #69)  
+**Date:** `2026-11-27`
 
 ---
 
-## 1. Formal Gate Disposition: `PENDING_STAGING_EVIDENCE` (`BLOCKED` on Isolated Staging Host)
+## 1. Formal Gate Disposition: `PENDING_STAGING_EVIDENCE` (`PILOT_BLOCKED_PENDING_ISOLATED_STAGING`)
 
 Per the Ruxbase Master Roadmap, Phase 0 Mandatory Isolation Boundaries, and Release Qualification Mandate:
 - **Never simulate, extrapolate, or compress a 168-hour (7-day) continuous soak test.**
-- **Never execute disruptive soak workloads or fault injections on a shared production VPS.**
-- **Phase 0 Infrastructure Discovery Result (2026-11-23):**
-  - The current execution VPS was inspected and confirmed to be a **shared production host** (2 vCPU, 7.8 GiB RAM with 2.1 GiB swap in active use, 29 GB free disk / 70% full, load average 1.5–4.2) running 27 active Docker containers (multiple live production web/API/worker/PostgreSQL/Redis stacks) plus 5 PM2 production applications and host Nginx.
-  - No separate authorized staging VPS, isolated VM, or cloud provisioning credentials were present in the execution environment.
-  - In strict compliance with Phase 0 Mandatory Isolation and Critical Stop Conditions, live staging deployment, the 60-minute pilot, and the 168-hour soak launch are formally recorded as **`BLOCKED`** pending provisioning of a dedicated staging VPS (recommended >= 4 vCPU, 8 GiB RAM, >= 100 GB SSD).
-- Because 168 consecutive wall-clock hours have not elapsed on a dedicated external staging environment for this release candidate, `W11-05` remains **`PENDING_STAGING_EVIDENCE`**, and production deployment (`W11-08`) remains **`PRODUCTION_NO_GO`**.
+- **Never bypass mandatory staging isolation on a shared production VPS.**
+- Because 168 consecutive wall-clock hours have not elapsed on a dedicated, isolated external staging environment for this release candidate, `W11-05` remains **`PENDING_STAGING_EVIDENCE`** and production deployment (`W11-08`) remains **`PRODUCTION_NO_GO`**.
 
 ---
 
-## 2. Verified Soak Infrastructure, Continuous Workload Engine & Telemetry Readiness
+## 2. Forensic Reconciliation of Historical Pilot `W11-05-PILOT-20261123T110530Z` (`PILOT_FAILED`)
 
-All feasible repository engineering work for `W11-05` has been implemented and unit/configuration-verified in [`bench/soak/`](../../bench/soak/README.md) so the campaign can launch immediately once a dedicated staging VPS is available:
+An initial user-authorized 60-minute pilot on shared host `srv1037165` (`W11-05-PILOT-20261123T110530Z`, evidence preserved read-only at `/srv/ruxbase-soak/evidence/W11-05-PILOT-20261123T110530Z/`) triggered emergency stop after 15 minutes (`2026-11-23T11:20:44Z`) with `107 committed ledger row(s) missing from PostgreSQL`, `10.04%` reported heap drift, and missing backup verification evidence. That campaign remains permanently recorded as **`PILOT_FAILED`**.
 
-| Capability | Implementation Artifact | Verification Evidence |
+Independent PostgreSQL forensic reconciliation executed against `ruxbase_staging` conclusively established the root causes (`ROOT_CAUSE_CONCLUSIVELY_ESTABLISHED`):
+
+1. **107-Record Forensic Classification (`0` genuinely missing):**
+   - Total `ledger.jsonl` entries: `397` (`215` creates, `182` deletes). Exact verifier tail window (`250` entries minus `deletedSet`) = **`107` records**.
+   - **`83 / 107`**: Physically present in `public.soak_items` with exact `tenant_id`, `title`, and create `checksum` (`sha256(op_id + "|" + title)`).
+   - **`24 / 107`**: Physically present in `public.soak_items` as valid post-create updates via `runCRUDUpdate` (all `24` match `tenant_id`, `updated <= 2026-11-23T11:20:44.401Z`, and update `checksum = sha256(id + "|" + title)`).
+   - **`0 / 107`**: Genuinely missing, corrupted, or cross-tenant exposed (`null_tenants = 0`, `forged_rows = 0`, all `182` committed deletes confirmed absent).
+   - **Root Cause:** `cmdRunCampaign` discarded `--db` (`ruxbase_app`, table owner) in favor of `--monitor-db` (`ruxbase_monitor`, `pg_monitor` without `BYPASSRLS` or table ownership). Because `soak_items` has PostgreSQL Row-Level Security enabled (`relrowsecurity = t` with policies scoped to `{ruxbase_anon, ruxbase_api, ruxbase_authenticated}`), queries executed by `ruxbase_monitor` returned `0` rows (`pgx.ErrNoRows`), which `verifier.RunIntegrityCheck` misclassified as `MissingCommittedRows` while `runCRUDUpdate` neither wrote ledger entries nor shared a canonical checksum formula.
+2. **Memory Drift Investigation (`10.04%` Pilot Drift vs Actual Stability):**
+   - `ruxbase-soak-app` over 4.4 days of continuous uptime remained completely flat (`HeapAllocBytes`: `3.04 MiB` -> `3.58 MiB`, `Goroutines`: `18` -> `17`, `VmRSS`: `23.25 MiB`, `OpenFDs`: `14`, `dbPool.waitCount`: `0`).
+   - During the 15-minute pilot, `computeTrends` compared two single unsmoothed instantaneous `HeapAllocBytes` snapshots (`5.38 MiB` at tick 1 vs `5.92 MiB` at tick 15) inside a ±35% Go GC sawtooth (`3.77–8.57 MiB` across 343 GC cycles).
+   - A separate **real unbounded memory leak** (`117.4 MiB` RSS over 4 days) was identified in `bench/soak/internal/journeys/core_worker.go` (`seenJobEffects` and `seenOutbox` unbounded `sync.Map`s), and remediated with bounded O(1) `boundedIDSet` ring caches.
+3. **Additional Operational Defects Identified & Remediated:**
+   - `backup-verify.sh`: `.env.staging` overwrote caller `SOAK_CAMPAIGN_ID` (`pilot-pending`), and multi-statement `psql -c "DROP DATABASE ...; CREATE DATABASE ...;"` failed with `ERROR: DROP DATABASE cannot run inside a transaction block`.
+   - `cmdReconcile`: Mutated and rewrote `final-reconciliation.json` *after* generating `SHA256SUMS.txt`, causing post-freeze manifest verification failure.
+   - `telemetry.go`: Misclassified Ruxbase's own logical realtime WAL stream in `pg_stat_replication` as `standbyStatus: CONFIGURED`.
+   - `soak-engine` / Prometheus: `ruxbase-ops.token` expired after 24 hours without refresh on disk (`401 Unauthorized` on Prometheus scrapes).
+   - `soak-worker`: Ran unbound (`--campaign-id=pilot-pending`) and remained active after pilot termination (`228,614` jobs / `190,511` outbox / `423` storage objects processed cleanly without touching `soak_items`). Worker was safely suspended (`docker stop -t 30 ruxbase-soak-worker`) after full state capture, preserving all database volumes and unrelated production containers.
+
+---
+
+## 3. Verified P1 Remediation & Engineering Evidence (PR #69)
+
+| Capability | Remediation Artifact | Verification Evidence |
 | --- | --- | --- |
-| **Persistent Isolated Staging Stack** | `bench/soak/deploy/docker-compose.staging.yml`, `bench/soak/deploy/postgres.conf`, `bench/soak/deploy/init-staging-roles.sql`, `bench/soak/deploy/systemd/*.service`, `*.timer` | Named persistent volumes, explicit CPU/RAM limits, loopback-only bindings, separated roles (`ruxbase_app` without `SUPERUSER`/`BYPASSRLS`, `ruxbase_migrator`, `ruxbase_wal`, `ruxbase_monitor`), dedicated `postgres-restore-target`, and unattended systemd supervision. Validated via `docker compose config`. |
-| **7-Day Diurnal Continuous Workload Engine (Journeys A–H)** | `bench/soak/cmd/soak/`, `bench/soak/internal/schedule/`, `bench/soak/internal/journeys/` | Open-loop coordinated-omission-aware pacer + 7-day diurnal curve (10–85% of pilot-qualified capacity, >0 floor) + Auth, CRUD, Multi-Tenant RLS + continuous negative cross-tenant checks, persistent SSE + reconnects + delta sync, Durable Jobs/Workflows/Outbox worker (`soak worker`), HTTP + concurrent Multipart Storage + two-stage orphan GC, pgvector search, and periodic `EXPLAIN (ANALYZE, BUFFERS)`. Verified via `go test -race ./bench/soak/...`. |
-| **60s PostgreSQL, WAL & Ruxbase Runtime Monitoring** | `bench/soak/internal/telemetry/`, `bench/soak/monitoring/prometheus.yml`, `bench/soak/monitoring/alerts.yml`, `bench/soak/monitoring/grafana/dashboards/ruxbase-w11-05-soak.json` | Samples `pg_stat_activity`, `pg_stat_database`, `pg_stat_wal`, `pg_stat_checkpointer`/`bgwriter`, `pg_replication_slots`, `pg_stat_replication` (explicitly emitting `NOT_CONFIGURED` when absent), `pg_stat_statements`, `/api/ops/metrics`, `/api/ops/alerts`, `/api/health?ready`, and host disk/FD headroom; 11 critical Prometheus alerts and 12-panel Grafana dashboard. |
-| **Durable Campaign Clock, Safety Guardrails & Verifier** | `bench/soak/internal/state/`, `bench/soak/internal/safety/`, `bench/soak/internal/verifier/` | Immutable `officialStartUtc` / `earliestValidEndUtc` (never reset on restart), expected-results ledger reconciliation, fail-closed emergency stop (0 cross-tenant leaks, 0 checksum corruption, disk <15%, WAL >900 MiB), shared-production host isolation check, Phase 11 168h reconciler (5% heap drift gate), SHA-256 artifact manifest, and read-only A11 auditor (`soak audit`). Verified via `go test -race ./bench/soak/...`. |
-| **Scheduled Fault Injection & Online Backup/Restore Automation** | `bench/soak/scripts/deploy-staging.sh`, `bench/soak/scripts/backup-verify.sh`, `bench/soak/scripts/fault-inject.sh`, `bench/soak/scripts/run-pilot-and-launch.sh` | Enforces host isolation preflight, dry-runs `./scripts/install-selfhosted.sh`, automates Journey H online backup -> isolated restore verification, and dispatches Hour 24 (worker `SIGKILL`), Hour 72 (bounded staging `LISTEN`/WAL disconnect), and Hour 120 (online backup/restore + `CheckReleaseBlockers`). Syntax-checked with `bash -n`. |
-| **Core Ruxbase Ops & Resilience Instrumentation** | `core/ops.go`, `apis/ops.go`, `apis/studio_control_plane.go`, `core/jobs.go`, `core/storage.go` | Verified in CI (17/17 checks green on `d7b9a3dc` across PostgreSQL 17 and 18). |
+| **Post-GC Live Heap & Process Telemetry** | `core/ops.go` (`readLiveHeapBytes` via `runtime/metrics` `/gc/heap/live:bytes`, `HeapInuseBytes`, `RSSBytes`, `OpenFDs`), `tests/e2e/ops_reliability_test.go` | Verified in `TestOps_ObservabilityMetricsCapacityAndAlertsSecurity` on PG 17 and PG 18 (standard & `RUXBASE_RLS_STRICT=true`). |
+| **RLS-Aware Verifier & Error Attribution** | `bench/soak/internal/verifier/verifier.go` (`RunIntegrityCheck`, `ReconstructExpectedLedger`) | Distinguishes `OWNER_VISIBLE`, `HIDDEN_BY_RLS`, `NO_SELECT_PRIVILEGE`, SQLSTATE `42501`, connection/query errors, resurrected deletes, checksum mismatches, and confirmed missing rows; performs live HTTP + strict-RLS (`SET LOCAL ROLE ruxbase_api`) verification. Verified via `TestPostgreSQL_SoakRLSVerifierLifecycleAndFailures` (`-race`) on PG 17 & PG 18. |
+| **Durable Intent/Ack Ledger & Canonical Checksums** | `bench/soak/internal/state/state.go`, `bench/soak/internal/journeys/journeys.go` | Records durable `fsync` intent & ack entries for 100% of creates/updates/deletes, propagates ledger write failures, uses single `CanonicalRecordChecksum(opID, title)`, serializes per-record mutations, and removes no-op fakes. |
+| **Worker Leak Fix & Campaign Binding** | `bench/soak/internal/journeys/core_worker.go` | Replaces unbounded `sync.Map`s with O(1) `boundedIDSet`, rejects placeholder campaign IDs, emits campaign-scoped `worker-heartbeat.json`. |
+| **Backup, Manifest, Token & Qualification Gates** | `bench/soak/scripts/backup-verify.sh`, `run-pilot-and-launch.sh`, `bench/soak/cmd/soak/main.go`, `telemetry.go` | Preserves caller `SOAK_CAMPAIGN_ID`, separates `DROP/CREATE DATABASE` transactions, writes `SHA256SUMS.txt` immutably last, refreshes `ruxbase-ops.token`, separates logical WAL consumers from physical standbys, verifies deployed binary SHA-256, and blocks reusing failed pilots/campaigns. |
 
 ---
 
-## 3. Exact Blocked Deployment & Launch Steps for Authorized Operator
+## 4. Exact Unblock Steps for Controlled Pilot Requalification & 168-Hour Launch
 
-Once an authorized **dedicated staging VPS** (clean Linux host with Docker + Compose v2, Go 1.27, systemd, >= 4 vCPU, >= 8 GiB RAM, >= 100 GB SSD, zero unrelated production workloads) is provisioned:
+Once an authorized **dedicated staging VPS** (clean Linux host with Docker + Compose v2, Go 1.27, `jq`, `systemd`, >= 4 vCPU, >= 8 GiB RAM, >= 100 GB SSD, zero unrelated production workloads) is provisioned:
 
-1. **Clone & Deploy Isolated Staging Stack:**
+1. **Deploy Persistent Isolated Staging Stack:**
    ```bash
    git clone https://github.com/AbdullahZaher/ruxbase.git /srv/ruxbase-soak/repo
    cd /srv/ruxbase-soak/repo
    ./bench/soak/scripts/deploy-staging.sh
    ```
-2. **Run Genuine 60-Minute Pilot, Freeze Candidate & Launch 168-Hour Unattended Soak:**
+2. **Execute Pilot Requalification -> Freeze -> 168-Hour Unattended Soak:**
    ```bash
    ./bench/soak/scripts/run-pilot-and-launch.sh
    ```
-   This script enforces:
-   - `soak preflight --check-isolation=true`
-   - 60-minute continuous pilot (`soak pilot --duration=60m`) + online backup/restore rehearsal (`backup-verify.sh`)
-   - Pilot Exit Gate (`soak reconcile --required-hours=1.0`)
-   - Candidate provenance freeze (`soak freeze` -> `candidate-manifest.json`)
-   - Systemd installation & activation (`ruxbase-soak.service`, `ruxbase-soak-backup.timer`, `ruxbase-soak-faults.timer`)
-3. **Post-168-Hour Reconciliation & Independent A11 Certification:**
+3. **Post-168-Hour Reconciliation & Strictly Read-Only A11 Audit:**
    ```bash
-   /srv/ruxbase-soak/soak reconcile \
-     --evidence-dir "/srv/ruxbase-soak/evidence/<CAMPAIGN_ID>" \
-     --required-hours 168
-
-   # Independent A11 read-only audit (conducted separately after evidence freeze):
-   /srv/ruxbase-soak/soak audit \
-     --evidence-dir "/srv/ruxbase-soak/evidence/<CAMPAIGN_ID>" \
-     --required-hours 168
+   /srv/ruxbase-soak/soak reconcile --evidence-dir "/srv/ruxbase-soak/evidence/<CAMPAIGN_ID>" --required-hours 168
+   /srv/ruxbase-soak/soak audit     --evidence-dir "/srv/ruxbase-soak/evidence/<CAMPAIGN_ID>" --required-hours 168
    ```
-4. **Update Gate Disposition:**
-   - Only after A11 issues `W11-05_VERIFIED` on a complete 168-hour frozen evidence bundle may `W11-05` be proposed for closure, after which `W11-08` still requires explicit human owner authorization and a signed immutable tag.
+4. **Formal Closure:**
+   - `W11-05` remains `OPEN` until 168 consecutive wall-clock hours complete on isolated staging and independent A11 issues `W11-05_VERIFIED`. Production remains **`PRODUCTION NO-GO`** until `W11-05` and human owner authorization (`W11-08`) are satisfied.

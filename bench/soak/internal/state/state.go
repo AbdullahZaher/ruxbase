@@ -1,9 +1,8 @@
 // Package state manages durable campaign provenance, monotonic/wall-clock tracking,
-// expected-results ledgers, alert history, interruption records, and Prometheus exposition.
+// expected-results intent/ack ledgers, alert history, interruption records, and Prometheus exposition.
 //
 // CRITICAL INVARIANT: Restarting the soak process MUST NEVER silently reset the
-// official 168-hour qualification clock. Any gap or restart is durably appended to
-// interruptions.jsonl for independent A11 review.
+// official 168-hour qualification clock, nor reuse a failed/completed campaign directory.
 package state
 
 import (
@@ -45,6 +44,8 @@ type CandidateManifest struct {
 	GitCommitSHA            string            `json:"gitCommitSha"`
 	GitTreeSHA              string            `json:"gitTreeSha"`
 	LinuxBinarySHA256       string            `json:"linuxBinarySha256"`
+	DeployedBinarySHA256    string            `json:"deployedBinarySha256,omitempty"`
+	DeployedBinaryVerified  bool              `json:"deployedBinaryVerified"`
 	GoVersion               string            `json:"goVersion"`
 	ContainerImageDigests   map[string]string `json:"containerImageDigests"`
 	PostgresVersion         string            `json:"postgresVersion"`
@@ -54,52 +55,85 @@ type CandidateManifest struct {
 	ConfigHashes            map[string]string `json:"configHashes"`
 	IntegrityVerifierVer    string            `json:"integrityVerifierVersion"`
 	TrafficScheduleCapacity float64           `json:"trafficScheduleCapacityRps"`
+	IsolationPassed         bool              `json:"isolationPassed"`
+	IsolationNote           string            `json:"isolationNote,omitempty"`
 }
 
 // Checkpoint persists durable campaign clock and cumulative operation counters.
 type Checkpoint struct {
-	CampaignID          string         `json:"campaignId"`
-	Mode                string         `json:"mode"` // "pilot" or "soak"
-	Status              CampaignStatus `json:"status"`
-	OfficialStartUTC    time.Time      `json:"officialStartUtc"`
-	EarliestValidEndUTC time.Time      `json:"earliestValidEndUtc"`
-	TargetDurationSec   float64        `json:"targetDurationSec"`
-	LastHeartbeatUTC    time.Time      `json:"lastHeartbeatUtc"`
-	LastBootID          string         `json:"lastBootId,omitempty"`
-	ProcessStarts       int            `json:"processStarts"`
-	AttemptedOps        int64          `json:"attemptedOps"`
-	SuccessfulOps       int64          `json:"successfulOps"`
-	FailedAppOps        int64          `json:"failedAppOps"`
-	FailedGenOps        int64          `json:"failedGenOps"`
-	TimedOutOps         int64          `json:"timedOutOps"`
-	CrossTenantChecks   int64          `json:"crossTenantChecks"`
-	CrossTenantLeaks    int64          `json:"crossTenantLeaks"`
-	IntegrityViolations int64          `json:"integrityViolations"`
-	CriticalAlerts      int64          `json:"criticalAlerts"`
-	EmergencyStopped    bool           `json:"emergencyStopped"`
-	EmergencyStopReason string         `json:"emergencyStopReason,omitempty"`
-	CurrentTargetRPS    float64        `json:"currentTargetRps"`
-	CurrentAchievedRPS  float64        `json:"currentAchievedRps"`
-	CurrentWindow       string         `json:"currentWindow,omitempty"`
-	LastP50Ms           float64        `json:"lastP50Ms"`
-	LastP95Ms           float64        `json:"lastP95Ms"`
-	LastP99Ms           float64        `json:"lastP99Ms"`
-	ActiveSSEClients    int            `json:"activeSseClients"`
-	LastBackupStatus    string         `json:"lastBackupStatus,omitempty"`
-	LastBackupUTC       string         `json:"lastBackupUtc,omitempty"`
+	CampaignID            string         `json:"campaignId"`
+	Mode                  string         `json:"mode"` // "pilot" or "soak"
+	Status                CampaignStatus `json:"status"`
+	OfficialStartUTC      time.Time      `json:"officialStartUtc"`
+	EarliestValidEndUTC   time.Time      `json:"earliestValidEndUtc"`
+	TargetDurationSec     float64        `json:"targetDurationSec"`
+	LastHeartbeatUTC      time.Time      `json:"lastHeartbeatUtc"`
+	LastBootID            string         `json:"lastBootId,omitempty"`
+	ProcessStarts         int            `json:"processStarts"`
+	AttemptedOps          int64          `json:"attemptedOps"`
+	SuccessfulOps         int64          `json:"successfulOps"`
+	HTTPRequestsAttempted int64          `json:"httpRequestsAttempted"`
+	HTTPRequestsSucceeded int64          `json:"httpRequestsSucceeded"`
+	MutationsAttempted    int64          `json:"mutationsAttempted"`
+	MutationsCommitted    int64          `json:"mutationsCommitted"`
+	JourneysCompleted     int64          `json:"journeysCompleted"`
+	NoOpSkipped           int64          `json:"noOpSkipped"`
+	LedgerPersistErrors   int64          `json:"ledgerPersistErrors"`
+	FailedAppOps          int64          `json:"failedAppOps"`
+	FailedGenOps          int64          `json:"failedGenOps"`
+	TimedOutOps           int64          `json:"timedOutOps"`
+	CrossTenantChecks     int64          `json:"crossTenantChecks"`
+	CrossTenantLeaks      int64          `json:"crossTenantLeaks"`
+	IntegrityViolations   int64          `json:"integrityViolations"`
+	CriticalAlerts        int64          `json:"criticalAlerts"`
+	EmergencyStopped      bool           `json:"emergencyStopped"`
+	EmergencyStopReason   string         `json:"emergencyStopReason,omitempty"`
+	CurrentTargetRPS      float64        `json:"currentTargetRps"`
+	CurrentAchievedRPS    float64        `json:"currentAchievedRps"`
+	CurrentWindow         string         `json:"currentWindow,omitempty"`
+	LastP50Ms             float64        `json:"lastP50Ms"`
+	LastP95Ms             float64        `json:"lastP95Ms"`
+	LastP99Ms             float64        `json:"lastP99Ms"`
+	ActiveSSEClients      int            `json:"activeSseClients"`
+	LastBackupStatus      string         `json:"lastBackupStatus,omitempty"`
+	LastBackupUTC         string         `json:"lastBackupUtc,omitempty"`
 }
 
-// LedgerEntry records a committed synthetic mutation that must reconcile against PostgreSQL/storage.
+// LedgerEntry records a synthetic mutation intent or acknowledgment for PostgreSQL reconciliation.
 type LedgerEntry struct {
+	Seq          int64  `json:"seq,omitempty"`
 	OpID         string `json:"opId"`
+	Phase        string `json:"phase,omitempty"` // "intent" or "ack" (empty = legacy single entry)
 	TimestampUTC string `json:"timestampUtc"`
-	Kind         string `json:"kind"` // record_create, record_update, record_delete, storage_object, job_enqueue, outbox_event
+	Kind         string `json:"kind"` // record_create, record_update, record_delete, storage_object
 	TenantID     string `json:"tenantId"`
 	Collection   string `json:"collection,omitempty"`
-	EntityID     string `json:"entityId"`
+	EntityID     string `json:"entityId,omitempty"`
 	ExpectedHash string `json:"expectedHash,omitempty"`
 	ExpectedText string `json:"expectedText,omitempty"`
+	HTTPStatus   int    `json:"httpStatus,omitempty"`
+	Committed    *bool  `json:"committed,omitempty"`
+	Error        string `json:"error,omitempty"`
 	Deleted      bool   `json:"deleted,omitempty"`
+}
+
+// WorkerHeartbeat is persisted periodically by soak-worker inside the active campaign directory.
+type WorkerHeartbeat struct {
+	CampaignID         string `json:"campaignId"`
+	PID                int    `json:"pid"`
+	StartedAtUTC       string `json:"startedAtUtc"`
+	LastHeartbeatUTC   string `json:"lastHeartbeatUtc"`
+	JobsEnqueued       int64  `json:"jobsEnqueued"`
+	JobsAttempted      int64  `json:"jobsAttempted"`
+	JobsCompleted      int64  `json:"jobsCompleted"`
+	JobsRetried        int64  `json:"jobsRetried"`
+	JobsReclaimed      int64  `json:"jobsReclaimed"`
+	WorkflowsCompleted int64  `json:"workflowsCompleted"`
+	OutboxPublished    int64  `json:"outboxPublished"`
+	MultipartCompleted int64  `json:"multipartCompleted"`
+	MultipartErrors    int64  `json:"multipartErrors"`
+	OrphanGCCleaned    int64  `json:"orphanGcCleaned"`
+	IntegrityErrors    int64  `json:"integrityErrors"`
 }
 
 // InterruptionEvent records any process restart, workload gap, telemetry gap, or VPS reboot.
@@ -130,12 +164,28 @@ type Store struct {
 	dir          string
 	checkpoint   Checkpoint
 	bootTimeMono time.Time
+	ledgerSeq    int64
 }
 
-// Open initializes or resumes a campaign store under dir.
-// If state.json already exists, OfficialStartUTC and EarliestValidEndUTC are strictly
-// preserved and never reset; a process_restart interruption event is appended.
+// IsTerminalStatus reports whether a campaign state may never be resumed or reused.
+func IsTerminalStatus(st CampaignStatus) bool {
+	switch st {
+	case StatusPilotFailed, StatusPilotPassed, StatusSoakCompletedPendingAudit, StatusVerified, StatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Open initializes or resumes an active campaign store under dir.
+// If state.json already exists:
+//   - refuses if CampaignID differs or if the campaign is in a terminal state (failed/completed)
+//   - preserves OfficialStartUTC and EarliestValidEndUTC immutably
+//   - appends a process_restart or host_reboot interruption event
 func Open(dir, campaignID, mode string, targetDuration time.Duration) (*Store, error) {
+	if campaignID == "" {
+		return nil, fmt.Errorf("campaignID is required")
+	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("create campaign evidence dir %s: %w", dir, err)
 	}
@@ -155,10 +205,28 @@ func Open(dir, campaignID, mode string, targetDuration time.Duration) (*Store, e
 		if uErr := json.Unmarshal(raw, &existing); uErr != nil {
 			return nil, fmt.Errorf("corrupt checkpoint %s: %w", statePath, uErr)
 		}
-		if existing.CampaignID != "" && campaignID != "" && existing.CampaignID != campaignID {
+		if existing.CampaignID != campaignID {
 			return nil, fmt.Errorf("campaign ID mismatch in %s: existing=%q requested=%q (refusing to overwrite)", statePath, existing.CampaignID, campaignID)
 		}
-		// Never reset OfficialStartUTC or EarliestValidEndUTC!
+		if IsTerminalStatus(existing.Status) || existing.EmergencyStopped {
+			return nil, fmt.Errorf("refusing to reuse terminal/stopped campaign %q (status=%s emergencyStopped=%v); generate a new campaign ID", existing.CampaignID, existing.Status, existing.EmergencyStopped)
+		}
+		if existing.Mode != "" && mode != "" && existing.Mode != mode {
+			return nil, fmt.Errorf("campaign mode mismatch for %q: existing=%q requested=%q", campaignID, existing.Mode, mode)
+		}
+
+		// Preserve monotonic ledger sequence across process restarts
+		if prevEntries, rErr := ReadLedger(dir); rErr == nil {
+			for _, pe := range prevEntries {
+				if pe.Seq > s.ledgerSeq {
+					s.ledgerSeq = pe.Seq
+				}
+			}
+			if int64(len(prevEntries)) > s.ledgerSeq {
+				s.ledgerSeq = int64(len(prevEntries))
+			}
+		}
+
 		gapSec := 0.0
 		if !existing.LastHeartbeatUTC.IsZero() {
 			gapSec = now.Sub(existing.LastHeartbeatUTC).Seconds()
@@ -178,15 +246,17 @@ func Open(dir, campaignID, mode string, targetDuration time.Duration) (*Store, e
 			kind = "host_reboot"
 			detail = fmt.Sprintf("VPS reboot detected (boot_id changed); original start time %s preserved", existing.OfficialStartUTC.Format(time.RFC3339))
 		}
-		_ = s.AppendInterruption(InterruptionEvent{
+		if aErr := s.AppendInterruption(InterruptionEvent{
 			TimestampUTC:   now.Format(time.RFC3339),
 			Kind:           kind,
 			GapSeconds:     gapSec,
 			Detail:         detail,
 			Controlled:     false,
-			Disqualifying:  gapSec > 300, // >5m unplanned outage flags disqualifying review
+			Disqualifying:  gapSec > 300,
 			RecoveredAtUTC: now.Format(time.RFC3339),
-		})
+		}); aErr != nil {
+			return nil, fmt.Errorf("record restart interruption: %w", aErr)
+		}
 		if err := s.saveLocked(); err != nil {
 			return nil, err
 		}
@@ -259,18 +329,48 @@ func (s *Store) AppendJSONL(filename string, v any) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.appendBytesLocked(filename, raw, false)
+}
+
+func (s *Store) appendBytesLocked(filename string, raw []byte, syncFile bool) error {
 	f, err := os.OpenFile(filepath.Join(s.dir, filename), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o640)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(append(raw, '\n'))
-	return err
+	if _, err := f.Write(append(raw, '\n')); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if syncFile {
+		if err := f.Sync(); err != nil {
+			_ = f.Close()
+			return err
+		}
+	}
+	return f.Close()
 }
 
-// AppendLedger records a durable expected-results entry.
-func (s *Store) AppendLedger(entry LedgerEntry) error {
-	return s.AppendJSONL("ledger.jsonl", entry)
+// AppendLedger assigns a monotonic sequence number, durably appends+fsyncs an intent or
+// acknowledgment ledger entry, and increments LedgerPersistErrors on failure.
+func (s *Store) AppendLedger(entry LedgerEntry) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ledgerSeq++
+	entry.Seq = s.ledgerSeq
+	if entry.TimestampUTC == "" {
+		entry.TimestampUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	raw, err := json.Marshal(entry)
+	if err != nil {
+		s.checkpoint.LedgerPersistErrors++
+		return 0, err
+	}
+	if err := s.appendBytesLocked("ledger.jsonl", raw, true); err != nil {
+		s.checkpoint.LedgerPersistErrors++
+		_ = s.saveLocked()
+		return 0, fmt.Errorf("persist ledger entry %s (%s): %w", entry.OpID, entry.Phase, err)
+	}
+	return entry.Seq, nil
 }
 
 // AppendInterruption records an outage/restart/fault interval.
@@ -304,7 +404,8 @@ func WriteJSON(path string, v any) error {
 	return os.Rename(tmp, path)
 }
 
-// ReadLedger loads all expected-results ledger entries from a campaign directory.
+// ReadLedger loads all expected-results ledger entries from a campaign directory, failing closed
+// on any malformed JSONL line.
 func ReadLedger(dir string) ([]LedgerEntry, error) {
 	f, err := os.Open(filepath.Join(dir, "ledger.jsonl"))
 	if err != nil {
@@ -318,22 +419,25 @@ func ReadLedger(dir string) ([]LedgerEntry, error) {
 	var entries []LedgerEntry
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	lineNo := 0
 	for sc.Scan() {
+		lineNo++
 		line := strings.TrimSpace(sc.Text())
 		if line == "" {
 			continue
 		}
 		var e LedgerEntry
 		if err := json.Unmarshal([]byte(line), &e); err != nil {
-			return nil, fmt.Errorf("parse ledger line: %w", err)
+			return nil, fmt.Errorf("parse ledger line %d: %w", lineNo, err)
 		}
 		entries = append(entries, e)
 	}
 	return entries, sc.Err()
 }
 
-// WriteSHA256Manifest computes SHA-256 checksums for every artifact file in dir
-// (excluding SHA256SUMS.txt itself) and writes SHA256SUMS.txt deterministically.
+// WriteSHA256Manifest computes SHA-256 checksums for every top-level artifact file in dir
+// (excluding SHA256SUMS.txt and temporary files) and writes SHA256SUMS.txt atomically.
+// Callers MUST NOT modify any hashed file after calling WriteSHA256Manifest.
 func WriteSHA256Manifest(dir string) (string, int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -358,10 +462,43 @@ func WriteSHA256Manifest(dir string) (string, int, error) {
 	}
 
 	manifestPath := filepath.Join(dir, "SHA256SUMS.txt")
-	if err := os.WriteFile(manifestPath, []byte(b.String()), 0o640); err != nil {
+	tmpPath := manifestPath + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(b.String()), 0o640); err != nil {
+		return "", 0, err
+	}
+	if err := os.Rename(tmpPath, manifestPath); err != nil {
 		return "", 0, err
 	}
 	return manifestPath, len(names), nil
+}
+
+// VerifySHA256Manifest validates every entry in SHA256SUMS.txt against actual files in dir.
+func VerifySHA256Manifest(dir string) (verified bool, mismatches []string, checked int, err error) {
+	mRaw, err := os.ReadFile(filepath.Join(dir, "SHA256SUMS.txt"))
+	if err != nil {
+		return false, nil, 0, err
+	}
+	for _, line := range strings.Split(string(mRaw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			mismatches = append(mismatches, fmt.Sprintf("malformed manifest line: %q", line))
+			continue
+		}
+		wantSum, name := parts[0], parts[1]
+		checked++
+		gotSum, hErr := FileSHA256(filepath.Join(dir, name))
+		if hErr != nil || gotSum != wantSum {
+			mismatches = append(mismatches, fmt.Sprintf("%s: want=%s got=%s err=%v", name, wantSum, gotSum, hErr))
+		}
+	}
+	if checked == 0 {
+		mismatches = append(mismatches, "SHA256SUMS.txt contains zero entries")
+	}
+	return len(mismatches) == 0, mismatches, checked, nil
 }
 
 // FileSHA256 returns the lowercase hex SHA-256 digest of path.
@@ -415,6 +552,12 @@ func (s *Store) MetricsHandler() http.Handler {
 		writeMetric("ruxbase_soak_process_starts_total", "counter", "Total soak process starts for this campaign.", cp.ProcessStarts)
 		writeMetric("ruxbase_soak_ops_attempted_total", "counter", "Total attempted soak operations.", cp.AttemptedOps)
 		writeMetric("ruxbase_soak_ops_success_total", "counter", "Total successful soak operations.", cp.SuccessfulOps)
+		writeMetric("ruxbase_soak_http_requests_attempted_total", "counter", "Total HTTP requests attempted.", cp.HTTPRequestsAttempted)
+		writeMetric("ruxbase_soak_http_requests_success_total", "counter", "Total HTTP requests succeeded.", cp.HTTPRequestsSucceeded)
+		writeMetric("ruxbase_soak_mutations_attempted_total", "counter", "Total record/file mutations attempted.", cp.MutationsAttempted)
+		writeMetric("ruxbase_soak_mutations_committed_total", "counter", "Total record/file mutations committed.", cp.MutationsCommitted)
+		writeMetric("ruxbase_soak_noop_skipped_total", "counter", "Total skipped no-op actions.", cp.NoOpSkipped)
+		writeMetric("ruxbase_soak_ledger_persist_errors_total", "counter", "Total durable ledger persistence errors.", cp.LedgerPersistErrors)
 		writeMetric("ruxbase_soak_ops_failed_app_total", "counter", "Total failed operations attributed to application/DB.", cp.FailedAppOps)
 		writeMetric("ruxbase_soak_ops_failed_gen_total", "counter", "Total failed operations attributed to load generator.", cp.FailedGenOps)
 		writeMetric("ruxbase_soak_ops_timeout_total", "counter", "Total timed-out soak operations.", cp.TimedOutOps)

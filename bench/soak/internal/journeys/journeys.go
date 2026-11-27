@@ -74,18 +74,30 @@ const (
 	OpVectorSearch    OpKind = "journey_g_vector_search"
 )
 
-// OpOutcome distinguishes application/DB errors from load-generator errors.
+// OpOutcome distinguishes HTTP requests, mutations, journeys, no-ops, and failure attribution.
 type OpOutcome struct {
-	Kind           OpKind
-	StatusCode     int
-	Latency        time.Duration
-	AppFailure     bool
-	GenFailure     bool
-	Timeout        bool
-	CrossTenantChk bool
-	CrossTenantLk  bool
-	IntegrityErr   bool
-	Err            error
+	Kind               OpKind
+	StatusCode         int
+	Latency            time.Duration
+	HTTPAttempted      int
+	HTTPSucceeded      int
+	MutationsAttempted int
+	MutationsCommitted int
+	NoOpSkipped        int
+	AppFailure         bool
+	GenFailure         bool
+	LedgerPersistErr   bool
+	Timeout            bool
+	CrossTenantChk     bool
+	CrossTenantLk      bool
+	IntegrityErr       bool
+	Err                error
+}
+
+// CanonicalRecordChecksum defines the single canonical SHA-256 checksum across both
+// record creation and record updates: sha256(opID + "|" + title).
+func CanonicalRecordChecksum(opID, title string) string {
+	return sha256Hex(opID + "|" + title)
 }
 
 // NewHTTPClient returns a tuned HTTP client for sustained 7-day load generation.
@@ -275,13 +287,19 @@ func EnsureFixtures(ctx context.Context, client *http.Client, baseURL, superEmai
 		tid := fmt.Sprintf("soak_tenant_%02d", t)
 		for u := range UsersPerTenant {
 			email := fmt.Sprintf("soak_t%02d_u%02d@staging.invalid", t, u)
-			_, _, _ = DoJSON(ctx, client, http.MethodPost, baseURL+"/api/collections/users/records", token, map[string]any{
+			stCreate, bodyCreate, errCreate := DoJSON(ctx, client, http.MethodPost, baseURL+"/api/collections/users/records", token, map[string]any{
 				"email":           email,
 				"password":        SyntheticUserPassword,
 				"passwordConfirm": SyntheticUserPassword,
 				"verified":        true,
 				"tenant_id":       tid,
 			})
+			if errCreate != nil {
+				return nil, fmt.Errorf("create synthetic user %s: %w", email, errCreate)
+			}
+			if stCreate != http.StatusOK && !strings.Contains(string(bodyCreate), "validation_not_unique") {
+				return nil, fmt.Errorf("create synthetic user %s: status=%d body=%s", email, stCreate, string(bodyCreate))
+			}
 			st, body, err := DoJSON(ctx, client, http.MethodPost, baseURL+"/api/collections/users/auth-with-password", "", map[string]string{
 				"identity": email,
 				"password": SyntheticUserPassword,
@@ -327,16 +345,18 @@ func EnsureFixtures(ctx context.Context, client *http.Client, baseURL, superEmai
 			}
 		}
 		if seedIDs[tid] == "" {
+			seedOp := fmt.Sprintf("seed-%s", tid)
+			seedTitle := fmt.Sprintf("Baseline Seed %s", tid)
 			st, body, err := DoJSON(ctx, client, http.MethodPost, baseURL+"/api/collections/"+SoakItemsCollection+"/records", primary.Token, map[string]any{
 				"tenant_id": tid,
 				"owner":     primary.UserID,
-				"op_id":     fmt.Sprintf("seed-%s", tid),
+				"op_id":     seedOp,
 				"category":  "cat_seed",
 				"seq":       1,
 				"amount":    10.5,
-				"title":     fmt.Sprintf("Baseline Seed %s", tid),
+				"title":     seedTitle,
 				"body":      "Synthetic staging seed record",
-				"checksum":  sha256Hex("Baseline Seed " + tid),
+				"checksum":  CanonicalRecordChecksum(seedOp, seedTitle),
 			})
 			if err != nil || st != http.StatusOK {
 				return nil, fmt.Errorf("seed record for %s: status=%d err=%v", tid, st, err)
@@ -347,7 +367,6 @@ func EnsureFixtures(ctx context.Context, client *http.Client, baseURL, superEmai
 			if json.Unmarshal(body, &created) == nil {
 				seedIDs[tid] = created.ID
 			}
-			// Seed one vector per tenant
 			_, _, _ = DoJSON(ctx, client, http.MethodPost, baseURL+"/api/collections/"+SoakVectorsCollection+"/records", primary.Token, map[string]any{
 				"tenant_id": tid,
 				"label":     "seed_" + tid,
@@ -369,11 +388,14 @@ func EnsureFixtures(ctx context.Context, client *http.Client, baseURL, superEmai
 // RefreshTokens refreshes superuser and synthetic user JWTs so tokens never expire during a 168h run.
 func (f *Fixtures) RefreshTokens(ctx context.Context, client *http.Client, baseURL string) error {
 	baseURL = strings.TrimRight(baseURL, "/")
-	if tok, err := AuthSuperuser(ctx, client, baseURL, f.SuperuserEmail, f.SuperuserPass); err == nil {
-		f.mu.Lock()
-		f.SuperuserToken = tok
-		f.mu.Unlock()
+	tok, err := AuthSuperuser(ctx, client, baseURL, f.SuperuserEmail, f.SuperuserPass)
+	if err != nil {
+		return err
 	}
+	f.mu.Lock()
+	f.SuperuserToken = tok
+	f.mu.Unlock()
+
 	f.mu.RLock()
 	n := len(f.Users)
 	f.mu.RUnlock()
@@ -409,6 +431,51 @@ func (f *Fixtures) SuperToken() string {
 	return f.SuperuserToken
 }
 
+// UserForTenant returns an authenticated synthetic user belonging to tenantID.
+func (f *Fixtures) UserForTenant(tenantID string) (SyntheticUser, bool) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	for _, u := range f.Users {
+		if u.TenantID == tenantID {
+			return u, true
+		}
+	}
+	return SyntheticUser{}, false
+}
+
+// ForeignUserForTenant returns an authenticated synthetic user belonging to a different tenant.
+func (f *Fixtures) ForeignUserForTenant(tenantID string) (SyntheticUser, bool) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	for _, u := range f.Users {
+		if u.TenantID != tenantID {
+			return u, true
+		}
+	}
+	return SyntheticUser{}, false
+}
+
+// FetchTenantRLSToken obtains a short-lived cryptographic RLS JWT for direct PostgreSQL
+// ruxbase_rls.set_claims verification via POST /api/rls/token.
+func FetchTenantRLSToken(ctx context.Context, client *http.Client, baseURL, userJWT string, durationSec int64) (string, error) {
+	if durationSec < 60 {
+		durationSec = 60
+	}
+	st, raw, err := DoJSON(ctx, client, http.MethodPost, strings.TrimRight(baseURL, "/")+"/api/rls/token", userJWT, map[string]any{
+		"duration": durationSec,
+	})
+	if err != nil || st != http.StatusOK {
+		return "", fmt.Errorf("fetch /api/rls/token: status=%d err=%v", st, err)
+	}
+	var resp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil || resp.Token == "" {
+		return "", errors.New("empty RLS token response")
+	}
+	return resp.Token, nil
+}
+
 // Runner executes mixed synthetic customer journeys against Ruxbase.
 type Runner struct {
 	client   *http.Client
@@ -417,8 +484,10 @@ type Runner struct {
 	store    *state.Store
 	seq      atomic.Int64
 
+	// recentIDs is an exclusive checkout pool: an ID checked out for update or delete
+	// is removed from the pool until update completes, preventing concurrent write races.
 	recentMu  sync.Mutex
-	recentIDs map[string][]string // tenantID -> bounded ring of created record IDs
+	recentIDs map[string][]string
 }
 
 // NewRunner constructs a customer-journey runner backed by the durable campaign store.
@@ -449,33 +518,26 @@ func (r *Runner) ExecuteMixed(ctx context.Context, rng *rand.Rand, writeRatio fl
 	roll := rng.Float64()
 	switch {
 	case roll < 0.05:
-		// Journey C: continuous negative cross-tenant RLS boundary probe
 		return r.runCrossTenantNegative(ctx, user, other.TenantID, foreignSeedID)
 	case roll < 0.09:
-		// Journey A: auth refresh + profile read/update
 		return r.runAuthJourney(ctx, user)
 	case roll < 0.12:
-		// Journey F: HTTP file attachment upload + download + SHA-256 verification
 		return r.runFileStorageJourney(ctx, user)
 	case roll < 0.16:
-		// Journey G: tenant-isolated pgvector HNSW search
 		return r.runVectorSearch(ctx, user, rng)
 	case roll < 0.19:
-		// Journey D: delta realtime sync check
 		return r.runRealtimeSync(ctx, user)
 	case roll < 0.19+writeRatio:
-		// Journey B writes: create / update / selective delete
 		wRoll := rng.Float64()
 		switch {
 		case wRoll < 0.65:
 			return r.runCRUDCreate(ctx, user, rng)
 		case wRoll < 0.90:
-			return r.runCRUDUpdate(ctx, user)
+			return r.runCRUDUpdate(ctx, user, rng)
 		default:
-			return r.runCRUDDelete(ctx, user)
+			return r.runCRUDDelete(ctx, user, rng)
 		}
 	default:
-		// Journey B & G reads: indexed filtered paginated list + sort
 		return r.runCRUDListRead(ctx, user, rng)
 	}
 }
@@ -484,26 +546,50 @@ func (r *Runner) runAuthJourney(ctx context.Context, u SyntheticUser) OpOutcome 
 	t0 := time.Now()
 	st, raw, err := DoJSON(ctx, r.client, http.MethodPost, r.baseURL+"/api/collections/users/auth-refresh", u.Token, nil)
 	if err != nil {
-		return classifyNetErr(OpAuthLifecycle, time.Since(t0), err)
+		return classifyNetErr(OpAuthLifecycle, time.Since(t0), 1, 0, err)
 	}
 	if st != http.StatusOK {
-		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("auth-refresh status %d", st)}
+		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, AppFailure: true, Err: fmt.Errorf("auth-refresh status %d", st)}
 	}
 	var resp struct {
 		Token string `json:"token"`
 	}
 	if json.Unmarshal(raw, &resp) != nil || resp.Token == "" {
-		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st, Latency: time.Since(t0), IntegrityErr: true, AppFailure: true, Err: errors.New("empty refreshed token")}
+		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, IntegrityErr: true, AppFailure: true, Err: errors.New("empty refreshed token")}
 	}
-	// Verify account read with refreshed token
 	st2, _, err := DoJSON(ctx, r.client, http.MethodGet, r.baseURL+"/api/collections/users/records/"+u.UserID, resp.Token, nil)
 	if err != nil {
-		return classifyNetErr(OpAuthLifecycle, time.Since(t0), err)
+		return classifyNetErr(OpAuthLifecycle, time.Since(t0), 2, 1, err)
 	}
 	if st2 != http.StatusOK {
-		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st2, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("profile read status %d", st2)}
+		return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st2, Latency: time.Since(t0), HTTPAttempted: 2, HTTPSucceeded: 1, AppFailure: true, Err: fmt.Errorf("profile read status %d", st2)}
 	}
-	return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st2, Latency: time.Since(t0)}
+	return OpOutcome{Kind: OpAuthLifecycle, StatusCode: st2, Latency: time.Since(t0), HTTPAttempted: 2, HTTPSucceeded: 2}
+}
+
+func (r *Runner) recordIntent(entry state.LedgerEntry) error {
+	if r.store == nil {
+		return nil
+	}
+	entry.Phase = "intent"
+	entry.TimestampUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	_, err := r.store.AppendLedger(entry)
+	return err
+}
+
+func (r *Runner) recordAck(entry state.LedgerEntry, committed bool, httpStatus int, err error) error {
+	if r.store == nil {
+		return nil
+	}
+	entry.Phase = "ack"
+	entry.TimestampUTC = time.Now().UTC().Format(time.RFC3339Nano)
+	entry.HTTPStatus = httpStatus
+	entry.Committed = &committed
+	if err != nil {
+		entry.Error = err.Error()
+	}
+	_, persistErr := r.store.AppendLedger(entry)
+	return persistErr
 }
 
 func (r *Runner) runCRUDCreate(ctx context.Context, u SyntheticUser, rng *rand.Rand) OpOutcome {
@@ -511,8 +597,20 @@ func (r *Runner) runCRUDCreate(ctx context.Context, u SyntheticUser, rng *rand.R
 	seq := r.seq.Add(1)
 	opID := fmt.Sprintf("op-%d-%d", time.Now().UTC().UnixNano(), seq)
 	title := fmt.Sprintf("Soak Record %s #%d", u.TenantID, seq)
-	chk := sha256Hex(opID + "|" + title)
+	chk := CanonicalRecordChecksum(opID, title)
 	cat := fmt.Sprintf("cat_%d", rng.IntN(8))
+
+	intent := state.LedgerEntry{
+		OpID:         opID,
+		Kind:         "record_create",
+		TenantID:     u.TenantID,
+		Collection:   SoakItemsCollection,
+		ExpectedHash: chk,
+		ExpectedText: title,
+	}
+	if err := r.recordIntent(intent); err != nil {
+		return OpOutcome{Kind: OpCRUDWrite, Latency: time.Since(t0), LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: err}
+	}
 
 	st, raw, err := DoJSON(ctx, r.client, http.MethodPost, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records", u.Token, map[string]any{
 		"tenant_id": u.TenantID,
@@ -526,85 +624,145 @@ func (r *Runner) runCRUDCreate(ctx context.Context, u SyntheticUser, rng *rand.R
 		"checksum":  chk,
 	})
 	if err != nil {
-		return classifyNetErr(OpCRUDWrite, time.Since(t0), err)
+		if ackErr := r.recordAck(intent, false, 0, err); ackErr != nil {
+			return OpOutcome{Kind: OpCRUDWrite, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: ackErr}
+		}
+		out := classifyNetErr(OpCRUDWrite, time.Since(t0), 1, 0, err)
+		out.MutationsAttempted = 1
+		return out
 	}
 	if st != http.StatusOK {
-		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("create status %d", st)}
+		errMsg := fmt.Errorf("create status %d", st)
+		if ackErr := r.recordAck(intent, false, st, errMsg); ackErr != nil {
+			return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: ackErr}
+		}
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
 	}
+
 	var rec struct {
 		ID       string `json:"id"`
 		TenantID string `json:"tenant_id"`
 	}
 	if json.Unmarshal(raw, &rec) != nil || rec.ID == "" {
-		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), IntegrityErr: true, AppFailure: true, Err: errors.New("missing created id")}
+		decErr := errors.New("missing created id")
+		_ = r.recordAck(intent, false, st, decErr)
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, IntegrityErr: true, AppFailure: true, Err: decErr}
 	}
 	if rec.TenantID != u.TenantID {
-		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("tenant mismatch on create: got %s want %s", rec.TenantID, u.TenantID)}
+		leakErr := fmt.Errorf("tenant mismatch on create: got %s want %s", rec.TenantID, u.TenantID)
+		_ = r.recordAck(intent, false, st, leakErr)
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: leakErr}
 	}
 
-	r.rememberID(u.TenantID, rec.ID)
-	if r.store != nil && seq%5 == 0 {
-		// Sample 20% of committed creates into the durable expected-results ledger for DB reconciliation
-		_ = r.store.AppendLedger(state.LedgerEntry{
-			OpID:         opID,
-			TimestampUTC: time.Now().UTC().Format(time.RFC3339),
-			Kind:         "record_create",
-			TenantID:     u.TenantID,
-			Collection:   SoakItemsCollection,
-			EntityID:     rec.ID,
-			ExpectedHash: chk,
-			ExpectedText: title,
-		})
+	intent.EntityID = rec.ID
+	if ackErr := r.recordAck(intent, true, st, nil); ackErr != nil {
+		return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: ackErr}
 	}
-	return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0)}
+
+	r.returnID(u.TenantID, rec.ID)
+	return OpOutcome{Kind: OpCRUDWrite, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1}
 }
 
-func (r *Runner) runCRUDUpdate(ctx context.Context, u SyntheticUser) OpOutcome {
-	id := r.pickID(u.TenantID, false)
+func (r *Runner) runCRUDUpdate(ctx context.Context, u SyntheticUser, rng *rand.Rand) OpOutcome {
+	id := r.checkoutID(u.TenantID)
 	if id == "" {
-		return r.runCRUDCreate(ctx, u, rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 1)))
+		// Never silently fake a no-op; perform a real create instead.
+		return r.runCRUDCreate(ctx, u, rng)
 	}
 	t0 := time.Now()
 	seq := r.seq.Add(1)
+	opID := fmt.Sprintf("upd-%d-%d", time.Now().UTC().UnixNano(), seq)
 	title := fmt.Sprintf("Updated Soak %s #%d", u.TenantID, seq)
+	chk := CanonicalRecordChecksum(opID, title)
+
+	intent := state.LedgerEntry{
+		OpID:         opID,
+		Kind:         "record_update",
+		TenantID:     u.TenantID,
+		Collection:   SoakItemsCollection,
+		EntityID:     id,
+		ExpectedHash: chk,
+		ExpectedText: title,
+	}
+	if err := r.recordIntent(intent); err != nil {
+		r.returnID(u.TenantID, id)
+		return OpOutcome{Kind: OpCRUDUpdate, Latency: time.Since(t0), LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: err}
+	}
+
 	st, _, err := DoJSON(ctx, r.client, http.MethodPatch, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+id, u.Token, map[string]any{
+		"op_id":    opID,
 		"title":    title,
-		"checksum": sha256Hex(id + "|" + title),
+		"checksum": chk,
 	})
 	if err != nil {
-		return classifyNetErr(OpCRUDUpdate, time.Since(t0), err)
+		if st == 0 {
+			// Unknown server state on timeout/net error: do not put back into mutable pool blindly
+			_ = r.recordAck(intent, false, 0, err)
+		}
+		out := classifyNetErr(OpCRUDUpdate, time.Since(t0), 1, 0, err)
+		out.MutationsAttempted = 1
+		return out
 	}
-	if st != http.StatusOK && st != http.StatusNotFound {
-		return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("update status %d", st)}
+	if st != http.StatusOK {
+		errMsg := fmt.Errorf("update status %d", st)
+		_ = r.recordAck(intent, false, st, errMsg)
+		if st != http.StatusNotFound {
+			r.returnID(u.TenantID, id)
+			return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
+		}
+		return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
 	}
-	return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0)}
+
+	if ackErr := r.recordAck(intent, true, st, nil); ackErr != nil {
+		r.returnID(u.TenantID, id)
+		return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: ackErr}
+	}
+	r.returnID(u.TenantID, id)
+	return OpOutcome{Kind: OpCRUDUpdate, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1}
 }
 
-func (r *Runner) runCRUDDelete(ctx context.Context, u SyntheticUser) OpOutcome {
-	id := r.pickID(u.TenantID, true)
+func (r *Runner) runCRUDDelete(ctx context.Context, u SyntheticUser, rng *rand.Rand) OpOutcome {
+	id := r.checkoutID(u.TenantID)
 	if id == "" {
-		return OpOutcome{Kind: OpCRUDDelete, StatusCode: http.StatusNoContent, Latency: time.Millisecond}
+		// Never fabricate a fake 204 NoContent no-op; run a real list read instead.
+		out := r.runCRUDListRead(ctx, u, rng)
+		out.NoOpSkipped = 1
+		return out
 	}
 	t0 := time.Now()
+	seq := r.seq.Add(1)
+	opID := fmt.Sprintf("del-%d-%d", time.Now().UTC().UnixNano(), seq)
+
+	intent := state.LedgerEntry{
+		OpID:       opID,
+		Kind:       "record_delete",
+		TenantID:   u.TenantID,
+		Collection: SoakItemsCollection,
+		EntityID:   id,
+		Deleted:    true,
+	}
+	if err := r.recordIntent(intent); err != nil {
+		r.returnID(u.TenantID, id)
+		return OpOutcome{Kind: OpCRUDDelete, Latency: time.Since(t0), LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: err}
+	}
+
 	st, _, err := DoJSON(ctx, r.client, http.MethodDelete, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+id, u.Token, nil)
 	if err != nil {
-		return classifyNetErr(OpCRUDDelete, time.Since(t0), err)
+		_ = r.recordAck(intent, false, 0, err)
+		out := classifyNetErr(OpCRUDDelete, time.Since(t0), 1, 0, err)
+		out.MutationsAttempted = 1
+		return out
 	}
-	if st != http.StatusNoContent && st != http.StatusNotFound {
-		return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("delete status %d", st)}
+	if st != http.StatusNoContent {
+		errMsg := fmt.Errorf("delete status %d", st)
+		_ = r.recordAck(intent, false, st, errMsg)
+		return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: errMsg}
 	}
-	if r.store != nil && st == http.StatusNoContent {
-		_ = r.store.AppendLedger(state.LedgerEntry{
-			OpID:         fmt.Sprintf("del-%d", time.Now().UTC().UnixNano()),
-			TimestampUTC: time.Now().UTC().Format(time.RFC3339),
-			Kind:         "record_delete",
-			TenantID:     u.TenantID,
-			Collection:   SoakItemsCollection,
-			EntityID:     id,
-			Deleted:      true,
-		})
+
+	if ackErr := r.recordAck(intent, true, st, nil); ackErr != nil {
+		return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1, LedgerPersistErr: true, IntegrityErr: true, GenFailure: true, Err: ackErr}
 	}
-	return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0)}
+	return OpOutcome{Kind: OpCRUDDelete, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1}
 }
 
 func (r *Runner) runCRUDListRead(ctx context.Context, u SyntheticUser, rng *rand.Rand) OpOutcome {
@@ -618,10 +776,10 @@ func (r *Runner) runCRUDListRead(ctx context.Context, u SyntheticUser, rng *rand
 
 	st, raw, err := DoJSON(ctx, r.client, http.MethodGet, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records?"+q.Encode(), u.Token, nil)
 	if err != nil {
-		return classifyNetErr(OpCRUDRead, time.Since(t0), err)
+		return classifyNetErr(OpCRUDRead, time.Since(t0), 1, 0, err)
 	}
 	if st != http.StatusOK {
-		return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("list status %d", st)}
+		return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, AppFailure: true, Err: fmt.Errorf("list status %d", st)}
 	}
 	var lr struct {
 		Items []struct {
@@ -629,45 +787,50 @@ func (r *Runner) runCRUDListRead(ctx context.Context, u SyntheticUser, rng *rand
 		} `json:"items"`
 	}
 	if json.Unmarshal(raw, &lr) != nil {
-		return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), IntegrityErr: true, AppFailure: true, Err: errors.New("invalid list JSON")}
+		return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, IntegrityErr: true, AppFailure: true, Err: errors.New("invalid list JSON")}
 	}
 	for _, it := range lr.Items {
 		if it.TenantID != u.TenantID {
-			return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("RLS LEAK in list: caller=%s got=%s", u.TenantID, it.TenantID)}
+			return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("RLS LEAK in list: caller=%s got=%s", u.TenantID, it.TenantID)}
 		}
 	}
-	return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true}
+	return OpOutcome{Kind: OpCRUDRead, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, CrossTenantChk: true}
 }
 
 func (r *Runner) runCrossTenantNegative(ctx context.Context, caller SyntheticUser, foreignTenant, foreignID string) OpOutcome {
 	t0 := time.Now()
+	httpAtt := 0
+	httpOK := 0
 	if foreignID != "" {
+		httpAtt++
 		st, _, err := DoJSON(ctx, r.client, http.MethodGet, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+foreignID, caller.Token, nil)
 		if err != nil {
-			return classifyNetErr(OpCrossTenantDeny, time.Since(t0), err)
+			return classifyNetErr(OpCrossTenantDeny, time.Since(t0), httpAtt, httpOK, err)
 		}
 		if st != http.StatusNotFound && st != http.StatusForbidden {
-			return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("CROSS-TENANT GET LEAK: %s read %s/%s status=%d", caller.TenantID, foreignTenant, foreignID, st)}
+			return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: httpAtt, HTTPSucceeded: httpAtt, CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("CROSS-TENANT GET LEAK: %s read %s/%s status=%d", caller.TenantID, foreignTenant, foreignID, st)}
 		}
+		httpOK++
 	}
-	// Forged cross-tenant insert MUST be rejected
+	httpAtt++
 	st, _, err := DoJSON(ctx, r.client, http.MethodPost, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records", caller.Token, map[string]any{
 		"tenant_id": foreignTenant,
 		"title":     "FORGED_CROSS_TENANT_SOAK",
 	})
 	if err != nil {
-		return classifyNetErr(OpCrossTenantDeny, time.Since(t0), err)
+		return classifyNetErr(OpCrossTenantDeny, time.Since(t0), httpAtt, httpOK, err)
 	}
 	if st == http.StatusOK || st == http.StatusCreated {
-		return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("CROSS-TENANT WRITE LEAK: %s wrote into %s status=%d", caller.TenantID, foreignTenant, st)}
+		return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: httpAtt, HTTPSucceeded: httpAtt, CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("CROSS-TENANT WRITE LEAK: %s wrote into %s status=%d", caller.TenantID, foreignTenant, st)}
 	}
-	return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true}
+	httpOK++
+	return OpOutcome{Kind: OpCrossTenantDeny, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: httpAtt, HTTPSucceeded: httpOK, CrossTenantChk: true}
 }
 
 func (r *Runner) runFileStorageJourney(ctx context.Context, u SyntheticUser) OpOutcome {
 	t0 := time.Now()
 	seq := r.seq.Add(1)
-	payload := bytes.Repeat([]byte(fmt.Sprintf("ruxbase-soak-blob-%s-%08d-", u.TenantID, seq)), 1024) // ~40 KB
+	payload := bytes.Repeat([]byte(fmt.Sprintf("ruxbase-soak-blob-%s-%08d-", u.TenantID, seq)), 1024)
 	wantHash := sha256HexBytes(payload)
 
 	var buf bytes.Buffer
@@ -693,42 +856,48 @@ func (r *Runner) runFileStorageJourney(ctx context.Context, u SyntheticUser) OpO
 	req.Header.Set("Authorization", u.Token)
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return classifyNetErr(OpFileUpload, time.Since(t0), err)
+		out := classifyNetErr(OpFileUpload, time.Since(t0), 1, 0, err)
+		out.MutationsAttempted = 1
+		return out
 	}
 	raw, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return OpOutcome{Kind: OpFileUpload, StatusCode: resp.StatusCode, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("file upload status %d", resp.StatusCode)}
+		return OpOutcome{Kind: OpFileUpload, StatusCode: resp.StatusCode, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, AppFailure: true, Err: fmt.Errorf("file upload status %d", resp.StatusCode)}
 	}
 	var created struct {
 		ID         string `json:"id"`
 		Attachment string `json:"attachment"`
 	}
 	if json.Unmarshal(raw, &created) != nil || created.ID == "" || created.Attachment == "" {
-		return OpOutcome{Kind: OpFileUpload, StatusCode: resp.StatusCode, Latency: time.Since(t0), IntegrityErr: true, AppFailure: true, Err: errors.New("missing attachment filename")}
+		return OpOutcome{Kind: OpFileUpload, StatusCode: resp.StatusCode, Latency: time.Since(t0), HTTPAttempted: 1, MutationsAttempted: 1, IntegrityErr: true, AppFailure: true, Err: errors.New("missing attachment filename")}
 	}
 
-	// Read back and verify SHA-256
 	dlReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/files/%s/%s/%s", r.baseURL, SoakItemsCollection, created.ID, created.Attachment), nil)
 	dlReq.Header.Set("Authorization", u.Token)
 	dlResp, err := r.client.Do(dlReq)
 	if err != nil {
-		return classifyNetErr(OpFileUpload, time.Since(t0), err)
+		out := classifyNetErr(OpFileUpload, time.Since(t0), 2, 1, err)
+		out.MutationsAttempted = 1
+		out.MutationsCommitted = 1
+		return out
 	}
 	h := sha256.New()
 	_, copyErr := io.Copy(h, dlResp.Body)
 	_ = dlResp.Body.Close()
 	if copyErr != nil || dlResp.StatusCode != http.StatusOK {
-		return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("file download status=%d err=%v", dlResp.StatusCode, copyErr)}
+		return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0), HTTPAttempted: 2, HTTPSucceeded: 1, MutationsAttempted: 1, MutationsCommitted: 1, AppFailure: true, Err: fmt.Errorf("file download status=%d err=%v", dlResp.StatusCode, copyErr)}
 	}
 	gotHash := hex.EncodeToString(h.Sum(nil))
 	if gotHash != wantHash {
-		return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0), IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("STORAGE SHA-256 MISMATCH: want=%s got=%s", wantHash, gotHash)}
+		return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0), HTTPAttempted: 2, HTTPSucceeded: 2, MutationsAttempted: 1, MutationsCommitted: 1, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("STORAGE SHA-256 MISMATCH: want=%s got=%s", wantHash, gotHash)}
 	}
 
-	// Clean up synthetic attachment record to keep disk bounded over 7 days
-	_, _, _ = DoJSON(ctx, r.client, http.MethodDelete, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+created.ID, u.Token, nil)
-	return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0)}
+	delStatus, _, delErr := DoJSON(ctx, r.client, http.MethodDelete, r.baseURL+"/api/collections/"+SoakItemsCollection+"/records/"+created.ID, u.Token, nil)
+	if delErr != nil || delStatus != http.StatusNoContent {
+		return OpOutcome{Kind: OpFileUpload, StatusCode: delStatus, Latency: time.Since(t0), HTTPAttempted: 3, HTTPSucceeded: 2, MutationsAttempted: 2, MutationsCommitted: 1, AppFailure: true, Err: fmt.Errorf("file cleanup delete status=%d err=%v", delStatus, delErr)}
+	}
+	return OpOutcome{Kind: OpFileUpload, StatusCode: dlResp.StatusCode, Latency: time.Since(t0), HTTPAttempted: 3, HTTPSucceeded: 3, MutationsAttempted: 2, MutationsCommitted: 2}
 }
 
 func (r *Runner) runVectorSearch(ctx context.Context, u SyntheticUser, rng *rand.Rand) OpOutcome {
@@ -739,10 +908,10 @@ func (r *Runner) runVectorSearch(ctx context.Context, u SyntheticUser, rng *rand
 		"k":      5,
 	})
 	if err != nil {
-		return classifyNetErr(OpVectorSearch, time.Since(t0), err)
+		return classifyNetErr(OpVectorSearch, time.Since(t0), 1, 0, err)
 	}
 	if st != http.StatusOK {
-		return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("vector-search status %d", st)}
+		return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, AppFailure: true, Err: fmt.Errorf("vector-search status %d", st)}
 	}
 	var vr struct {
 		Items []struct {
@@ -752,11 +921,11 @@ func (r *Runner) runVectorSearch(ctx context.Context, u SyntheticUser, rng *rand
 	if json.Unmarshal(raw, &vr) == nil {
 		for _, it := range vr.Items {
 			if it.TenantID != u.TenantID {
-				return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("VECTOR CROSS-TENANT LEAK: caller=%s got=%s", u.TenantID, it.TenantID)}
+				return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, CrossTenantChk: true, CrossTenantLk: true, IntegrityErr: true, AppFailure: true, Err: fmt.Errorf("VECTOR CROSS-TENANT LEAK: caller=%s got=%s", u.TenantID, it.TenantID)}
 			}
 		}
 	}
-	return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), CrossTenantChk: true}
+	return OpOutcome{Kind: OpVectorSearch, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1, CrossTenantChk: true}
 }
 
 func (r *Runner) runRealtimeSync(ctx context.Context, u SyntheticUser) OpOutcome {
@@ -765,12 +934,12 @@ func (r *Runner) runRealtimeSync(ctx context.Context, u SyntheticUser) OpOutcome
 	target := fmt.Sprintf("%s/api/realtime/sync?collection=%s&since=%s", r.baseURL, url.QueryEscape(SoakItemsCollection), url.QueryEscape(since))
 	st, _, err := DoJSON(ctx, r.client, http.MethodGet, target, u.Token, nil)
 	if err != nil {
-		return classifyNetErr(OpRealtimeSync, time.Since(t0), err)
+		return classifyNetErr(OpRealtimeSync, time.Since(t0), 1, 0, err)
 	}
 	if st != http.StatusOK {
-		return OpOutcome{Kind: OpRealtimeSync, StatusCode: st, Latency: time.Since(t0), AppFailure: true, Err: fmt.Errorf("realtime sync status %d", st)}
+		return OpOutcome{Kind: OpRealtimeSync, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, AppFailure: true, Err: fmt.Errorf("realtime sync status %d", st)}
 	}
-	return OpOutcome{Kind: OpRealtimeSync, StatusCode: st, Latency: time.Since(t0)}
+	return OpOutcome{Kind: OpRealtimeSync, StatusCode: st, Latency: time.Since(t0), HTTPAttempted: 1, HTTPSucceeded: 1}
 }
 
 // RunExplainProbe executes periodic EXPLAIN (ANALYZE, BUFFERS) on safe representative queries.
@@ -857,7 +1026,6 @@ func (p *SSEPool) runSubscriber(ctx context.Context, idx int) {
 		user := p.fixtures.Users[idx%len(p.fixtures.Users)]
 		p.fixtures.mu.RUnlock()
 
-		// Rotate SSE connection periodically (every 15-25 min) to exercise real client reconnects
 		connTTL := time.Duration(15+idx%10) * time.Minute
 		connCtx, connCancel := context.WithTimeout(ctx, connTTL)
 		req, err := http.NewRequestWithContext(connCtx, http.MethodGet, p.baseURL+"/api/realtime", nil)
@@ -947,7 +1115,10 @@ func (p *SSEPool) runSubscriber(ctx context.Context, idx int) {
 	}
 }
 
-func (r *Runner) rememberID(tenantID, id string) {
+func (r *Runner) returnID(tenantID, id string) {
+	if id == "" {
+		return
+	}
 	r.recentMu.Lock()
 	defer r.recentMu.Unlock()
 	list := r.recentIDs[tenantID]
@@ -957,7 +1128,9 @@ func (r *Runner) rememberID(tenantID, id string) {
 	r.recentIDs[tenantID] = append(list, id)
 }
 
-func (r *Runner) pickID(tenantID string, pop bool) string {
+// checkoutID removes one ID exclusively from the pool so two goroutines never race
+// concurrent updates/deletes on the same record.
+func (r *Runner) checkoutID(tenantID string) string {
 	r.recentMu.Lock()
 	defer r.recentMu.Unlock()
 	list := r.recentIDs[tenantID]
@@ -965,13 +1138,11 @@ func (r *Runner) pickID(tenantID string, pop bool) string {
 		return ""
 	}
 	id := list[len(list)-1]
-	if pop {
-		r.recentIDs[tenantID] = list[:len(list)-1]
-	}
+	r.recentIDs[tenantID] = list[:len(list)-1]
 	return id
 }
 
-func classifyNetErr(kind OpKind, d time.Duration, err error) OpOutcome {
+func classifyNetErr(kind OpKind, d time.Duration, httpAtt, httpOK int, err error) OpOutcome {
 	timeout := errors.Is(err, context.DeadlineExceeded)
 	if !timeout {
 		var ne net.Error
@@ -979,11 +1150,10 @@ func classifyNetErr(kind OpKind, d time.Duration, err error) OpOutcome {
 			timeout = true
 		}
 	}
-	// Distinguish context cancellation (generator shutdown) vs network/timeout failure
 	if errors.Is(err, context.Canceled) {
-		return OpOutcome{Kind: kind, Latency: d, GenFailure: true, Err: err}
+		return OpOutcome{Kind: kind, Latency: d, HTTPAttempted: httpAtt, HTTPSucceeded: httpOK, GenFailure: true, Err: err}
 	}
-	return OpOutcome{Kind: kind, Latency: d, AppFailure: true, Timeout: timeout, Err: err}
+	return OpOutcome{Kind: kind, Latency: d, HTTPAttempted: httpAtt, HTTPSucceeded: httpOK, AppFailure: true, Timeout: timeout, Err: err}
 }
 
 // PercentileMs computes the p-th percentile in milliseconds from a slice of durations.

@@ -3,85 +3,187 @@ package verifier
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/AbdullahZaher/ruxbase/bench/soak/internal/journeys"
 	"github.com/AbdullahZaher/ruxbase/bench/soak/internal/state"
 	"github.com/AbdullahZaher/ruxbase/bench/soak/internal/telemetry"
 )
 
-func seedCampaignDir(t *testing.T, elapsedHours float64, heapDriftMiB float64, leaks int64, includeFaults bool) string {
+func seedCampaignDir(t *testing.T, elapsedHours float64, liveHeapDriftMiB float64, leaks int64, includeFaults bool) string {
 	t.Helper()
 	dir := t.TempDir()
 	start := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
 	end := start.Add(time.Duration(elapsedHours * float64(time.Hour)))
+	cid := "W11-05-168H-UNIT"
 
 	cp := state.Checkpoint{
-		CampaignID:          "W11-05-168H-UNIT",
-		Mode:                "soak",
-		Status:              state.StatusSoakCompletedPendingAudit,
-		OfficialStartUTC:    start,
-		EarliestValidEndUTC: start.Add(168 * time.Hour),
-		TargetDurationSec:   (168 * time.Hour).Seconds(),
-		LastHeartbeatUTC:    end,
-		ProcessStarts:       1,
-		AttemptedOps:        500000,
-		SuccessfulOps:       499900,
-		FailedAppOps:        100,
-		CrossTenantChecks:   25000,
-		CrossTenantLeaks:    leaks,
+		CampaignID:            cid,
+		Mode:                  "soak",
+		Status:                state.StatusSoakCompletedPendingAudit,
+		OfficialStartUTC:      start,
+		EarliestValidEndUTC:   start.Add(168 * time.Hour),
+		TargetDurationSec:     (168 * time.Hour).Seconds(),
+		LastHeartbeatUTC:      end,
+		ProcessStarts:         1,
+		AttemptedOps:          500000,
+		SuccessfulOps:         499900,
+		HTTPRequestsAttempted: 620000,
+		HTTPRequestsSucceeded: 619900,
+		MutationsAttempted:    120000,
+		MutationsCommitted:    120000,
+		FailedAppOps:          100,
+		CrossTenantChecks:     25000,
+		CrossTenantLeaks:      leaks,
 	}
 	if err := state.WriteJSON(filepath.Join(dir, "state.json"), cp); err != nil {
 		t.Fatal(err)
 	}
 	if err := state.WriteJSON(filepath.Join(dir, "candidate-manifest.json"), state.CandidateManifest{
-		CampaignID:   cp.CampaignID,
-		GitCommitSHA: "d7b9a3dcd55ea14beadeeecaec065b23eeb5f345",
+		CampaignID:             cid,
+		GitCommitSHA:           "d7b9a3dcd55ea14beadeeecaec065b23eeb5f345",
+		LinuxBinarySHA256:      "abc123",
+		DeployedBinarySHA256:   "abc123",
+		DeployedBinaryVerified: true,
+		PostgresVersion:        "18.7",
+		AppliedMigrationsCount: 15,
+		IsolationPassed:        true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.WriteJSON(filepath.Join(dir, "worker-heartbeat.json"), state.WorkerHeartbeat{
+		CampaignID:       cid,
+		PID:              101,
+		StartedAtUTC:     start.Format(time.RFC3339),
+		LastHeartbeatUTC: end.Format(time.RFC3339),
+		JobsCompleted:    1000,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	s, err := state.Open(dir, cp.CampaignID, "soak", 168*time.Hour)
+	s, err := state.Open(dir, cid, "soak", 168*time.Hour)
+	// Expected error when reopening terminal state; write JSONL files cleanly via os.OpenFile/state.WriteJSON
+	_ = err
+	_ = s
+
+	totalSamples := max(int(elapsedHours*60), 20)
+	fMet, err := os.Create(filepath.Join(dir, "metrics.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Restore exact LastHeartbeatUTC for deterministic test
-	_ = state.WriteJSON(filepath.Join(dir, "state.json"), cp)
-	_ = os.Remove(filepath.Join(dir, "interruptions.jsonl"))
-
-	totalSamples := max(int(elapsedHours*60), 20)
+	fWork, err := os.Create(filepath.Join(dir, "workload.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := range totalSamples {
 		frac := float64(i) / float64(max(totalSamples-1, 1))
-		heapBytes := uint64((100.0 + heapDriftMiB*frac) * 1024 * 1024)
+		liveBytes := uint64((100.0 + liveHeapDriftMiB*frac) * 1024 * 1024)
+		// Deliberately inject 30% GC sawtooth oscillation in HeapAllocBytes while LiveHeapBytes stays steady
+		sawtooth := uint64(((i % 3) * 12) * 1024 * 1024)
 		ops := &telemetry.RuxbaseOpsSnapshot{}
-		ops.Runtime.HeapAllocBytes = heapBytes
+		ops.Runtime.LiveHeapBytes = liveBytes
+		ops.Runtime.HeapAllocBytes = liveBytes + sawtooth
 		ops.Runtime.Goroutines = 40
-		_ = s.AppendJSONL("metrics.jsonl", telemetry.Sample{
-			TimestampUTC:  start.Add(time.Duration(i) * time.Minute).Format(time.RFC3339),
+		ts := start.Add(time.Duration(i) * time.Minute).Format(time.RFC3339)
+		_ = appendTestLine(fMet, telemetry.Sample{
+			TimestampUTC:  ts,
 			ElapsedSec:    float64(i * 60),
 			HealthReadyOK: true,
 			RuxbaseOps:    ops,
 			Host:          telemetry.HostMetrics{DiskFreePct: 50.0},
 		})
+		_ = appendTestLine(fWork, map[string]any{
+			"timestampUtc": ts,
+			"success":      300,
+		})
 	}
-	_ = s.AppendJSONL("backups.jsonl", map[string]any{"passed": true})
+	_ = fMet.Close()
+	_ = fWork.Close()
+
+	if err := writeTestLineFile(filepath.Join(dir, "integrity.jsonl"), IntegrityCheckReport{
+		TimestampUTC:          end.Format(time.RFC3339),
+		CampaignID:            cid,
+		Passed:                true,
+		RLSEnabled:            true,
+		RuntimeRoleRestricted: true,
+		ReleaseBlockersPassed: true,
+		DirectSQLVisibility:   "OWNER_VISIBLE",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeTestLineFile(filepath.Join(dir, "backups.jsonl"), map[string]any{"campaignId": cid, "passed": true}); err != nil {
+		t.Fatal(err)
+	}
 	if includeFaults {
-		for _, drill := range []string{"hour24_worker_kill", "hour72_pg_disconnect", "hour120_backup_restore"} {
-			_ = s.AppendJSONL("faults.jsonl", map[string]any{"drill": drill, "passed": true})
+		fFault, err := os.Create(filepath.Join(dir, "faults.jsonl"))
+		if err != nil {
+			t.Fatal(err)
 		}
+		for _, drill := range []string{"hour24_worker_kill", "hour72_pg_disconnect", "hour120_backup_restore"} {
+			_ = appendTestLine(fFault, map[string]any{"drill": drill, "passed": true})
+		}
+		_ = fFault.Close()
 	}
 	return dir
 }
 
-func TestReconcileAndA11AuditVerdicts(t *testing.T) {
-	// 1. Complete 168h clean campaign -> PASS and W11-05_VERIFIED
+func appendTestLine(f *os.File, v any) error {
+	b, err := jsonMarshal(v)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(b, '\n'))
+	return err
+}
+
+func writeTestLineFile(path string, v any) error {
+	b, err := jsonMarshal(v)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o640)
+}
+
+func TestReconstructExpectedLedgerLifecycle(t *testing.T) {
+	okTrue := true
+	okFalse := false
+	entries := []state.LedgerEntry{
+		{Seq: 1, OpID: "op-1", Phase: "intent", Kind: "record_create", TenantID: "t0", ExpectedText: "T1", ExpectedHash: journeys.CanonicalRecordChecksum("op-1", "T1")},
+		{Seq: 2, OpID: "op-1", Phase: "ack", Kind: "record_create", TenantID: "t0", EntityID: "id1", ExpectedText: "T1", ExpectedHash: journeys.CanonicalRecordChecksum("op-1", "T1"), Committed: &okTrue},
+		{Seq: 3, OpID: "op-2", Phase: "intent", Kind: "record_update", TenantID: "t0", EntityID: "id1", ExpectedText: "T2", ExpectedHash: journeys.CanonicalRecordChecksum("op-2", "T2")},
+		{Seq: 4, OpID: "op-2", Phase: "ack", Kind: "record_update", TenantID: "t0", EntityID: "id1", ExpectedText: "T2", ExpectedHash: journeys.CanonicalRecordChecksum("op-2", "T2"), Committed: &okTrue},
+		{Seq: 5, OpID: "op-3", Phase: "intent", Kind: "record_create", TenantID: "t0", ExpectedText: "T3", ExpectedHash: journeys.CanonicalRecordChecksum("op-3", "T3")},
+		{Seq: 6, OpID: "op-3", Phase: "ack", Kind: "record_create", TenantID: "t0", EntityID: "id2", ExpectedText: "T3", ExpectedHash: journeys.CanonicalRecordChecksum("op-3", "T3"), Committed: &okTrue},
+		{Seq: 7, OpID: "op-4", Phase: "intent", Kind: "record_delete", TenantID: "t0", EntityID: "id2", Deleted: true},
+		{Seq: 8, OpID: "op-4", Phase: "ack", Kind: "record_delete", TenantID: "t0", EntityID: "id2", Deleted: true, Committed: &okTrue},
+		// Rejected update should leave id1 at op-2 state!
+		{Seq: 9, OpID: "op-5", Phase: "intent", Kind: "record_update", TenantID: "t0", EntityID: "id1", ExpectedText: "BAD"},
+		{Seq: 10, OpID: "op-5", Phase: "ack", Kind: "record_update", TenantID: "t0", EntityID: "id1", ExpectedText: "BAD", Committed: &okFalse},
+	}
+
+	rec := ReconstructExpectedLedger(entries)
+	if len(rec.Malformations) != 0 || len(rec.OrderedEntities) != 2 {
+		t.Fatalf("unexpected reconstruction: %+v", rec)
+	}
+	if rec.OrderedEntities[0].OpID != "op-2" || rec.OrderedEntities[0].ExpectedText != "T2" || !rec.OrderedEntities[0].ExpectedPresent {
+		t.Fatalf("id1 should reflect committed op-2 (not rejected op-5), got %+v", rec.OrderedEntities[0])
+	}
+	if !rec.OrderedEntities[1].Deleted || rec.OrderedEntities[1].ExpectedPresent {
+		t.Fatalf("id2 should be marked Deleted, got %+v", rec.OrderedEntities[1])
+	}
+}
+
+func TestReconcileAndA11AuditVerdictsAndCompletenessGates(t *testing.T) {
+	// 1. Complete 168h clean campaign (even with 30% GC HeapAlloc sawtooth, steady LiveHeapBytes passes 5% gate!)
 	dirOK := seedCampaignDir(t, 168.05, 1.5, 0, true)
 	rep, err := Reconcile(dirOK, 168.0)
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
-	if rep.Verdict != "PASS" {
-		t.Fatalf("expected PASS, got %s (missing=%v failures=%v)", rep.Verdict, rep.MissingEvidence, rep.FailureReasons)
+	if rep.Verdict != "PASS" || rep.Trends.MemoryMetricUsed != "live_heap_post_gc" {
+		t.Fatalf("expected PASS using live_heap_post_gc, got verdict=%s metric=%s (missing=%v failures=%v)", rep.Verdict, rep.Trends.MemoryMetricUsed, rep.MissingEvidence, rep.FailureReasons)
 	}
 	if _, _, err := state.WriteSHA256Manifest(dirOK); err != nil {
 		t.Fatalf("WriteSHA256Manifest: %v", err)
@@ -113,15 +215,39 @@ func TestReconcileAndA11AuditVerdicts(t *testing.T) {
 		t.Fatalf("cross-tenant leak must produce W11-05_FAILED, got %s", avLeak.Verdict)
 	}
 
-	// 4. Memory drift > 5% -> FAIL
+	// 4. Live-heap drift > 5% -> FAIL
 	dirDrift := seedCampaignDir(t, 168.05, 12.0, 0, true)
 	repDrift, _ := Reconcile(dirDrift, 168.0)
 	if repDrift.Verdict != "FAIL" {
 		t.Fatalf("expected FAIL for >5%% heap drift (%.2f%%), got %s", repDrift.Trends.HeapDriftPct, repDrift.Verdict)
 	}
 
-	// 5. Tampered evidence after manifest freeze -> W11-05_FAILED
-	if err := os.WriteFile(filepath.Join(dirOK, "backups.jsonl"), []byte(`{"passed":true,"tampered":true}`+"\n"), 0o640); err != nil {
+	// 5. Idle worker (zero active HTTP workload windows) -> FAIL
+	dirIdle := seedCampaignDir(t, 168.05, 0.5, 0, true)
+	_ = writeTestLineFile(filepath.Join(dirIdle, "workload.jsonl"), map[string]any{"timestampUtc": "2026-11-16T00:00:00Z", "success": 0})
+	repIdle, _ := Reconcile(dirIdle, 168.0)
+	if repIdle.Verdict != "FAIL" || !strings.Contains(strings.Join(repIdle.FailureReasons, ";"), "idle worker cannot satisfy load continuity") {
+		t.Fatalf("expected idle workload failure, got %+v", repIdle)
+	}
+
+	// 6. Missing backup evidence -> INCOMPLETE
+	dirNoBackup := seedCampaignDir(t, 168.05, 0.5, 0, true)
+	_ = os.Remove(filepath.Join(dirNoBackup, "backups.jsonl"))
+	repNoBkp, _ := Reconcile(dirNoBackup, 168.0)
+	if repNoBkp.Verdict != "INCOMPLETE" {
+		t.Fatalf("expected INCOMPLETE when backups.jsonl is missing, got %s", repNoBkp.Verdict)
+	}
+
+	// 7. Unverified integrity check -> FAIL
+	dirBadInt := seedCampaignDir(t, 168.05, 0.5, 0, true)
+	_ = writeTestLineFile(filepath.Join(dirBadInt, "integrity.jsonl"), IntegrityCheckReport{Passed: false, VerificationIncomplete: true, Failures: []string{"HIDDEN_BY_RLS"}})
+	repBadInt, _ := Reconcile(dirBadInt, 168.0)
+	if repBadInt.Verdict != "FAIL" {
+		t.Fatalf("expected FAIL when integrity check is incomplete/failed, got %s", repBadInt.Verdict)
+	}
+
+	// 8. Tampered artifact after manifest freeze -> W11-05_FAILED
+	if err := os.WriteFile(filepath.Join(dirOK, "backups.jsonl"), []byte(`{"campaignId":"W11-05-168H-UNIT","passed":true,"tampered":true}`+"\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	avTamper, _ := AuditCampaign(dirOK, 168.0)
