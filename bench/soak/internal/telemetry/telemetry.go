@@ -432,41 +432,33 @@ func (c *Collector) collectPostgres(ctx context.Context) (*PostgresMetrics, erro
 		}
 	}
 
-	// Distinguish local logical WAL consumers (pgoutput slot) from physical standby replicas.
+	// Distinguish local logical WAL consumers (pgoutput slot or database-scoped walsender)
+	// from cluster-wide database-less physical standby replicas. Exclude logical sessions
+	// belonging to other databases on the same server.
 	repRows, err := c.pool.Query(ctx, `
 		SELECT COALESCE(s.slot_name, ''), COALESCE(s.slot_type, ''),
 		       COALESCE(r.usename, ''), COALESCE(r.application_name, ''),
 		       COALESCE(r.state, ''), COALESCE(r.sync_state, ''),
-		       COALESCE(EXTRACT(EPOCH FROM r.replay_lag), 0)
+		       COALESCE(EXTRACT(EPOCH FROM r.replay_lag), 0),
+		       COALESCE(a.datname, '')
 		FROM pg_stat_replication r
 		LEFT JOIN pg_replication_slots s ON s.active_pid = r.pid
-	`)
+		LEFT JOIN pg_stat_activity a ON a.pid = r.pid
+		WHERE (a.datname IS NULL OR a.datname = $1)
+		  AND (s.database IS NULL OR s.database = $1)
+	`, c.dbName)
 	if err != nil {
 		recErr("pg_stat_replication", err)
 	} else {
 		defer repRows.Close()
 		for repRows.Next() {
-			var slotName, slotType, usename, appName, state, syncState string
+			var slotName, slotType, usename, appName, state, syncState, repDB string
 			var replayLag float64
-			if sErr := repRows.Scan(&slotName, &slotType, &usename, &appName, &state, &syncState, &replayLag); sErr != nil {
+			if sErr := repRows.Scan(&slotName, &slotType, &usename, &appName, &state, &syncState, &replayLag, &repDB); sErr != nil {
 				recErr("pg_stat_replication.scan", sErr)
 				continue
 			}
-			if slotType == "logical" {
-				pg.LogicalWALConsumers = append(pg.LogicalWALConsumers, LogicalConsumerMetric{
-					SlotName:        slotName,
-					Username:        usename,
-					ApplicationName: appName,
-					State:           state,
-				})
-			} else {
-				pg.StandbyReplicas = append(pg.StandbyReplicas, StandbyMetric{
-					ApplicationName: appName,
-					State:           state,
-					SyncState:       syncState,
-					ReplayLagSec:    replayLag,
-				})
-			}
+			classifyReplicationEntry(pg, slotName, slotType, repDB, usename, appName, state, syncState, replayLag)
 		}
 		if len(pg.LogicalWALConsumers) > 0 {
 			pg.LogicalWALStatus = "CONFIGURED"
@@ -526,4 +518,27 @@ func collectHostMetrics(path string) HostMetrics {
 		}
 	}
 	return hm
+}
+
+func classifyReplicationEntry(pg *PostgresMetrics, slotName, slotType, repDB, usename, appName, state, syncState string, replayLag float64) {
+	if pg == nil {
+		return
+	}
+	// A WAL sender attached to a database (repDB != "") or bound to a logical slot
+	// is a logical WAL consumer even during startup/teardown before active_pid links.
+	if slotType == "logical" || repDB != "" {
+		pg.LogicalWALConsumers = append(pg.LogicalWALConsumers, LogicalConsumerMetric{
+			SlotName:        slotName,
+			Username:        usename,
+			ApplicationName: appName,
+			State:           state,
+		})
+		return
+	}
+	pg.StandbyReplicas = append(pg.StandbyReplicas, StandbyMetric{
+		ApplicationName: appName,
+		State:           state,
+		SyncState:       syncState,
+		ReplayLagSec:    replayLag,
+	})
 }

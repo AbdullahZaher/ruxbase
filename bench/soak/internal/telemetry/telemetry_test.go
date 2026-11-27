@@ -74,3 +74,22 @@ func TestPostgreSQL_TelemetryCollectorSeparatesSlotsAndStandbys(t *testing.T) {
 		t.Fatalf("expected StandbyStatus=%s without physical standbys, got %s", StatusNotConfigured, sample.Postgres.StandbyStatus)
 	}
 }
+
+func TestClassifyReplicationEntryDistinguishesLogicalAndStandby(t *testing.T) {
+	pg := &PostgresMetrics{
+		LogicalWALStatus: StatusNotConfigured,
+		StandbyStatus:    StatusNotConfigured,
+	}
+	// Unbound startup/teardown walsender on current DB must never become a physical standby.
+	classifyReplicationEntry(pg, "", "", "ruxbase_staging", "ruxbase_wal", "ruxbase-realtime", "startup", "async", 0)
+	// Bound logical slot consumer.
+	classifyReplicationEntry(pg, "ruxbase_slot_1", "logical", "ruxbase_staging", "ruxbase_wal", "ruxbase-realtime", "streaming", "async", 0)
+	if len(pg.LogicalWALConsumers) != 2 || len(pg.StandbyReplicas) != 0 {
+		t.Fatalf("expected 2 logical consumers and 0 standbys, got logical=%d standby=%d", len(pg.LogicalWALConsumers), len(pg.StandbyReplicas))
+	}
+	// Database-less physical standby replica.
+	classifyReplicationEntry(pg, "standby_phys_1", "physical", "", "replicator", "pg_standby_1", "streaming", "potential", 0.12)
+	if len(pg.StandbyReplicas) != 1 || pg.StandbyReplicas[0].ApplicationName != "pg_standby_1" {
+		t.Fatalf("expected 1 physical standby, got %+v", pg.StandbyReplicas)
+	}
+}
