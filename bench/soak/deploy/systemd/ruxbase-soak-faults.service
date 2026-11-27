@@ -1,0 +1,9 @@
+[Unit]
+Description=Ruxbase W11-05 Scheduled Fault Injection Dispatcher (Hours 24, 72, 120)
+After=docker.service ruxbase-soak.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/ruxbase-soak/repo
+EnvironmentFile=/srv/ruxbase-soak/.env.staging
+ExecStart=/srv/ruxbase-soak/repo/bench/soak/scripts/fault-inject.sh --auto

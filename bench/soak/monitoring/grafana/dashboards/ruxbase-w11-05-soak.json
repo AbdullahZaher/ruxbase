@@ -1,0 +1,152 @@
+{
+  "uid": "ruxbase-w11-05-soak",
+  "title": "Ruxbase W11-05 — 168-Hour Staging Soak Qualification",
+  "tags": ["ruxbase", "w11-05", "soak", "postgresql"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Campaign Elapsed Hours & Completion %",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_elapsed_seconds / 3600", "legendFormat": "Elapsed Hours" },
+        { "expr": "ruxbase_soak_completion_percent", "legendFormat": "Completion %" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Overall Staging Health (Up Targets)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "up{job=~\"ruxbase|postgres_exporter|soak_engine|soak_worker\"}", "legendFormat": "{{job}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Integrity & Cross-Tenant Violations (Must Be 0)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_cross_tenant_leaks_total", "legendFormat": "Cross-Tenant Leaks" },
+        { "expr": "ruxbase_soak_integrity_violations_total + ruxbase_soak_worker_integrity_errors_total", "legendFormat": "Integrity Violations" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Backup & Restore Verification Status",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_last_backup_verified", "legendFormat": "Last Backup Verified (1=OK)" },
+        { "expr": "ruxbase_soak_emergency_stopped", "legendFormat": "Emergency Stopped" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Diurnal Traffic — Target vs Achieved RPS",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_target_rps", "legendFormat": "Target RPS (Diurnal Schedule)" },
+        { "expr": "ruxbase_soak_achieved_rps", "legendFormat": "Achieved RPS" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Operation Latency (p50 / p95 / p99 ms, Coordinated-Omission Aware)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_latency_p50_ms", "legendFormat": "p50 ms" },
+        { "expr": "ruxbase_soak_latency_p95_ms", "legendFormat": "p95 ms" },
+        { "expr": "ruxbase_soak_latency_p99_ms", "legendFormat": "p99 ms" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "PostgreSQL Activity & Transactions/sec",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "rate(pg_stat_database_xact_commit{datname=\"ruxbase_staging\"}[1m])", "legendFormat": "Commits/s" },
+        { "expr": "rate(pg_stat_database_xact_rollback{datname=\"ruxbase_staging\"}[1m])", "legendFormat": "Rollbacks/s" },
+        { "expr": "pg_stat_database_deadlocks{datname=\"ruxbase_staging\"}", "legendFormat": "Deadlocks (cum)" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "WAL Generation & Replication Slot Retention",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_cluster_retained_wal_bytes / 1048576", "legendFormat": "Retained WAL (MiB)" },
+        { "expr": "ruxbase_db_size_bytes / 1048576", "legendFormat": "DB Size (MiB)" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Connections, Pool Saturation & Locks",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_db_pool_in_use", "legendFormat": "Ruxbase Pool In-Use" },
+        { "expr": "ruxbase_db_pool_idle", "legendFormat": "Ruxbase Pool Idle" },
+        { "expr": "ruxbase_db_active_backends", "legendFormat": "PG Active Backends" },
+        { "expr": "rate(ruxbase_db_pool_wait_count[5m])", "legendFormat": "Pool Wait Rate/s" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Ruxbase Runtime Memory (Heap MiB) & Goroutines (5% Drift Gate)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_runtime_live_heap_bytes / 1048576", "legendFormat": "Live Heap Post-GC (MiB)" },
+        { "expr": "ruxbase_runtime_heap_alloc_bytes / 1048576", "legendFormat": "Heap Alloc Sawtooth (MiB)" },
+        { "expr": "ruxbase_runtime_goroutines", "legendFormat": "Goroutines" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Durable Jobs, Retries, DLQ & Transactional Outbox Backlog",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 25 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_jobs_pending", "legendFormat": "Jobs Pending" },
+        { "expr": "ruxbase_jobs_failed", "legendFormat": "Jobs Failed (Retrying)" },
+        { "expr": "ruxbase_jobs_dead", "legendFormat": "Jobs Dead (DLQ)" },
+        { "expr": "ruxbase_outbox_pending", "legendFormat": "Outbox Pending" },
+        { "expr": "ruxbase_outbox_failed", "legendFormat": "Outbox Failed" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Realtime SSE Subscriptions & App vs Generator Error Attribution",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 25 },
+      "datasource": { "type": "prometheus", "uid": "ruxbase-soak-prom" },
+      "targets": [
+        { "expr": "ruxbase_soak_sse_clients_active", "legendFormat": "Active SSE Subscribers" },
+        { "expr": "rate(ruxbase_soak_ops_failed_app_total[5m])", "legendFormat": "App Errors/s" },
+        { "expr": "rate(ruxbase_soak_ops_failed_gen_total[5m])", "legendFormat": "Generator Errors/s" }
+      ]
+    }
+  ]
+}

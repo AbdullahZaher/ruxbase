@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    environment: ruxbase-w11-05-staging
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: ruxbase
+    metrics_path: /api/ops/metrics
+    params:
+      format: ["prometheus"]
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/ruxbase-ops.token
+    static_configs:
+      - targets: ["ruxbase:8090"]
+
+  - job_name: postgres_exporter
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: node_exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: soak_engine
+    static_configs:
+      - targets: ["soak-engine:9108"]
+
+  - job_name: soak_worker
+    static_configs:
+      - targets: ["soak-worker:9109"]

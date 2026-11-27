@@ -1,0 +1,9 @@
+[Unit]
+Description=Ruxbase W11-05 Online Backup & Isolated Restore Verification
+After=docker.service ruxbase-soak.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/ruxbase-soak/repo
+EnvironmentFile=/srv/ruxbase-soak/.env.staging
+ExecStart=/srv/ruxbase-soak/repo/bench/soak/scripts/backup-verify.sh

@@ -1,0 +1,43 @@
+{
+  "gateId": "W11-05",
+  "status": "PILOT_BLOCKED_PENDING_ISOLATED_STAGING",
+  "launchState": "BLOCKED",
+  "blockerCategory": "DEDICATED_STAGING_HOST_REQUIRED",
+  "blockerSummary": "All P1 verifier, ledger, memory-instrumentation, worker-leak, backup-restore, and qualification defects discovered during W11-05-PILOT-20261123T110530Z have been remediated and verified on PostgreSQL 17 and 18. Pilot requalification and the 168-hour soak remain blocked pending provisioning of an isolated dedicated staging VPS (current host srv1037165 runs live production workloads).",
+  "candidateBaseline": {
+    "repository": "https://github.com/AbdullahZaher/ruxbase",
+    "baseBranch": "main",
+    "baseCommitSha": "d7b9a3dcd55ea14beadeeecaec065b23eeb5f345",
+    "baseTreeSha": "891c2e1ac1d22b37a3b1cfa09de650c593ce8a1e",
+    "soakHarnessBranch": "chore/w11-05-staging-soak-harness-20261123",
+    "pullRequest": 69
+  },
+  "historicalFailedPilot": {
+    "campaignId": "W11-05-PILOT-20261123T110530Z",
+    "status": "PILOT_FAILED",
+    "evidenceDir": "/srv/ruxbase-soak/evidence/W11-05-PILOT-20261123T110530Z/",
+    "forensicVerdict": "ROOT_CAUSE_CONCLUSIVELY_ESTABLISHED",
+    "reconciledRecords": {
+      "checked": 107,
+      "physicallyPresentExactCreateMatch": 83,
+      "physicallyPresentValidPostCreateUpdate": 24,
+      "hiddenFromMonitorByRLS": 107,
+      "genuinelyMissing": 0
+    }
+  },
+  "pilot": {
+    "status": "PILOT_BLOCKED_PENDING_ISOLATED_STAGING",
+    "startUtc": null,
+    "endUtc": null
+  },
+  "officialSoak": {
+    "status": "BLOCKED",
+    "campaignId": null,
+    "officialStartUtc": null,
+    "earliestValidEndUtc": null,
+    "evidenceLocation": "/srv/ruxbase-soak/evidence/<campaign-id>/ (pending dedicated staging VPS)"
+  },
+  "independentCertificationA11": "AWAITING_A11_FINAL_SIGN_OFF",
+  "productionReleaseDecision": "PRODUCTION_NO_GO",
+  "updatedAtUtc": "2026-11-27T22:02:00Z"
+}

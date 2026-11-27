@@ -1,0 +1,35 @@
+# Multi-stage Docker image for the Ruxbase W11-05 Continuous Soak Engine,
+# Durable Jobs/Outbox/Storage Worker, Telemetry Collector, and Integrity Verifier.
+
+FROM golang:1.27-trixie@sha256:7b072c590a326b9d2a43b165ae247f6e8eafff32e1ad154ab97139e89f053be9 AS build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/soak ./bench/soak/cmd/soak
+
+FROM debian:trixie-slim@sha256:89c1ea91e897f0fe0a3731595330bc45b8bdef4047464a07116f891a94054b31
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl jq postgresql-common \
+    && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 ruxbase \
+    && useradd --system --uid 10001 --gid ruxbase --home-dir /app --shell /usr/sbin/nologin ruxbase \
+    && mkdir -p /app/ruxbase_data /srv/ruxbase-soak/evidence \
+    && chown -R ruxbase:ruxbase /app /srv/ruxbase-soak
+
+COPY --from=build /out/soak /usr/local/bin/soak
+
+WORKDIR /app
+USER 10001:10001
+
+EXPOSE 9108
+
+ENTRYPOINT ["soak"]
+CMD ["--help"]
